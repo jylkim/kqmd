@@ -47,6 +47,8 @@ export type OwnedStoreSession = OpenableRuntimePlan & {
   close(): Promise<void>;
 };
 
+export type OwnedStoreContext = Omit<OwnedStoreSession, 'close'>;
+
 export interface OwnedRuntimeDependencies {
   readonly env: NodeJS.ProcessEnv;
   readonly existsSync: (path: string) => boolean;
@@ -99,12 +101,12 @@ export function resolveOwnedRuntimePlan(
   switch (command) {
     case 'search':
     case 'query':
-      if (configExists) {
-        return { kind: 'config-file', command, indexName, dbPath, configPath };
-      }
-
       if (dbExists) {
         return { kind: 'db-only', command, indexName, dbPath };
+      }
+
+      if (configExists) {
+        return { kind: 'config-file', command, indexName, dbPath, configPath };
       }
 
       return {
@@ -190,7 +192,7 @@ export async function openOwnedStoreSession(
 export async function withOwnedStore<T>(
   command: OwnedCommand,
   context: CommandExecutionContext,
-  run: (session: OwnedStoreSession) => Promise<T>,
+  run: (session: OwnedStoreContext) => Promise<T>,
   dependencies: OwnedRuntimeDependencies = getDefaultDependencies(),
 ): Promise<T | OwnedRuntimeFailure> {
   const session = await openOwnedStoreSession(command, context, dependencies);
@@ -199,9 +201,19 @@ export async function withOwnedStore<T>(
     return session;
   }
 
+  const { close, ...sessionContext } = session;
+
   try {
-    return await run(session);
-  } finally {
-    await session.close();
+    const result = await run(sessionContext);
+    await close();
+    return result;
+  } catch (error) {
+    try {
+      await close();
+    } catch {
+      // Preserve the primary callback failure.
+    }
+
+    throw error;
   }
 }

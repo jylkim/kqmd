@@ -25,6 +25,7 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
   build 산출 계약을 같이 확인한다
 - owned runtime은 upstream의 DB-only mode를 그대로 신뢰하지 않고, K-QMD policy로
   "기존 DB가 실제로 있을 때만 reopen" 규칙을 추가한다
+- `search/query`는 config-file mode보다 기존 DB reopen을 우선해 read path metadata sync side effect를 줄인다
 
 ## delegate 실행 원칙
 
@@ -35,6 +36,7 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 ## owned runtime 실행 원칙
 
 - owned runtime은 config-file mode와 DB-only mode를 명시적으로 구분한다
-- `search`, `query`, `embed`는 config가 없더라도 기존 DB가 있으면 DB-only reopen을 허용한다
+- `search`, `query`는 config가 있더라도 기존 DB가 있으면 DB-only reopen을 우선한다
+- `embed`는 config가 없더라도 기존 DB가 있으면 DB-only reopen을 허용한다
 - `update`는 collection 정의가 필요하므로 config가 없으면 명시적으로 실패한다
 - preflight는 `createStore()` 호출 전에 수행해 빈 DB가 조용히 생성되는 일을 막는다

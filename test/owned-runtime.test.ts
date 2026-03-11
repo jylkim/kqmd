@@ -1,6 +1,6 @@
 import type { QMDStore } from '@tobilu/qmd';
 import { describe, expect, test, vi } from 'vitest';
-import type { OwnedRuntimeDependencies, OwnedStoreSession } from '../src/commands/owned/runtime.js';
+import type { OwnedRuntimeDependencies } from '../src/commands/owned/runtime.js';
 import {
   openOwnedStoreSession,
   resolveOwnedRuntimePlan,
@@ -55,6 +55,21 @@ describe('owned runtime', () => {
       indexName: 'work',
       dbPath: '/home/tester/.cache/qmd/work.sqlite',
       configPath: '/home/tester/.config/qmd/work.yml',
+    });
+  });
+
+  test('prefers db-only reopen for search when config and db both exist', () => {
+    const dependencies = createDependencies({
+      existingPaths: ['/home/tester/.config/qmd/work.yml', '/home/tester/.cache/qmd/work.sqlite'],
+    });
+
+    const plan = resolveOwnedRuntimePlan('search', createContext('work'), dependencies);
+
+    expect(plan).toEqual({
+      kind: 'db-only',
+      command: 'search',
+      indexName: 'work',
+      dbPath: '/home/tester/.cache/qmd/work.sqlite',
     });
   });
 
@@ -171,7 +186,10 @@ describe('owned runtime', () => {
     const result = await withOwnedStore(
       'search',
       createContext('work'),
-      async (session) => session.dbPath,
+      async (session) => {
+        expect('close' in session).toBe(false);
+        return session.dbPath;
+      },
       dependencies,
     );
 
@@ -203,6 +221,32 @@ describe('owned runtime', () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
+  test('preserves callback failure when close also fails', async () => {
+    const close = vi.fn(async () => {
+      throw new Error('close failed');
+    });
+    const createStoreImpl = vi.fn(async () =>
+      createFakeStore(close),
+    ) as unknown as OwnedRuntimeDependencies['createStore'];
+    const dependencies = createDependencies({
+      existingPaths: ['/home/tester/.config/qmd/work.yml'],
+      createStoreImpl,
+    });
+
+    await expect(
+      withOwnedStore(
+        'search',
+        createContext('work'),
+        async () => {
+          throw new Error('callback failed');
+        },
+        dependencies,
+      ),
+    ).rejects.toThrow('callback failed');
+
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
   test('returns config-missing failure from withOwnedStore without opening the store', async () => {
     const createStoreImpl = vi.fn(async () =>
       createFakeStore(),
@@ -214,7 +258,7 @@ describe('owned runtime', () => {
     const result = await withOwnedStore(
       'search',
       createContext('missing'),
-      async (_session: OwnedStoreSession) => 'unreachable',
+      async (_session) => 'unreachable',
       dependencies,
     );
 
