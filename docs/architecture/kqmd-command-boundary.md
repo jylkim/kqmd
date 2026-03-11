@@ -1,30 +1,28 @@
-# K-QMD Command Boundary
+# K-QMD 명령 경계
 
-K-QMD is a replacement distribution, not a parallel CLI. The package name is `kqmd`, but the
-published command is still `qmd`.
+K-QMD는 별도 병렬 CLI가 아니라 replacement distribution이다. 패키지 이름은 `kqmd`지만,
+사용자에게 노출되는 명령은 계속 `qmd`다.
 
-## Routing layers
+## 레이어 구분
 
 1. `routing`
-   [`src/commands/manifest.ts`](/Users/jylkim/kqmd/src/commands/manifest.ts) is the source of truth for
-   owned vs passthrough commands.
+   [`src/commands/manifest.ts`](../../src/commands/manifest.ts)가
+   owned 명령과 passthrough 명령의 단일 source of truth다.
 2. `policy defaults`
-   [`src/config/qmd_paths.ts`](/Users/jylkim/kqmd/src/config/qmd_paths.ts) mirrors upstream path
-   conventions so wrapper code and upstream code see the same config and cache layout.
+   [`src/config/qmd_paths.ts`](../../src/config/qmd_paths.ts)가 upstream `qmd`와
+   같은 설정/캐시/DB 경로 규칙을 유지한다.
 3. `execution`
-   owned commands return explicit scaffold stubs, while passthrough commands resolve and execute the
-   upstream `qmd` binary.
+   owned 명령은 현재 scaffold stub를 반환하고, passthrough 명령은 upstream `qmd` 바이너리를
+   직접 실행한다.
 
-## Current ownership
-
-### Owned
+## 현재 owned 명령
 
 - `search`
 - `query`
 - `update`
 - `embed`
 
-### Passthrough
+## 현재 passthrough 명령
 
 - `collection`
 - `status`
@@ -32,11 +30,10 @@ published command is still `qmd`.
 - `get`
 - `multi-get`
 - `mcp`
-- help/version/no-command entrypoints
+- help/version/명령 없음 진입점
 
-## Guardrails
+## 가드레일
 
-- owned commands must not mutate shared upstream state until real implementations exist
-- passthrough must preserve argv, stdio, and exit codes
-- unknown commands should fail explicitly rather than silently guessing a route
-
+- owned 명령은 실제 구현 전까지 shared upstream 상태를 바꾸지 않는다
+- passthrough는 argv, stdio, exit code를 최대한 그대로 보존한다
+- 알 수 없는 명령은 조용히 추측하지 말고 명시적으로 실패한다
