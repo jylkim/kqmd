@@ -1,0 +1,46 @@
+{
+  "name": "kqmd",
+  "version": "0.1.0",
+  "description": "qmd-compatible replacement distribution scaffold for Korean-focused search experiments",
+  "type": "module",
+  "bin": {
+    "qmd": "./bin/qmd.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run lint && npm run typecheck && npm run test"
+  },
+  "keywords": [
+    "cli",
+    "qmd",
+    "markdown",
+    "search"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@tobilu/qmd": "2.0.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.6",
+    "@types/node": "25.4.0",
+    "@vitest/coverage-v8": "4.0.18",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18"
+  }
+}
