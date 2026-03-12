@@ -1,0 +1,10 @@
+[
+  {
+    "docid": "#abc123",
+    "score": 0.93,
+    "file": "qmd://docs/guide.md",
+    "title": "Guide",
+    "context": "Docs",
+    "body": "hangul search guidance\nsecond line"
+  }
+]

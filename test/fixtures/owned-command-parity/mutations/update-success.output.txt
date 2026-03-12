@@ -1,0 +1,4 @@
+Updated 2 collection(s).
+Indexed: 3 new, 4 updated, 5 unchanged, 1 removed.
+Run 'qmd embed' to update embeddings (6 unique hashes need vectors).
+Pre-update pull requested.

@@ -1,0 +1,9 @@
+{
+  "upstreamVersion": "2.0.1",
+  "ownedCommands": ["search", "query", "update", "embed"],
+  "notes": [
+    "format precedence is csv > md > xml > files > json > cli",
+    "default limit is 20 for files/json and 5 otherwise",
+    "search/query usage errors exit with code 1"
+  ]
+}

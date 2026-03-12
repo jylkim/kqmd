@@ -1,0 +1,10 @@
+[
+  {
+    "docid": "#def456",
+    "score": 0.87,
+    "file": "qmd://notes/plan.md",
+    "title": "Planning Notes",
+    "context": "Work",
+    "body": "auth flow summary"
+  }
+]

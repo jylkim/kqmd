@@ -1,6 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
+import { CLI_OPTIONS } from './cli_options.js';
 import { formatSupportedCommandList, resolveCommandRoute } from './commands/manifest.js';
 import { handleEmbedCommand } from './commands/owned/embed.js';
 import { handleQueryCommand } from './commands/owned/query.js';
@@ -13,41 +14,6 @@ import type {
   CommandRoute,
   ParsedCliInvocation,
 } from './types/command.js';
-
-const CLI_OPTIONS = {
-  index: { type: 'string' },
-  context: { type: 'string' },
-  help: { type: 'boolean', short: 'h' },
-  version: { type: 'boolean', short: 'v' },
-  skill: { type: 'boolean' },
-  global: { type: 'boolean' },
-  yes: { type: 'boolean' },
-  n: { type: 'string' },
-  'min-score': { type: 'string' },
-  all: { type: 'boolean' },
-  full: { type: 'boolean' },
-  csv: { type: 'boolean' },
-  md: { type: 'boolean' },
-  xml: { type: 'boolean' },
-  files: { type: 'boolean' },
-  json: { type: 'boolean' },
-  explain: { type: 'boolean' },
-  collection: { type: 'string', short: 'c', multiple: true },
-  name: { type: 'string' },
-  mask: { type: 'string' },
-  force: { type: 'boolean', short: 'f' },
-  pull: { type: 'boolean' },
-  refresh: { type: 'boolean' },
-  l: { type: 'string' },
-  from: { type: 'string' },
-  'max-bytes': { type: 'string' },
-  'line-numbers': { type: 'boolean' },
-  'candidate-limit': { type: 'string', short: 'C' },
-  intent: { type: 'string' },
-  http: { type: 'boolean' },
-  daemon: { type: 'boolean' },
-  port: { type: 'string' },
-} as const;
 
 interface CliIO {
   readonly stdout: NodeJS.WriteStream;
@@ -64,12 +30,10 @@ export function parseCliInvocation(argv: string[]): ParsedCliInvocation {
 
   let route: CommandRoute;
 
-  if (positionals.length === 0) {
-    if (values.help || values.version || argv.length === 0) {
-      route = { mode: 'passthrough', command: 'help' };
-    } else {
-      route = { mode: 'passthrough', command: 'help' };
-    }
+  if (values.help || values.version || values.skill) {
+    route = { mode: 'passthrough', command: positionals[0] ?? 'help' };
+  } else if (positionals.length === 0) {
+    route = { mode: 'passthrough', command: 'help' };
   } else {
     route = resolveCommandRoute(positionals[0]);
   }

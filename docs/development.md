@@ -25,6 +25,7 @@ npm run check
 - `npm run format`
 - `npm run typecheck`
 - `npm run test`
+- `npm run test:parity`
 - `npm run test:watch`
 - `npm run test:coverage`
 - `npm run build`
@@ -40,6 +41,8 @@ npm run check
   owned/passthrough 명령 source of truth
 - [`src/passthrough/delegate.ts`](../src/passthrough/delegate.ts)
   upstream `qmd` 위임 실행
+- [`src/commands/owned/io/`](../src/commands/owned/io)
+  owned command parse/validation/output parity contract
 - [`src/config/qmd_paths.ts`](../src/config/qmd_paths.ts)
   upstream-compatible path helpers
 - [`test/`](../test)
@@ -60,6 +63,15 @@ npm run check
 npm run check
 ```
 
+### owned command parity suite
+
+```bash
+npm run test:parity
+```
+
+이 suite는 `search/query/update/embed`의 parse/validation/output contract를 고정한다.
+특히 `search/query` success snapshot, `update/embed` success shape, upstream version guard를 포함한다.
+
 ### publish 산출물 확인
 
 ```bash
@@ -72,6 +84,15 @@ npm pack --dry-run
 npm run build
 node ./bin/qmd.js status
 ```
+
+### upstream qmd version bump checklist
+
+1. `package.json`에서 `@tobilu/qmd` 버전을 변경한다
+2. `npm install`
+3. `npm run test:parity`
+4. `node_modules/@tobilu/qmd/dist/cli/qmd.js`의 parse/default/usage/output 변경 사항을 검토한다
+5. intentional drift가 있으면 `test/fixtures/owned-command-parity/baseline.json`과 snapshot fixtures를 갱신한다
+6. 관련 문서와 plan/work log를 함께 갱신한다
 
 ## 관련 문서
 
