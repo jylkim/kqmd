@@ -35,7 +35,8 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@tobilu/qmd": "2.0.1"
+    "@tobilu/qmd": "2.0.1",
+    "kiwi-nlp": "0.22.1"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.6",

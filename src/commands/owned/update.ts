@@ -1,5 +1,6 @@
 import type { UpdateResult } from '@tobilu/qmd';
 import { describeEffectiveEmbedModel } from '../../config/embedding_policy.js';
+import { describeEffectiveSearchPolicy } from '../../config/search_policy.js';
 import type { CommandExecutionContext, CommandExecutionResult } from '../../types/command.js';
 import { hasEmbeddingMismatch, readEmbeddingHealth } from './embedding_health.js';
 import {
@@ -18,6 +19,11 @@ import type {
   OwnedStoreContext,
 } from './runtime.js';
 import { withOwnedStore } from './runtime.js';
+import { hasSearchIndexMismatch, readSearchIndexHealth } from './search_index_health.js';
+import {
+  rebuildSearchShadowIndex,
+  type SearchShadowIndexDependencies,
+} from './search_shadow_index.js';
 
 export interface UpdateCommandDependencies {
   readonly run?: (
@@ -26,6 +32,7 @@ export interface UpdateCommandDependencies {
     runtimeDependencies?: OwnedRuntimeDependencies,
   ) => Promise<UpdateCommandSuccess | OwnedCommandError | OwnedRuntimeFailure>;
   readonly runtimeDependencies?: OwnedRuntimeDependencies;
+  readonly searchIndexDependencies?: SearchShadowIndexDependencies;
 }
 
 type UpdateCommandSuccess = {
@@ -44,14 +51,28 @@ async function runUpdateCommand(
   context: CommandExecutionContext,
   input: UpdateCommandInput,
   runtimeDependencies?: OwnedRuntimeDependencies,
+  searchIndexDependencies?: SearchShadowIndexDependencies,
 ): Promise<UpdateCommandSuccess | OwnedCommandError | OwnedRuntimeFailure> {
   const effectiveModel = describeEffectiveEmbedModel(runtimeDependencies?.env);
+  const searchPolicy = describeEffectiveSearchPolicy();
 
   return withOwnedStore(
     'update',
     context,
     async (session) => {
       const result = await executeUpdate(session, input);
+      const searchHealth = readSearchIndexHealth(session.store.internal.db, searchPolicy);
+      const searchChanged = result.indexed > 0 || result.updated > 0 || result.removed > 0;
+      if (searchChanged || hasSearchIndexMismatch(searchHealth)) {
+        await rebuildSearchShadowIndex(session.store.internal.db, searchPolicy, {
+          ...searchIndexDependencies,
+          kiwiDependencies: {
+            env: runtimeDependencies?.env,
+            ...searchIndexDependencies?.kiwiDependencies,
+          },
+        });
+      }
+
       const health = await readEmbeddingHealth(session.store, effectiveModel.uri);
 
       return {
@@ -75,11 +96,14 @@ export async function handleUpdateCommand(
   }
 
   try {
-    const result = await (dependencies.run ?? runUpdateCommand)(
-      context,
-      parsed.input,
-      dependencies.runtimeDependencies,
-    );
+    const result = dependencies.run
+      ? await dependencies.run(context, parsed.input, dependencies.runtimeDependencies)
+      : await runUpdateCommand(
+          context,
+          parsed.input,
+          dependencies.runtimeDependencies,
+          dependencies.searchIndexDependencies,
+        );
 
     if (isOwnedRuntimeFailure(result)) {
       return toExecutionResult(fromRuntimeFailure(result));

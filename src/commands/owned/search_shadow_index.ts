@@ -1,0 +1,311 @@
+import type { SearchResult } from '@tobilu/qmd';
+
+import type { EffectiveSearchPolicy } from '../../config/search_policy.js';
+import {
+  KQMD_SEARCH_POLICY_METADATA_KEY,
+  KQMD_SEARCH_SHADOW_TABLE,
+} from '../../config/search_policy.js';
+import { buildShadowProjectionText, type KiwiTokenizerDependencies } from './kiwi_tokenizer.js';
+
+interface MinimalStatement {
+  all: (...params: (string | number)[]) => unknown[];
+  run: (...params: (string | number)[]) => unknown;
+}
+
+interface MinimalDatabase {
+  exec(sql: string): void;
+  prepare(sql: string): MinimalStatement;
+}
+
+type SearchStoreLike = {
+  readonly db: MinimalDatabase;
+  getContextForFile(filepath: string): string | null;
+};
+
+type RebuildRow = {
+  readonly id: number;
+  readonly collection: string;
+  readonly path: string;
+  readonly title: string;
+  readonly body: string;
+};
+
+type ShadowSearchRow = {
+  readonly filepath: string;
+  readonly display_path: string;
+  readonly title: string;
+  readonly body: string;
+  readonly hash: string;
+  readonly modified_at: string;
+  readonly collection: string;
+  readonly bm25_score: number;
+};
+
+export interface SearchShadowIndexDependencies {
+  readonly tokenize?: (text: string, dependencies?: KiwiTokenizerDependencies) => Promise<string>;
+  readonly kiwiDependencies?: KiwiTokenizerDependencies;
+}
+
+function sanitizeFTS5Term(term: string): string {
+  return term.replace(/[^\p{L}\p{N}']/gu, '').toLowerCase();
+}
+
+function buildFTS5Query(query: string): string | null {
+  const positive: string[] = [];
+  const negative: string[] = [];
+  let index = 0;
+  const source = query.trim();
+
+  while (index < source.length) {
+    while (index < source.length && /\s/.test(source[index] ?? '')) {
+      index += 1;
+    }
+
+    if (index >= source.length) {
+      break;
+    }
+
+    const negated = source[index] === '-';
+    if (negated) {
+      index += 1;
+    }
+
+    if (source[index] === '"') {
+      const start = index + 1;
+      index += 1;
+      while (index < source.length && source[index] !== '"') {
+        index += 1;
+      }
+
+      const phrase = source.slice(start, index).trim();
+      index += 1;
+      if (!phrase) {
+        continue;
+      }
+
+      const sanitized = phrase
+        .split(/\s+/)
+        .map((term) => sanitizeFTS5Term(term))
+        .filter(Boolean)
+        .join(' ');
+      if (!sanitized) {
+        continue;
+      }
+
+      const ftsPhrase = `"${sanitized}"`;
+      if (negated) {
+        negative.push(ftsPhrase);
+      } else {
+        positive.push(ftsPhrase);
+      }
+
+      continue;
+    }
+
+    const start = index;
+    while (index < source.length && !/[\s"]/.test(source[index] ?? '')) {
+      index += 1;
+    }
+
+    const sanitized = sanitizeFTS5Term(source.slice(start, index));
+    if (!sanitized) {
+      continue;
+    }
+
+    const ftsTerm = `"${sanitized}"*`;
+    if (negated) {
+      negative.push(ftsTerm);
+    } else {
+      positive.push(ftsTerm);
+    }
+  }
+
+  if (positive.length === 0) {
+    return null;
+  }
+
+  let result = positive.join(' AND ');
+  for (const term of negative) {
+    result = `${result} NOT ${term}`;
+  }
+
+  return result;
+}
+
+function toDocId(hash: string): string {
+  return hash.slice(0, 6);
+}
+
+function buildShadowProjection(
+  collection: string,
+  path: string,
+  title: string,
+  body: string,
+  tokenize: (text: string, dependencies?: KiwiTokenizerDependencies) => Promise<string>,
+  dependencies?: KiwiTokenizerDependencies,
+): Promise<{
+  readonly filepath: string;
+  readonly title: string;
+  readonly body: string;
+}> {
+  return Promise.all([
+    tokenize(`${collection}/${path}`, dependencies),
+    tokenize(title, dependencies),
+    tokenize(body, dependencies),
+  ]).then(([filepathProjection, titleProjection, bodyProjection]) => ({
+    filepath: filepathProjection,
+    title: titleProjection,
+    body: bodyProjection,
+  }));
+}
+
+export function ensureSearchShadowTable(db: MinimalDatabase): void {
+  db.exec(
+    [
+      `CREATE VIRTUAL TABLE IF NOT EXISTS ${KQMD_SEARCH_SHADOW_TABLE} USING fts5(`,
+      '  filepath,',
+      '  title,',
+      '  body,',
+      "  tokenize='porter unicode61'",
+      ')',
+    ].join('\n'),
+  );
+}
+
+function listActiveDocuments(db: MinimalDatabase): RebuildRow[] {
+  return db
+    .prepare(
+      [
+        'SELECT d.id, d.collection, d.path, d.title, c.doc AS body',
+        'FROM documents d',
+        'JOIN content c ON c.hash = d.hash',
+        'WHERE d.active = 1',
+        'ORDER BY d.id ASC',
+      ].join('\n'),
+    )
+    .all()
+    .map((row) => row as RebuildRow);
+}
+
+function beginTransaction(db: MinimalDatabase): void {
+  db.exec('BEGIN IMMEDIATE');
+}
+
+function commitTransaction(db: MinimalDatabase): void {
+  db.exec('COMMIT');
+}
+
+function rollbackTransaction(db: MinimalDatabase): void {
+  db.exec('ROLLBACK');
+}
+
+export async function rebuildSearchShadowIndex(
+  db: MinimalDatabase,
+  policy: EffectiveSearchPolicy,
+  dependencies: SearchShadowIndexDependencies = {},
+): Promise<number> {
+  const tokenize =
+    dependencies.tokenize ??
+    ((text: string, kiwiDependencies?: KiwiTokenizerDependencies) =>
+      buildShadowProjectionText(text, kiwiDependencies));
+  const kiwiDependencies = dependencies.kiwiDependencies;
+  const rows = listActiveDocuments(db);
+
+  beginTransaction(db);
+  try {
+    ensureSearchShadowTable(db);
+
+    db.prepare(`DELETE FROM ${KQMD_SEARCH_SHADOW_TABLE}`).run();
+
+    const insert = db.prepare(
+      `INSERT INTO ${KQMD_SEARCH_SHADOW_TABLE}(rowid, filepath, title, body) VALUES (?, ?, ?, ?)`,
+    );
+    const upsertPolicy = db.prepare(
+      [
+        'INSERT INTO store_config (key, value) VALUES (?, ?)',
+        'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      ].join('\n'),
+    );
+
+    for (const row of rows) {
+      const projection = await buildShadowProjection(
+        row.collection,
+        row.path,
+        row.title,
+        row.body,
+        tokenize,
+        kiwiDependencies,
+      );
+
+      insert.run(row.id, projection.filepath, projection.title, projection.body);
+    }
+
+    upsertPolicy.run(KQMD_SEARCH_POLICY_METADATA_KEY, policy.id);
+    commitTransaction(db);
+    return rows.length;
+  } catch (error) {
+    rollbackTransaction(db);
+    throw error;
+  }
+}
+
+export function searchShadowIndex(
+  store: SearchStoreLike,
+  query: string,
+  options: {
+    readonly limit: number;
+    readonly collections?: readonly string[];
+  },
+): SearchResult[] {
+  const ftsQuery = buildFTS5Query(query);
+  if (!ftsQuery) {
+    return [];
+  }
+
+  const filters = options.collections && options.collections.length > 0 ? options.collections : [];
+  const whereCollection =
+    filters.length > 0 ? `AND d.collection IN (${filters.map(() => '?').join(', ')})` : undefined;
+  const sql = [
+    'SELECT',
+    "  'qmd://' || d.collection || '/' || d.path AS filepath,",
+    "  d.collection || '/' || d.path AS display_path,",
+    '  d.title,',
+    '  content.doc AS body,',
+    '  d.hash,',
+    '  d.modified_at,',
+    '  d.collection,',
+    `  bm25(${KQMD_SEARCH_SHADOW_TABLE}, 10.0, 1.0) AS bm25_score`,
+    `FROM ${KQMD_SEARCH_SHADOW_TABLE} f`,
+    'JOIN documents d ON d.id = f.rowid',
+    'JOIN content ON content.hash = d.hash',
+    `WHERE ${KQMD_SEARCH_SHADOW_TABLE} MATCH ? AND d.active = 1`,
+    whereCollection,
+    'ORDER BY bm25_score ASC LIMIT ?',
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join('\n');
+
+  const rows = store.db
+    .prepare(sql)
+    .all(ftsQuery, ...filters, options.limit)
+    .map((row) => row as ShadowSearchRow);
+
+  return rows.map((row) => {
+    const score = Math.abs(row.bm25_score) / (1 + Math.abs(row.bm25_score));
+
+    return {
+      filepath: row.filepath,
+      displayPath: row.display_path,
+      title: row.title,
+      context: store.getContextForFile(row.filepath),
+      hash: row.hash,
+      docid: toDocId(row.hash),
+      collectionName: row.collection,
+      modifiedAt: row.modified_at,
+      bodyLength: row.body.length,
+      body: row.body,
+      score,
+      source: 'fts',
+    };
+  });
+}

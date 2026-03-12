@@ -1,3 +1,4 @@
+import { describeEffectiveSearchPolicy } from '../../config/search_policy.js';
 import type { CommandExecutionContext, CommandExecutionResult } from '../../types/command.js';
 import {
   fromRuntimeFailure,
@@ -9,27 +10,62 @@ import { formatSearchExecutionResult, normalizeSearchResults } from './io/format
 import { parseOwnedSearchInput } from './io/parse.js';
 import type { OwnedCommandError, SearchCommandInput, SearchOutputRow } from './io/types.js';
 import { resolveSelectedCollections } from './io/validate.js';
+import {
+  buildKoreanAwareLexQuery,
+  containsHangul,
+  type KiwiTokenizerDependencies,
+} from './kiwi_tokenizer.js';
 import type { OwnedRuntimeDependencies, OwnedRuntimeFailure } from './runtime.js';
 import { withOwnedStore } from './runtime.js';
+import {
+  preferredSearchRecoveryCommand,
+  readSearchIndexHealth,
+  shouldUseShadowSearchIndex,
+  summarizeStoredSearchPolicy,
+} from './search_index_health.js';
+import { searchShadowIndex } from './search_shadow_index.js';
 
 export interface SearchCommandDependencies {
   readonly run?: (
     context: CommandExecutionContext,
     input: SearchCommandInput,
     runtimeDependencies?: OwnedRuntimeDependencies,
-  ) => Promise<SearchOutputRow[] | OwnedCommandError | OwnedRuntimeFailure>;
+  ) => Promise<SearchCommandSuccess | SearchOutputRow[] | OwnedCommandError | OwnedRuntimeFailure>;
   readonly runtimeDependencies?: OwnedRuntimeDependencies;
+  readonly kiwiDependencies?: KiwiTokenizerDependencies;
+}
+
+type SearchCommandSuccess = {
+  readonly rows: SearchOutputRow[];
+  readonly stderr?: string;
+};
+
+function buildSearchPolicyWarning(
+  expectedPolicyId: string,
+  storedPolicy: string,
+  indexedDocuments: number,
+  totalDocuments: number,
+): string {
+  return [
+    'Korean lexical search index is not ready for the current policy.',
+    `Expected search policy: ${expectedPolicyId}`,
+    `Stored search policy: ${storedPolicy}`,
+    `Indexed documents: ${indexedDocuments}/${totalDocuments}`,
+    `Falling back to legacy lexical search. Run '${preferredSearchRecoveryCommand()}' to rebuild the Korean search index.`,
+  ].join('\n');
 }
 
 async function runSearchCommand(
   context: CommandExecutionContext,
   input: SearchCommandInput,
   runtimeDependencies?: OwnedRuntimeDependencies,
-): Promise<SearchOutputRow[] | OwnedCommandError | OwnedRuntimeFailure> {
+  kiwiDependencies?: KiwiTokenizerDependencies,
+): Promise<SearchCommandSuccess | OwnedCommandError | OwnedRuntimeFailure> {
   return withOwnedStore(
     'search',
     context,
     async (session) => {
+      const searchPolicy = describeEffectiveSearchPolicy();
       const [availableCollections, defaultCollections] = await Promise.all([
         session.store.listCollections(),
         session.store.getDefaultCollectionNames(),
@@ -47,16 +83,42 @@ async function runSearchCommand(
       const fetchLimit = input.all ? 100000 : Math.max(50, input.limit * 2);
       const singleCollection =
         selectedCollections.length === 1 ? selectedCollections[0] : undefined;
-      let results = await session.store.searchLex(input.query, {
-        limit: fetchLimit,
-        collection: singleCollection,
+      const koreanQuery = containsHangul(input.query);
+      const searchHealth = readSearchIndexHealth(session.store.internal.db, searchPolicy, {
+        collections: selectedCollections,
       });
+
+      let results =
+        koreanQuery && shouldUseShadowSearchIndex(searchHealth)
+          ? searchShadowIndex(
+              session.store.internal,
+              await buildKoreanAwareLexQuery(input.query, kiwiDependencies),
+              {
+                limit: fetchLimit,
+                collections: selectedCollections,
+              },
+            )
+          : await session.store.searchLex(input.query, {
+              limit: fetchLimit,
+              collection: singleCollection,
+            });
 
       if (selectedCollections.length > 1) {
         results = results.filter((result) => selectedCollections.includes(result.collectionName));
       }
 
-      return normalizeSearchResults(results);
+      return {
+        rows: normalizeSearchResults(results),
+        stderr:
+          koreanQuery && !shouldUseShadowSearchIndex(searchHealth)
+            ? buildSearchPolicyWarning(
+                searchPolicy.id,
+                summarizeStoredSearchPolicy(searchHealth),
+                searchHealth.indexedDocuments,
+                searchHealth.totalDocuments,
+              )
+            : undefined,
+      };
     },
     runtimeDependencies,
   );
@@ -71,11 +133,14 @@ export async function handleSearchCommand(
     return toExecutionResult(parsed);
   }
 
-  const result = await (dependencies.run ?? runSearchCommand)(
-    context,
-    parsed.input,
-    dependencies.runtimeDependencies,
-  );
+  const result = dependencies.run
+    ? await dependencies.run(context, parsed.input, dependencies.runtimeDependencies)
+    : await runSearchCommand(
+        context,
+        parsed.input,
+        dependencies.runtimeDependencies,
+        dependencies.kiwiDependencies,
+      );
 
   if (isOwnedRuntimeFailure(result)) {
     return toExecutionResult(fromRuntimeFailure(result));
@@ -85,5 +150,8 @@ export async function handleSearchCommand(
     return toExecutionResult(result);
   }
 
-  return formatSearchExecutionResult(result, parsed.input);
+  const normalized = Array.isArray(result) ? { rows: result } : result;
+  const execution = formatSearchExecutionResult(normalized.rows, parsed.input);
+
+  return normalized.stderr ? { ...execution, stderr: normalized.stderr } : execution;
 }

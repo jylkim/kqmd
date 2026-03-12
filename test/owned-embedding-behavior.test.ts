@@ -33,6 +33,36 @@ function createRuntimeDependencies(
 }
 
 function createMismatchStore(overrides: Partial<QMDStore> = {}): QMDStore {
+  const prepare = vi.fn((sql: string) => ({
+    get: vi.fn(() => {
+      if (sql.includes('store_config')) {
+        return { value: undefined };
+      }
+
+      if (sql.includes('sqlite_master')) {
+        return undefined;
+      }
+
+      if (sql.includes('COUNT(*) AS count')) {
+        return { count: 1 };
+      }
+
+      return undefined;
+    }),
+    all: vi.fn(() => {
+      if (sql.includes('content_vectors')) {
+        return [{ model: 'embeddinggemma', documents: 1 }];
+      }
+
+      if (sql.includes('FROM documents d') && sql.includes('JOIN content c')) {
+        return [];
+      }
+
+      return [];
+    }),
+    run: vi.fn(() => ({})),
+  }));
+
   return {
     close: vi.fn(async () => {}),
     dbPath: '/home/tester/.cache/qmd/index.sqlite',
@@ -83,9 +113,8 @@ function createMismatchStore(overrides: Partial<QMDStore> = {}): QMDStore {
     })),
     internal: {
       db: {
-        prepare: vi.fn(() => ({
-          all: vi.fn(() => [{ model: 'embeddinggemma', documents: 1 }]),
-        })),
+        prepare,
+        exec: vi.fn(() => {}),
       },
     },
     ...overrides,
@@ -93,6 +122,41 @@ function createMismatchStore(overrides: Partial<QMDStore> = {}): QMDStore {
 }
 
 function createCollectionAwareStore(): QMDStore {
+  const prepare = vi.fn((sql: string) => ({
+    get: vi.fn((...params: (string | number)[]) => {
+      if (sql.includes('store_config')) {
+        return { value: undefined };
+      }
+
+      if (sql.includes('sqlite_master')) {
+        return undefined;
+      }
+
+      if (sql.includes('COUNT(*) AS count')) {
+        return { count: params.includes('docs') ? 1 : 2 };
+      }
+
+      return undefined;
+    }),
+    all: vi.fn((...params: (string | number)[]) => {
+      if (sql.includes('content_vectors')) {
+        return params.includes('docs')
+          ? [{ model: KQMD_DEFAULT_EMBED_MODEL_URI, documents: 1 }]
+          : [
+              { model: KQMD_DEFAULT_EMBED_MODEL_URI, documents: 1 },
+              { model: 'embeddinggemma', documents: 1 },
+            ];
+      }
+
+      if (sql.includes('FROM documents d') && sql.includes('JOIN content c')) {
+        return [];
+      }
+
+      return [];
+    }),
+    run: vi.fn(() => ({})),
+  }));
+
   return {
     close: vi.fn(async () => {}),
     dbPath: '/home/tester/.cache/qmd/index.sqlite',
@@ -138,16 +202,8 @@ function createCollectionAwareStore(): QMDStore {
     })),
     internal: {
       db: {
-        prepare: vi.fn(() => ({
-          all: vi.fn((...params: (string | number)[]) =>
-            params.includes('docs')
-              ? [{ model: KQMD_DEFAULT_EMBED_MODEL_URI, documents: 1 }]
-              : [
-                  { model: KQMD_DEFAULT_EMBED_MODEL_URI, documents: 1 },
-                  { model: 'embeddinggemma', documents: 1 },
-                ],
-          ),
-        })),
+        prepare,
+        exec: vi.fn(() => {}),
       },
     },
   } as unknown as QMDStore;

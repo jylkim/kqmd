@@ -13,6 +13,11 @@ import {
   preferredEmbedCommand,
   summarizeStoredEmbeddingModels,
 } from '../embedding_health.js';
+import {
+  hasSearchIndexMismatch,
+  preferredSearchRecoveryCommand,
+  summarizeStoredSearchPolicy,
+} from '../search_index_health.js';
 import type {
   EmbedCommandInput,
   QueryCommandInput,
@@ -396,11 +401,15 @@ export function formatStatusExecutionResult(
 ): CommandExecutionResult {
   const colors = getColorPalette();
   const healthLabel = result.health.kind.replaceAll('-', ' ');
+  const searchHealthLabel = result.searchHealth.kind.replaceAll('-', ' ');
   const nextStep = hasEmbeddingMismatch(result.health)
     ? `Run '${preferredEmbedCommand(result.health)}' to rebuild embeddings for the current model.`
     : result.health.kind === 'needs-embedding'
       ? `Run '${preferredEmbedCommand(result.health)}' to create missing embeddings.`
       : undefined;
+  const nextSearchStep = hasSearchIndexMismatch(result.searchHealth)
+    ? `Run '${preferredSearchRecoveryCommand()}' to rebuild the Korean lexical search index.`
+    : undefined;
 
   const collectionLines =
     result.status.collections.length > 0
@@ -434,6 +443,14 @@ export function formatStatusExecutionResult(
       `  Health:     ${healthLabel}`,
       `  Stored:     ${summarizeStoredEmbeddingModels(result.health)}`,
       nextStep ? `  Next:       ${nextStep}` : undefined,
+      '',
+      `${colors.bold}Search Policy${colors.reset}`,
+      `  Effective:  ${result.searchPolicy.id}`,
+      `  Tokenizer:  ${result.searchPolicy.tokenizer}/${result.searchPolicy.modelType}`,
+      `  Health:     ${searchHealthLabel}`,
+      `  Stored:     ${summarizeStoredSearchPolicy(result.searchHealth)}`,
+      `  Indexed:    ${result.searchHealth.indexedDocuments}/${result.searchHealth.totalDocuments}`,
+      nextSearchStep ? `  Next:       ${nextSearchStep}` : undefined,
       ...collectionLines,
     ]
       .filter((line): line is string => line !== undefined)

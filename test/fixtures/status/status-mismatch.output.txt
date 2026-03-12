@@ -15,6 +15,13 @@ Embedding Model
   Stored:     embeddinggemma (3 docs)
   Next:       Run 'qmd embed --force' to rebuild embeddings for the current model.
 
+Search Policy
+  Effective:  kiwi-cong-shadow-v1
+  Tokenizer:  kiwi/cong
+  Health:     clean
+  Stored:     kiwi-cong-shadow-v1
+  Indexed:    3/3
+
 Collections
   docs (3 files)
     Path: /repo/docs

@@ -38,6 +38,29 @@ function createFakeStore(close = vi.fn(async () => {})): QMDStore {
         source: 'fts' as const,
       },
     ],
+    internal: {
+      db: {
+        prepare: vi.fn((sql: string) => ({
+          get: vi.fn((...params: (string | number)[]) => {
+            if (sql.includes('sqlite_master')) {
+              return { name: 'kqmd_documents_fts' };
+            }
+
+            if (sql.includes('store_config')) {
+              return { value: 'kiwi-cong-shadow-v1' };
+            }
+
+            if (sql.includes('COUNT(*) AS count')) {
+              return { count: 1 };
+            }
+
+            return params;
+          }),
+          all: vi.fn(() => []),
+        })),
+      },
+      getContextForFile: vi.fn(() => 'Docs'),
+    },
   } as unknown as QMDStore;
 }
 

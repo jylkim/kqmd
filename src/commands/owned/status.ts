@@ -1,4 +1,5 @@
 import { describeEffectiveEmbedModel } from '../../config/embedding_policy.js';
+import { describeEffectiveSearchPolicy } from '../../config/search_policy.js';
 import type { CommandExecutionContext, CommandExecutionResult } from '../../types/command.js';
 import { readEmbeddingHealth } from './embedding_health.js';
 import {
@@ -13,6 +14,7 @@ import { parseOwnedStatusInput } from './io/parse.js';
 import type { OwnedCommandError, StatusCommandInput, StatusCommandOutput } from './io/types.js';
 import type { OwnedRuntimeDependencies, OwnedRuntimeFailure } from './runtime.js';
 import { withOwnedStore } from './runtime.js';
+import { readSearchIndexHealth } from './search_index_health.js';
 
 export interface StatusCommandDependencies {
   readonly run?: (
@@ -29,6 +31,7 @@ async function runStatusCommand(
   runtimeDependencies?: OwnedRuntimeDependencies,
 ): Promise<StatusCommandOutput | OwnedCommandError | OwnedRuntimeFailure> {
   const effectiveModel = describeEffectiveEmbedModel(runtimeDependencies?.env);
+  const searchPolicy = describeEffectiveSearchPolicy();
 
   return withOwnedStore(
     'status',
@@ -38,12 +41,15 @@ async function runStatusCommand(
       const health = await readEmbeddingHealth(session.store, effectiveModel.uri, {
         status,
       });
+      const searchHealth = readSearchIndexHealth(session.store.internal.db, searchPolicy);
 
       return {
         dbPath: session.dbPath,
         effectiveModel,
+        searchPolicy,
         status,
         health,
+        searchHealth,
       };
     },
     runtimeDependencies,

@@ -12,6 +12,7 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 - `createStore({ dbPath, configPath? })` 기반 owned runtime bootstrap 계약
 - `search/query/update/embed`의 parse/validation/output parity baseline
 - `QMD_EMBED_MODEL` override precedence와 K-QMD default embed bootstrap
+- same-DB Korean lexical shadow FTS ownership과 `store_config` metadata policy
 
 ## 아직 하지 않는 것
 
@@ -33,6 +34,9 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 - default embedding model은 upstream `llm.js` override example과 같은
   `hf:Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf`를 사용하되,
   explicit `QMD_EMBED_MODEL` override가 항상 우선한다
+- upstream `documents_fts`는 직접 변경하지 않고 baseline으로 남긴다
+- Korean lexical recall은 K-QMD-owned `kqmd_documents_fts` shadow table로 구현한다
+- shadow FTS metadata는 upstream DB의 `store_config`를 재사용하되, key namespace는 `kqmd_*`로 구분한다
 
 ## delegate 실행 원칙
 
@@ -50,6 +54,8 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 - `update`는 collection 정의가 필요하므로 config가 없으면 명시적으로 실패한다
 - preflight는 `createStore()` 호출 전에 수행해 빈 DB가 조용히 생성되는 일을 막는다
 - stored vector rows의 `model` 값과 current effective model이 다르면 owned command가 mismatch health와 recovery guidance를 제공한다
+- search shadow index는 same-DB transaction으로 rebuild 하고, clean 상태가 아닐 때는 `search`가 legacy lexical path로 fallback 한다
+- Korean search policy drift 판단은 `documents`, `content`, `store_config`, `QMDStore.internal` contract 위에서 수행한다
 
 ## owned command parity 실행 원칙
 
@@ -58,3 +64,4 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 - `search/query` success output은 snapshot fixtures로 고정한다
 - `update/embed`는 progress-level parity 대신 success summary shape를 우선 고정한다
 - upstream `@tobilu/qmd` 버전이 바뀌면 `test/fixtures/owned-command-parity/baseline.json`과 parity suite를 함께 갱신한다
+- shadow FTS helper는 local implementation이지만, user-visible search formatter contract는 기존 parity baseline을 유지한다

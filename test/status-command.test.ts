@@ -34,6 +34,31 @@ function createRuntimeDependencies(
 }
 
 function createFakeStatusStore(): QMDStore {
+  const prepare = vi.fn((sql: string) => ({
+    get: vi.fn(() => {
+      if (sql.includes('store_config')) {
+        return { value: 'kiwi-cong-shadow-v1' };
+      }
+
+      if (sql.includes('sqlite_master')) {
+        return { name: 'kqmd_documents_fts' };
+      }
+
+      if (sql.includes('COUNT(*) AS count')) {
+        return { count: 3 };
+      }
+
+      return undefined;
+    }),
+    all: vi.fn(() => {
+      if (sql.includes('content_vectors')) {
+        return [{ model: 'embeddinggemma', documents: 3 }];
+      }
+
+      return [];
+    }),
+  }));
+
   return {
     close: vi.fn(async () => {}),
     dbPath: '/home/tester/.cache/qmd/index.sqlite',
@@ -53,9 +78,7 @@ function createFakeStatusStore(): QMDStore {
     })),
     internal: {
       db: {
-        prepare: vi.fn(() => ({
-          all: vi.fn(() => [{ model: 'embeddinggemma', documents: 3 }]),
-        })),
+        prepare,
       },
     },
   } as unknown as QMDStore;

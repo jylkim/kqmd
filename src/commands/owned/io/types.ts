@@ -1,6 +1,8 @@
 import type { ExpandedQuery, HybridQueryExplain, IndexStatus } from '@tobilu/qmd';
 import type { EffectiveEmbedModel } from '../../../config/embedding_policy.js';
+import type { EffectiveSearchPolicy } from '../../../config/search_policy.js';
 import type { EmbeddingHealth } from '../embedding_health.js';
+import type { SearchIndexHealth } from '../search_index_health.js';
 
 export type SearchOutputFormat = 'cli' | 'json' | 'csv' | 'md' | 'xml' | 'files';
 
@@ -48,8 +50,10 @@ export interface SearchOutputRow {
 export interface StatusCommandOutput {
   readonly dbPath: string;
   readonly effectiveModel: EffectiveEmbedModel;
+  readonly searchPolicy: EffectiveSearchPolicy;
   readonly status: IndexStatus;
   readonly health: EmbeddingHealth;
+  readonly searchHealth: SearchIndexHealth;
 }
 
 export interface OwnedCommandError {

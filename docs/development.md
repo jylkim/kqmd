@@ -41,12 +41,20 @@ npm run check
   owned/passthrough 명령 source of truth
 - [`src/config/embedding_policy.ts`](../src/config/embedding_policy.ts)
   effective embedding model policy와 bootstrap helper
+- [`src/config/search_policy.ts`](../src/config/search_policy.ts)
+  Korean lexical search policy와 shadow FTS metadata key
 - [`src/passthrough/delegate.ts`](../src/passthrough/delegate.ts)
   upstream `qmd` 위임 실행
 - [`src/commands/owned/embedding_health.ts`](../src/commands/owned/embedding_health.ts)
   stored vector model mismatch / missing health 계산
+- [`src/commands/owned/search_index_health.ts`](../src/commands/owned/search_index_health.ts)
+  Korean shadow FTS policy health 계산
+- [`src/commands/owned/search_shadow_index.ts`](../src/commands/owned/search_shadow_index.ts)
+  same-DB shadow FTS rebuild / query helper
+- [`src/commands/owned/kiwi_tokenizer.ts`](../src/commands/owned/kiwi_tokenizer.ts)
+  Kiwi wasm/model cache bootstrap과 Korean token augmentation helper
 - [`src/commands/owned/status.ts`](../src/commands/owned/status.ts)
-  owned status output과 embedding health surface
+  owned status output과 embedding/search health surface
 - [`src/commands/owned/io/`](../src/commands/owned/io)
   owned command parse/validation/output parity contract
 - [`src/config/qmd_paths.ts`](../src/config/qmd_paths.ts)
@@ -87,6 +95,15 @@ npm run test -- embedding-policy embedding-health owned-embedding-behavior statu
 이 suite는 default embed policy precedence, stored vector mismatch detection, owned `status`,
 그리고 `query/embed/update`의 mismatch-aware UX를 고정한다.
 
+### Korean search policy / shadow index checks
+
+```bash
+npm run test -- search-policy search-index-health kiwi-tokenizer search-shadow-index owned-search-behavior
+```
+
+이 suite는 canonical search policy, shadow index health classification, Kiwi token normalization,
+same-DB shadow FTS rebuild/query, 그리고 stale policy warning + legacy fallback UX를 고정한다.
+
 ### publish 산출물 확인
 
 ```bash
@@ -107,7 +124,8 @@ node ./bin/qmd.js collection list
 3. `npm run test:parity`
 4. `node_modules/@tobilu/qmd/dist/cli/qmd.js`의 parse/default/usage/output 변경 사항을 검토한다
 5. intentional drift가 있으면 `test/fixtures/owned-command-parity/baseline.json`과 snapshot fixtures를 갱신한다
-6. 관련 문서와 plan/work log를 함께 갱신한다
+6. `documents`, `content`, `store_config`, `QMDStore.internal` contract가 shadow FTS helper와 여전히 맞는지 확인한다
+7. 관련 문서와 plan/work log를 함께 갱신한다
 
 ## 관련 문서
 
