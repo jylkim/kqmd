@@ -1,6 +1,6 @@
-export type OwnedCommand = 'search' | 'query' | 'update' | 'embed';
+export type OwnedCommand = 'search' | 'query' | 'update' | 'embed' | 'status';
 
-export type PassthroughCommand = 'collection' | 'status' | 'ls' | 'get' | 'multi-get' | 'mcp';
+export type PassthroughCommand = 'collection' | 'ls' | 'get' | 'multi-get' | 'mcp';
 
 export type CommandRoute =
   | { mode: 'owned'; command: OwnedCommand }

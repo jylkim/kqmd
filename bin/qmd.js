@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 
-import('../dist/cli.js')
+import('../dist/config/embedding_policy.js')
+  .then(({ installKqmdEmbedModelDefault }) => {
+    installKqmdEmbedModelDefault(process.env);
+    return import('../dist/cli.js');
+  })
   .then(({ main }) => main(process.argv.slice(2)))
   .then((exitCode) => {
     process.exitCode = exitCode;

@@ -1,5 +1,12 @@
+import { describeEffectiveEmbedModel } from '../../config/embedding_policy.js';
 import type { CommandExecutionContext, CommandExecutionResult } from '../../types/command.js';
 import {
+  hasEmbeddingMismatch,
+  readEmbeddingHealth,
+  summarizeStoredEmbeddingModels,
+} from './embedding_health.js';
+import {
+  fromExecutionFailure,
   fromRuntimeFailure,
   isOwnedCommandError,
   isOwnedRuntimeFailure,
@@ -17,19 +24,49 @@ export interface QueryCommandDependencies {
     context: CommandExecutionContext,
     input: QueryCommandInput,
     runtimeDependencies?: OwnedRuntimeDependencies,
-  ) => Promise<SearchOutputRow[] | OwnedCommandError | OwnedRuntimeFailure>;
+  ) => Promise<QueryCommandSuccess | OwnedCommandError | OwnedRuntimeFailure>;
   readonly runtimeDependencies?: OwnedRuntimeDependencies;
+}
+
+type QueryCommandSuccess =
+  | SearchOutputRow[]
+  | {
+      readonly rows: SearchOutputRow[];
+      readonly stderr?: string;
+    };
+
+function isQueryCommandSuccess(
+  value: QueryCommandSuccess,
+): value is { readonly rows: SearchOutputRow[]; readonly stderr?: string } {
+  return typeof value === 'object' && value !== null && 'rows' in value;
+}
+
+function buildQueryMismatchWarning(expectedModel: string, storedModels: string): string {
+  return [
+    'Embedding model mismatch detected.',
+    `Expected effective model: ${expectedModel}`,
+    `Stored models: ${storedModels}`,
+    "Run 'qmd embed --force' to rebuild embeddings for the current model.",
+  ].join('\n');
+}
+
+function looksLikeModelFailure(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /(model|embedding|llm|sqlite-vec|resolveModel)/i.test(message);
 }
 
 async function runQueryCommand(
   context: CommandExecutionContext,
   input: QueryCommandInput,
   runtimeDependencies?: OwnedRuntimeDependencies,
-): Promise<SearchOutputRow[] | OwnedCommandError | OwnedRuntimeFailure> {
+): Promise<QueryCommandSuccess | OwnedCommandError | OwnedRuntimeFailure> {
+  const effectiveModel = describeEffectiveEmbedModel(runtimeDependencies?.env);
+
   return withOwnedStore(
     'query',
     context,
     async (session) => {
+      const health = await readEmbeddingHealth(session.store, effectiveModel.uri);
       const [availableCollections, defaultCollections] = await Promise.all([
         session.store.listCollections(),
         session.store.getDefaultCollectionNames(),
@@ -63,7 +100,12 @@ async function runQueryCommand(
               intent: input.intent,
             });
 
-      return normalizeHybridQueryResults(results);
+      return {
+        rows: normalizeHybridQueryResults(results),
+        stderr: hasEmbeddingMismatch(health)
+          ? buildQueryMismatchWarning(effectiveModel.uri, summarizeStoredEmbeddingModels(health))
+          : undefined,
+      };
     },
     runtimeDependencies,
   );
@@ -78,19 +120,38 @@ export async function handleQueryCommand(
     return toExecutionResult(parsed);
   }
 
-  const result = await (dependencies.run ?? runQueryCommand)(
-    context,
-    parsed.input,
-    dependencies.runtimeDependencies,
-  );
+  try {
+    const result = await (dependencies.run ?? runQueryCommand)(
+      context,
+      parsed.input,
+      dependencies.runtimeDependencies,
+    );
 
-  if (isOwnedRuntimeFailure(result)) {
-    return toExecutionResult(fromRuntimeFailure(result));
+    if (isOwnedRuntimeFailure(result)) {
+      return toExecutionResult(fromRuntimeFailure(result));
+    }
+
+    if (isOwnedCommandError(result)) {
+      return toExecutionResult(result);
+    }
+
+    const success = isQueryCommandSuccess(result) ? result : { rows: result };
+    const execution = formatSearchExecutionResult(success.rows, parsed.input);
+
+    return success.stderr ? { ...execution, stderr: success.stderr } : execution;
+  } catch (error) {
+    const effectiveModel = describeEffectiveEmbedModel(dependencies.runtimeDependencies?.env);
+    return toExecutionResult(
+      fromExecutionFailure(
+        'query',
+        error,
+        looksLikeModelFailure(error)
+          ? [
+              "Run 'qmd pull' to fetch required local models.",
+              `Current effective embedding model: ${effectiveModel.uri}`,
+            ]
+          : [],
+      ),
+    );
   }
-
-  if (isOwnedCommandError(result)) {
-    return toExecutionResult(result);
-  }
-
-  return formatSearchExecutionResult(result, parsed.input);
 }

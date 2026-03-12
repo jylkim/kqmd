@@ -1,15 +1,8 @@
 import type { CommandRoute, OwnedCommand, PassthroughCommand } from '../types/command.js';
 
-export const OWNED_COMMANDS = ['search', 'query', 'update', 'embed'] as const;
+export const OWNED_COMMANDS = ['search', 'query', 'update', 'embed', 'status'] as const;
 
-export const PASSTHROUGH_COMMANDS = [
-  'collection',
-  'status',
-  'ls',
-  'get',
-  'multi-get',
-  'mcp',
-] as const;
+export const PASSTHROUGH_COMMANDS = ['collection', 'ls', 'get', 'multi-get', 'mcp'] as const;
 
 type ManifestEntry = Extract<CommandRoute, { mode: 'owned' | 'passthrough' }>;
 
@@ -18,8 +11,8 @@ export const commandManifest = {
   query: { mode: 'owned', command: 'query' },
   update: { mode: 'owned', command: 'update' },
   embed: { mode: 'owned', command: 'embed' },
+  status: { mode: 'owned', command: 'status' },
   collection: { mode: 'passthrough', command: 'collection' },
-  status: { mode: 'passthrough', command: 'status' },
   ls: { mode: 'passthrough', command: 'ls' },
   get: { mode: 'passthrough', command: 'get' },
   'multi-get': { mode: 'passthrough', command: 'multi-get' },

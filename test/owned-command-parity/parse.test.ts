@@ -4,6 +4,7 @@ import {
   parseOwnedEmbedInput,
   parseOwnedQueryInput,
   parseOwnedSearchInput,
+  parseOwnedStatusInput,
   parseOwnedUpdateInput,
 } from '../../src/commands/owned/io/parse.js';
 import type { CommandExecutionContext } from '../../src/types/command.js';
@@ -103,6 +104,16 @@ describe('owned command parity parse', () => {
       input: {
         force: true,
       },
+    });
+  });
+
+  test('status rejects unsupported command-specific flags', () => {
+    const result = parseOwnedStatusInput(createContext(['status', '--json']));
+
+    expect(result).toEqual({
+      kind: 'validation',
+      stderr: 'The `status` command does not accept command-specific flags.',
+      exitCode: 1,
     });
   });
 });

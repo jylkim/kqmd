@@ -25,7 +25,7 @@ describe('CLI routing', () => {
 
     expect(invocation.indexName).toBe('work');
     expect(invocation.command).toBe('status');
-    expect(invocation.route).toEqual({ mode: 'passthrough', command: 'status' });
+    expect(invocation.route).toEqual({ mode: 'owned', command: 'status' });
   });
 
   test('treats help-like entrypoints as passthrough', () => {

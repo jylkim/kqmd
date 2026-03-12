@@ -1,6 +1,9 @@
 import type { UpdateResult } from '@tobilu/qmd';
+import { describeEffectiveEmbedModel } from '../../config/embedding_policy.js';
 import type { CommandExecutionContext, CommandExecutionResult } from '../../types/command.js';
+import { hasEmbeddingMismatch, readEmbeddingHealth } from './embedding_health.js';
 import {
+  fromExecutionFailure,
   fromRuntimeFailure,
   isOwnedCommandError,
   isOwnedRuntimeFailure,
@@ -21,8 +24,21 @@ export interface UpdateCommandDependencies {
     context: CommandExecutionContext,
     input: UpdateCommandInput,
     runtimeDependencies?: OwnedRuntimeDependencies,
-  ) => Promise<UpdateResult | OwnedCommandError | OwnedRuntimeFailure>;
+  ) => Promise<UpdateCommandSuccess | OwnedCommandError | OwnedRuntimeFailure>;
   readonly runtimeDependencies?: OwnedRuntimeDependencies;
+}
+
+type UpdateCommandSuccess =
+  | UpdateResult
+  | {
+      readonly result: UpdateResult;
+      readonly followUp?: string;
+    };
+
+function isUpdateCommandSuccess(
+  value: UpdateCommandSuccess,
+): value is { readonly result: UpdateResult; readonly followUp?: string } {
+  return typeof value === 'object' && value !== null && 'result' in value;
 }
 
 async function executeUpdate(
@@ -36,11 +52,23 @@ async function runUpdateCommand(
   context: CommandExecutionContext,
   input: UpdateCommandInput,
   runtimeDependencies?: OwnedRuntimeDependencies,
-): Promise<UpdateResult | OwnedCommandError | OwnedRuntimeFailure> {
+): Promise<UpdateCommandSuccess | OwnedCommandError | OwnedRuntimeFailure> {
+  const effectiveModel = describeEffectiveEmbedModel(runtimeDependencies?.env);
+
   return withOwnedStore(
     'update',
     context,
-    async (session) => executeUpdate(session, input),
+    async (session) => {
+      const result = await executeUpdate(session, input);
+      const health = await readEmbeddingHealth(session.store, effectiveModel.uri);
+
+      return {
+        result,
+        followUp: hasEmbeddingMismatch(health)
+          ? "Run 'qmd embed --force' to rebuild embeddings for the current model."
+          : undefined,
+      };
+    },
     runtimeDependencies,
   );
 }
@@ -54,19 +82,24 @@ export async function handleUpdateCommand(
     return toExecutionResult(parsed);
   }
 
-  const result = await (dependencies.run ?? runUpdateCommand)(
-    context,
-    parsed.input,
-    dependencies.runtimeDependencies,
-  );
+  try {
+    const result = await (dependencies.run ?? runUpdateCommand)(
+      context,
+      parsed.input,
+      dependencies.runtimeDependencies,
+    );
 
-  if (isOwnedRuntimeFailure(result)) {
-    return toExecutionResult(fromRuntimeFailure(result));
+    if (isOwnedRuntimeFailure(result)) {
+      return toExecutionResult(fromRuntimeFailure(result));
+    }
+
+    if (isOwnedCommandError(result)) {
+      return toExecutionResult(result);
+    }
+
+    const success = isUpdateCommandSuccess(result) ? result : { result };
+    return formatUpdateExecutionResult(success.result, parsed.input, success.followUp);
+  } catch (error) {
+    return toExecutionResult(fromExecutionFailure('update', error));
   }
-
-  if (isOwnedCommandError(result)) {
-    return toExecutionResult(result);
-  }
-
-  return formatUpdateExecutionResult(result, parsed.input);
 }

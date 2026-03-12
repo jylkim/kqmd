@@ -1,0 +1,21 @@
+QMD Status
+
+Index: /home/tester/.cache/qmd/index.sqlite
+
+Documents
+  Total:      3 files indexed
+  VectorIndex: yes
+  Missing:    0
+  Mismatch:   3
+
+Embedding Model
+  Effective:  hf:Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf
+  Source:     default
+  Health:     model mismatch
+  Stored:     embeddinggemma (3 docs)
+  Next:       Run 'qmd embed --force' to rebuild embeddings for the current model.
+
+Collections
+  docs (3 files)
+    Path: /repo/docs
+    Pattern: **/*.md

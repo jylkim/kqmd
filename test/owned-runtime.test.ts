@@ -88,6 +88,21 @@ describe('owned runtime', () => {
     });
   });
 
+  test('treats status as a read command with db-only reopen', () => {
+    const dependencies = createDependencies({
+      existingPaths: ['/home/tester/.cache/qmd/work.sqlite'],
+    });
+
+    const plan = resolveOwnedRuntimePlan('status', createContext('work'), dependencies);
+
+    expect(plan).toEqual({
+      kind: 'db-only',
+      command: 'status',
+      indexName: 'work',
+      dbPath: '/home/tester/.cache/qmd/work.sqlite',
+    });
+  });
+
   test('returns config-missing for search when config and db are both absent', () => {
     const dependencies = createDependencies();
 

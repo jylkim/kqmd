@@ -39,8 +39,14 @@ npm run check
   top-level routing과 실행 진입점
 - [`src/commands/manifest.ts`](../src/commands/manifest.ts)
   owned/passthrough 명령 source of truth
+- [`src/config/embedding_policy.ts`](../src/config/embedding_policy.ts)
+  effective embedding model policy와 bootstrap helper
 - [`src/passthrough/delegate.ts`](../src/passthrough/delegate.ts)
   upstream `qmd` 위임 실행
+- [`src/commands/owned/embedding_health.ts`](../src/commands/owned/embedding_health.ts)
+  stored vector model mismatch / missing health 계산
+- [`src/commands/owned/status.ts`](../src/commands/owned/status.ts)
+  owned status output과 embedding health surface
 - [`src/commands/owned/io/`](../src/commands/owned/io)
   owned command parse/validation/output parity contract
 - [`src/config/qmd_paths.ts`](../src/config/qmd_paths.ts)
@@ -72,6 +78,15 @@ npm run test:parity
 이 suite는 `search/query/update/embed`의 parse/validation/output contract를 고정한다.
 특히 `search/query` success snapshot, `update/embed` success shape, upstream version guard를 포함한다.
 
+### embedding policy / mismatch checks
+
+```bash
+npm run test -- embedding-policy embedding-health owned-embedding-behavior status-command
+```
+
+이 suite는 default embed policy precedence, stored vector mismatch detection, owned `status`,
+그리고 `query/embed/update`의 mismatch-aware UX를 고정한다.
+
 ### publish 산출물 확인
 
 ```bash
@@ -82,7 +97,7 @@ npm pack --dry-run
 
 ```bash
 npm run build
-node ./bin/qmd.js status
+node ./bin/qmd.js collection list
 ```
 
 ### upstream qmd version bump checklist

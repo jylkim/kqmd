@@ -6,6 +6,7 @@ import { formatSupportedCommandList, resolveCommandRoute } from './commands/mani
 import { handleEmbedCommand } from './commands/owned/embed.js';
 import { handleQueryCommand } from './commands/owned/query.js';
 import { handleSearchCommand } from './commands/owned/search.js';
+import { handleStatusCommand } from './commands/owned/status.js';
 import { handleUpdateCommand } from './commands/owned/update.js';
 import { delegatePassthrough } from './passthrough/delegate.js';
 import type {
@@ -69,6 +70,8 @@ async function executeOwnedCommand(
       return handleUpdateCommand(context);
     case 'embed':
       return handleEmbedCommand(context);
+    case 'status':
+      return handleStatusCommand(context);
   }
 
   throw new Error(`Unhandled owned command: ${invocation.route.command}`);

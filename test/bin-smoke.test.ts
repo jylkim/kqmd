@@ -44,7 +44,7 @@ describe('bin smoke test', () => {
   });
 
   test('propagates passthrough argv and exit code through the published bin', () => {
-    const result = spawnSync(process.execPath, [binPath, 'status', '--json'], {
+    const result = spawnSync(process.execPath, [binPath, 'collection', 'list'], {
       cwd: process.cwd(),
       env: {
         ...process.env,
@@ -55,6 +55,6 @@ describe('bin smoke test', () => {
     });
 
     expect(result.status).toBe(17);
-    expect(result.stdout).toContain('fixture argv: ["status","--json"]');
+    expect(result.stdout).toContain('fixture argv: ["collection","list"]');
   });
 });

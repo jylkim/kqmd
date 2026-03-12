@@ -1,4 +1,4 @@
-import type { CommandExecutionResult } from '../../../types/command.js';
+import type { CommandExecutionResult, OwnedCommand } from '../../../types/command.js';
 import type { OwnedRuntimeFailure } from '../runtime.js';
 import type { OwnedCommandError, ParseResult } from './types.js';
 
@@ -16,6 +16,10 @@ export function runtimeError(stderr: string): OwnedCommandError {
 
 export function executionError(stderr: string): OwnedCommandError {
   return { kind: 'execution', stderr, exitCode: 1 };
+}
+
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export function isOwnedCommandError(value: unknown): value is OwnedCommandError {
@@ -76,6 +80,18 @@ export function fromRuntimeFailure(failure: OwnedRuntimeFailure): OwnedCommandEr
           .join('\n'),
       );
   }
+}
+
+export function fromExecutionFailure(
+  command: OwnedCommand,
+  error: unknown,
+  extraLines: string[] = [],
+): OwnedCommandError {
+  return executionError(
+    [`The \`${command}\` command failed.`, `Cause: ${toErrorMessage(error)}`, ...extraLines].join(
+      '\n',
+    ),
+  );
 }
 
 export function toExecutionResult(

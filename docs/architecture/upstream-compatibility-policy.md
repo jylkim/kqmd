@@ -11,6 +11,7 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 - 현재 passthrough 명령 표면
 - `createStore({ dbPath, configPath? })` 기반 owned runtime bootstrap 계약
 - `search/query/update/embed`의 parse/validation/output parity baseline
+- `QMD_EMBED_MODEL` override precedence와 K-QMD default embed bootstrap
 
 ## 아직 하지 않는 것
 
@@ -29,20 +30,26 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
   "기존 DB가 실제로 있을 때만 reopen" 규칙을 추가한다
 - `search/query`는 config-file mode보다 기존 DB reopen을 우선해 read path metadata sync side effect를 줄인다
 - upstream private CLI 경로(`@tobilu/qmd/dist/cli/*`)는 직접 import하지 않고 local adapter로 semantics를 반영한다
+- default embedding model은 upstream `llm.js` override example과 같은
+  `hf:Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf`를 사용하되,
+  explicit `QMD_EMBED_MODEL` override가 항상 우선한다
 
 ## delegate 실행 원칙
 
 - passthrough 실행은 `shell: false`인 직접 spawn을 기본으로 둔다
 - 실제 CLI 경로에서는 stdio를 그대로 상속한다
 - 테스트와 로컬 검증을 위해 `KQMD_UPSTREAM_BIN` override를 허용한다
+- passthrough subprocess는 현재 process env를 상속하므로 embed model default bootstrap도 동일하게 전달된다
 
 ## owned runtime 실행 원칙
 
 - owned runtime은 config-file mode와 DB-only mode를 명시적으로 구분한다
 - `search`, `query`는 config가 있더라도 기존 DB가 있으면 DB-only reopen을 우선한다
+- `status`는 `search`, `query`와 같은 read-path reopen policy를 따른다
 - `embed`는 config가 없더라도 기존 DB가 있으면 DB-only reopen을 허용한다
 - `update`는 collection 정의가 필요하므로 config가 없으면 명시적으로 실패한다
 - preflight는 `createStore()` 호출 전에 수행해 빈 DB가 조용히 생성되는 일을 막는다
+- stored vector rows의 `model` 값과 current effective model이 다르면 owned command가 mismatch health와 recovery guidance를 제공한다
 
 ## owned command parity 실행 원칙
 

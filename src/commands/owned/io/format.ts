@@ -8,12 +8,19 @@ import {
 } from '@tobilu/qmd';
 
 import type { CommandExecutionResult } from '../../../types/command.js';
+import {
+  hasEmbeddingMismatch,
+  preferredEmbedCommand,
+  summarizeStoredEmbeddingModels,
+} from '../embedding_health.js';
 import type {
   EmbedCommandInput,
   QueryCommandInput,
   SearchCommandInput,
   SearchOutputFormat,
   SearchOutputRow,
+  StatusCommandInput,
+  StatusCommandOutput,
   UpdateCommandInput,
 } from './types.js';
 
@@ -349,15 +356,20 @@ export function formatSearchExecutionResult(
 export function formatUpdateExecutionResult(
   result: UpdateResult,
   _input: UpdateCommandInput,
+  followUp?: string,
 ): CommandExecutionResult {
+  const nextStep =
+    followUp ??
+    (result.needsEmbedding > 0
+      ? `Run 'qmd embed' to update embeddings (${result.needsEmbedding} unique hashes need vectors).`
+      : undefined);
+
   return {
     exitCode: 0,
     stdout: [
       `Updated ${result.collections} collection(s).`,
       `Indexed: ${result.indexed} new, ${result.updated} updated, ${result.unchanged} unchanged, ${result.removed} removed.`,
-      result.needsEmbedding > 0
-        ? `Run 'qmd embed' to update embeddings (${result.needsEmbedding} unique hashes need vectors).`
-        : undefined,
+      nextStep,
     ]
       .filter(Boolean)
       .join('\n'),
@@ -375,5 +387,56 @@ export function formatEmbedExecutionResult(
       `Errors: ${result.errors}`,
       `DurationMs: ${result.durationMs}`,
     ].join('\n'),
+  };
+}
+
+export function formatStatusExecutionResult(
+  result: StatusCommandOutput,
+  _input: StatusCommandInput,
+): CommandExecutionResult {
+  const colors = getColorPalette();
+  const healthLabel = result.health.kind.replaceAll('-', ' ');
+  const nextStep = hasEmbeddingMismatch(result.health)
+    ? `Run '${preferredEmbedCommand(result.health)}' to rebuild embeddings for the current model.`
+    : result.health.kind === 'needs-embedding'
+      ? `Run '${preferredEmbedCommand(result.health)}' to create missing embeddings.`
+      : undefined;
+
+  const collectionLines =
+    result.status.collections.length > 0
+      ? [
+          '',
+          `${colors.bold}Collections${colors.reset}`,
+          ...result.status.collections.flatMap((collection) => [
+            `  ${collection.name} (${collection.documents} files)`,
+            collection.path ? `    Path: ${collection.path}` : undefined,
+            collection.pattern ? `    Pattern: ${collection.pattern}` : undefined,
+          ]),
+        ]
+      : ['', `${colors.dim}No collections.${colors.reset}`];
+
+  return {
+    exitCode: 0,
+    stdout: [
+      `${colors.bold}QMD Status${colors.reset}`,
+      '',
+      `Index: ${result.dbPath}`,
+      '',
+      `${colors.bold}Documents${colors.reset}`,
+      `  Total:      ${result.status.totalDocuments} files indexed`,
+      `  VectorIndex: ${result.status.hasVectorIndex ? 'yes' : 'no'}`,
+      `  Missing:    ${result.health.missingDocuments}`,
+      `  Mismatch:   ${result.health.mismatchedDocuments}`,
+      '',
+      `${colors.bold}Embedding Model${colors.reset}`,
+      `  Effective:  ${result.effectiveModel.uri}`,
+      `  Source:     ${result.effectiveModel.source}`,
+      `  Health:     ${healthLabel}`,
+      `  Stored:     ${summarizeStoredEmbeddingModels(result.health)}`,
+      nextStep ? `  Next:       ${nextStep}` : undefined,
+      ...collectionLines,
+    ]
+      .filter((line): line is string => line !== undefined)
+      .join('\n'),
   };
 }

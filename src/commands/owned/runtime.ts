@@ -101,6 +101,7 @@ export function resolveOwnedRuntimePlan(
   switch (command) {
     case 'search':
     case 'query':
+    case 'status':
       if (dbExists) {
         return { kind: 'db-only', command, indexName, dbPath };
       }

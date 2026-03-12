@@ -41,7 +41,7 @@ describe('passthrough contract', () => {
       });
     });
 
-    const result = await delegatePassthrough(['status'], {
+    const result = await delegatePassthrough(['collection', 'list'], {
       spawnImpl: spawnImpl as never,
       upstreamBinary: {
         path: '/tmp/upstream-qmd',
@@ -54,7 +54,7 @@ describe('passthrough contract', () => {
       exitCode: 17,
       signal: null,
     });
-    expect(spawnImpl).toHaveBeenCalledWith('/tmp/upstream-qmd', ['status'], {
+    expect(spawnImpl).toHaveBeenCalledWith('/tmp/upstream-qmd', ['collection', 'list'], {
       cwd: process.cwd(),
       env: process.env,
       shell: false,
