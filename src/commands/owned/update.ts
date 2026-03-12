@@ -13,6 +13,7 @@ import {
 import { formatUpdateExecutionResult } from './io/format.js';
 import { parseOwnedUpdateInput } from './io/parse.js';
 import type { OwnedCommandError, UpdateCommandInput } from './io/types.js';
+import { ensureKiwiReady } from './kiwi_tokenizer.js';
 import type {
   OwnedRuntimeDependencies,
   OwnedRuntimeFailure,
@@ -60,6 +61,7 @@ async function runUpdateCommand(
     'update',
     context,
     async (session) => {
+      await ensureKiwiReady(searchIndexDependencies?.kiwiDependencies);
       const result = await executeUpdate(session, input);
       const searchHealth = readSearchIndexHealth(session.store.internal.db, searchPolicy);
       const searchChanged = result.indexed > 0 || result.updated > 0 || result.removed > 0;

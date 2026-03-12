@@ -210,6 +210,19 @@ export async function rebuildSearchShadowIndex(
       buildShadowProjectionText(text, kiwiDependencies));
   const kiwiDependencies = dependencies.kiwiDependencies;
   const rows = listActiveDocuments(db);
+  const projections = await Promise.all(
+    rows.map(async (row) => ({
+      rowId: row.id,
+      projection: await buildShadowProjection(
+        row.collection,
+        row.path,
+        row.title,
+        row.body,
+        tokenize,
+        kiwiDependencies,
+      ),
+    })),
+  );
 
   beginTransaction(db);
   try {
@@ -227,17 +240,8 @@ export async function rebuildSearchShadowIndex(
       ].join('\n'),
     );
 
-    for (const row of rows) {
-      const projection = await buildShadowProjection(
-        row.collection,
-        row.path,
-        row.title,
-        row.body,
-        tokenize,
-        kiwiDependencies,
-      );
-
-      insert.run(row.id, projection.filepath, projection.title, projection.body);
+    for (const { rowId, projection } of projections) {
+      insert.run(rowId, projection.filepath, projection.title, projection.body);
     }
 
     upsertPolicy.run(KQMD_SEARCH_POLICY_METADATA_KEY, policy.id);

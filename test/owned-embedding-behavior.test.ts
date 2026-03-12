@@ -1,6 +1,7 @@
 import type { EmbedResult, QMDStore, UpdateResult } from '@tobilu/qmd';
 import { describe, expect, test, vi } from 'vitest';
 import { handleEmbedCommand } from '../src/commands/owned/embed.js';
+import { resetKiwiForTests } from '../src/commands/owned/kiwi_tokenizer.js';
 import { handleQueryCommand } from '../src/commands/owned/query.js';
 import type { OwnedRuntimeDependencies } from '../src/commands/owned/runtime.js';
 import { handleUpdateCommand } from '../src/commands/owned/update.js';
@@ -303,9 +304,87 @@ describe('owned embedding-aware behavior', () => {
           ],
         },
       ),
+      searchIndexDependencies: {
+        kiwiDependencies: {
+          loadModelFiles: async () => ({}),
+          createBuilder: (async () => ({
+            build: async () =>
+              ({
+                ready: () => true,
+                isTypoTolerant: () => false,
+                analyze: () => ({ tokens: [], score: 0 }),
+                analyzeTopN: () => [],
+                tokenize: () => [],
+                tokenizeTopN: () => [],
+                splitIntoSents: () => ({ spans: [], tokenResult: null }),
+                joinSent: () => ({ str: '', ranges: null }),
+                getCutOffThreshold: () => 0,
+                setCutOffThreshold: () => {},
+                getUnkScoreBias: () => 0,
+                setUnkScoreBias: () => {},
+                getUnkScoreScale: () => 0,
+                setUnkScoreScale: () => {},
+                getMaxUnkFormSize: () => 0,
+                setMaxUnkFormSize: () => {},
+                getSpaceTolerance: () => 0,
+                setSpaceTolerance: () => {},
+                getSpacePenalty: () => 0,
+                setSpacePenalty: () => {},
+                getTypoCostWeight: () => 0,
+                setTypoCostWeight: () => {},
+                getIntegrateAllomorphic: () => true,
+                setIntegrateAllomorphic: () => {},
+                createMorphemeSet: () => 0,
+                destroyMorphemeSet: () => {},
+              }) as never,
+          })) as never,
+        },
+      },
     });
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("Run 'qmd embed --force'");
+  });
+
+  test('update fails before store.update when Kiwi bootstrap preflight fails', async () => {
+    resetKiwiForTests();
+
+    const update = vi.fn(
+      async (): Promise<UpdateResult> => ({
+        collections: 1,
+        indexed: 0,
+        updated: 1,
+        unchanged: 0,
+        removed: 0,
+        needsEmbedding: 0,
+      }),
+    );
+
+    const result = await handleUpdateCommand(createContext(['update']), {
+      runtimeDependencies: createRuntimeDependencies(
+        createMismatchStore({
+          update,
+        }),
+        {
+          existingPaths: [
+            '/home/tester/.cache/qmd/index.sqlite',
+            '/home/tester/.config/qmd/index.yml',
+          ],
+        },
+      ),
+      searchIndexDependencies: {
+        kiwiDependencies: {
+          createBuilder: vi.fn(async () => {
+            throw new Error('kiwi bootstrap failed');
+          }),
+        },
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('kiwi bootstrap failed');
+    expect(update).not.toHaveBeenCalled();
+
+    resetKiwiForTests();
   });
 });
