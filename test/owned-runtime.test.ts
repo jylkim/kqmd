@@ -103,6 +103,19 @@ describe('owned runtime', () => {
     });
   });
 
+  test('allows status to open in a zero-config environment', () => {
+    const dependencies = createDependencies();
+
+    const plan = resolveOwnedRuntimePlan('status', createContext('work'), dependencies);
+
+    expect(plan).toEqual({
+      kind: 'db-only',
+      command: 'status',
+      indexName: 'work',
+      dbPath: '/home/tester/.cache/qmd/work.sqlite',
+    });
+  });
+
   test('returns config-missing for search when config and db are both absent', () => {
     const dependencies = createDependencies();
 

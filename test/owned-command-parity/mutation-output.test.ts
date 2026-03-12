@@ -21,12 +21,14 @@ describe('owned mutation parity output', () => {
   test('matches update success output snapshot', async () => {
     const result = await handleUpdateCommand(createContext(['update']), {
       run: async () => ({
-        collections: 2,
-        indexed: 3,
-        updated: 4,
-        unchanged: 5,
-        removed: 1,
-        needsEmbedding: 6,
+        result: {
+          collections: 2,
+          indexed: 3,
+          updated: 4,
+          unchanged: 5,
+          removed: 1,
+          needsEmbedding: 6,
+        },
       }),
     });
 

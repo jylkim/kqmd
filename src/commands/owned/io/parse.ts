@@ -93,14 +93,6 @@ function resolveQuery(positionals: string[]): string {
   return positionals.slice(1).join(' ');
 }
 
-function hasTruthyValue(value: string | boolean | string[] | undefined): boolean {
-  if (Array.isArray(value)) {
-    return value.length > 0;
-  }
-
-  return value !== undefined && value !== false;
-}
-
 export function parseOwnedSearchInput(
   context: CommandExecutionContext,
 ): ParseResult<SearchCommandInput> {
@@ -220,20 +212,10 @@ export function parseOwnedEmbedInput(
 export function parseOwnedStatusInput(
   context: CommandExecutionContext,
 ): ParseResult<StatusCommandInput> {
-  const { values, positionals } = parseOwnedArgs(context.argv);
+  const { positionals } = parseOwnedArgs(context.argv);
 
   if (positionals.length > 1) {
     return usageError('Usage: qmd status');
-  }
-
-  for (const [key, value] of Object.entries(values)) {
-    if (key === 'index') {
-      continue;
-    }
-
-    if (hasTruthyValue(value)) {
-      return validationError('The `status` command does not accept command-specific flags.');
-    }
   }
 
   return {

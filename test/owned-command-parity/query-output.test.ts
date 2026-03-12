@@ -58,7 +58,7 @@ describe('owned query parity output', () => {
     const result = await handleQueryCommand(
       createContext(['query', '--json', '--full', 'lex: auth flow\nvec: login journey']),
       {
-        run: async () => queryRows,
+        run: async () => ({ rows: queryRows }),
       },
     );
 
@@ -69,7 +69,7 @@ describe('owned query parity output', () => {
 
   test('matches empty xml output snapshot', async () => {
     const result = await handleQueryCommand(createContext(['query', '--xml', 'auth flow']), {
-      run: async () => [],
+      run: async () => ({ rows: [] }),
     });
 
     await expect(withTrailingNewline(result.stdout)).toMatchFileSnapshot(
@@ -83,7 +83,7 @@ describe('owned query parity output', () => {
 
     try {
       const result = await handleQueryCommand(createContext(['query', '--explain', 'auth flow']), {
-        run: async () => queryRows,
+        run: async () => ({ rows: queryRows }),
       });
 
       await expect(withTrailingNewline(result.stdout)).toMatchFileSnapshot(

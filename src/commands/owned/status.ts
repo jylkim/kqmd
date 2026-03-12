@@ -1,4 +1,5 @@
 import { describeEffectiveEmbedModel } from '../../config/embedding_policy.js';
+import type { CommandExecutionContext, CommandExecutionResult } from '../../types/command.js';
 import { readEmbeddingHealth } from './embedding_health.js';
 import {
   fromExecutionFailure,
@@ -15,11 +16,7 @@ import { withOwnedStore } from './runtime.js';
 
 export interface StatusCommandDependencies {
   readonly run?: (
-    context: {
-      readonly argv: string[];
-      readonly commandArgs: string[];
-      readonly indexName?: string;
-    },
+    context: CommandExecutionContext,
     input: StatusCommandInput,
     runtimeDependencies?: OwnedRuntimeDependencies,
   ) => Promise<StatusCommandOutput | OwnedCommandError | OwnedRuntimeFailure>;
@@ -27,7 +24,7 @@ export interface StatusCommandDependencies {
 }
 
 async function runStatusCommand(
-  context: { readonly argv: string[]; readonly commandArgs: string[]; readonly indexName?: string },
+  context: CommandExecutionContext,
   _input: StatusCommandInput,
   runtimeDependencies?: OwnedRuntimeDependencies,
 ): Promise<StatusCommandOutput | OwnedCommandError | OwnedRuntimeFailure> {
@@ -38,7 +35,9 @@ async function runStatusCommand(
     context,
     async (session) => {
       const status = await session.store.getStatus();
-      const health = await readEmbeddingHealth(session.store, effectiveModel.uri);
+      const health = await readEmbeddingHealth(session.store, effectiveModel.uri, {
+        status,
+      });
 
       return {
         dbPath: session.dbPath,
@@ -52,9 +51,9 @@ async function runStatusCommand(
 }
 
 export async function handleStatusCommand(
-  context: { readonly argv: string[]; readonly commandArgs: string[]; readonly indexName?: string },
+  context: CommandExecutionContext,
   dependencies: StatusCommandDependencies = {},
-) {
+): Promise<CommandExecutionResult> {
   const parsed = parseOwnedStatusInput(context);
   if (parsed.kind !== 'ok') {
     return toExecutionResult(parsed);

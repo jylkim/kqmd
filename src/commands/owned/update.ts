@@ -28,18 +28,10 @@ export interface UpdateCommandDependencies {
   readonly runtimeDependencies?: OwnedRuntimeDependencies;
 }
 
-type UpdateCommandSuccess =
-  | UpdateResult
-  | {
-      readonly result: UpdateResult;
-      readonly followUp?: string;
-    };
-
-function isUpdateCommandSuccess(
-  value: UpdateCommandSuccess,
-): value is { readonly result: UpdateResult; readonly followUp?: string } {
-  return typeof value === 'object' && value !== null && 'result' in value;
-}
+type UpdateCommandSuccess = {
+  readonly result: UpdateResult;
+  readonly followUp?: string;
+};
 
 async function executeUpdate(
   session: OwnedStoreContext,
@@ -97,8 +89,7 @@ export async function handleUpdateCommand(
       return toExecutionResult(result);
     }
 
-    const success = isUpdateCommandSuccess(result) ? result : { result };
-    return formatUpdateExecutionResult(success.result, parsed.input, success.followUp);
+    return formatUpdateExecutionResult(result.result, parsed.input, result.followUp);
   } catch (error) {
     return toExecutionResult(fromExecutionFailure('update', error));
   }

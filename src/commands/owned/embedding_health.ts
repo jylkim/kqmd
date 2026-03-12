@@ -20,7 +20,7 @@ export type EmbeddingHealth =
 
 interface MinimalDatabase {
   prepare(sql: string): {
-    all: (...params: unknown[]) => unknown[];
+    all: (...params: (string | number)[]) => unknown[];
   };
 }
 
@@ -30,18 +30,27 @@ type StoreLike = Pick<QMDStore, 'getStatus'> & {
   };
 };
 
-export function readStoredEmbeddingModels(db: MinimalDatabase): StoredEmbeddingModel[] {
+export function readStoredEmbeddingModels(
+  db: MinimalDatabase,
+  collections?: readonly string[],
+): StoredEmbeddingModel[] {
+  const filters = collections && collections.length > 0 ? collections : undefined;
+  const placeholders = filters?.map(() => '?').join(', ');
+  const sql = [
+    'SELECT cv.model as model, COUNT(DISTINCT d.hash) AS documents',
+    'FROM documents d',
+    'JOIN content_vectors cv ON cv.hash = d.hash AND cv.seq = 0',
+    'WHERE d.active = 1',
+    filters ? `AND d.collection IN (${placeholders})` : undefined,
+    'GROUP BY cv.model',
+    'ORDER BY documents DESC, cv.model ASC',
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join('\n');
+
   return db
-    .prepare(
-      `
-        SELECT model, COUNT(DISTINCT hash) AS documents
-        FROM content_vectors
-        WHERE seq = 0
-        GROUP BY model
-        ORDER BY documents DESC, model ASC
-      `,
-    )
-    .all()
+    .prepare(sql)
+    .all(...(filters ?? []))
     .map((row) => row as { model: string; documents: number });
 }
 
@@ -101,9 +110,13 @@ export function classifyEmbeddingHealth(
 export async function readEmbeddingHealth(
   store: StoreLike,
   expectedModel: string,
+  options: {
+    readonly status?: Pick<IndexStatus, 'totalDocuments' | 'needsEmbedding'>;
+    readonly collections?: readonly string[];
+  } = {},
 ): Promise<EmbeddingHealth> {
-  const status = await store.getStatus();
-  const storedModels = readStoredEmbeddingModels(store.internal.db);
+  const status = options.status ?? (await store.getStatus());
+  const storedModels = readStoredEmbeddingModels(store.internal.db, options.collections);
   return classifyEmbeddingHealth(status, expectedModel, storedModels);
 }
 

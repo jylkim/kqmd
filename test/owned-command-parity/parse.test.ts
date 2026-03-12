@@ -111,9 +111,8 @@ describe('owned command parity parse', () => {
     const result = parseOwnedStatusInput(createContext(['status', '--json']));
 
     expect(result).toEqual({
-      kind: 'validation',
-      stderr: 'The `status` command does not accept command-specific flags.',
-      exitCode: 1,
+      kind: 'ok',
+      input: {},
     });
   });
 });

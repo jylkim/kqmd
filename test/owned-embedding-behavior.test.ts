@@ -92,6 +92,67 @@ function createMismatchStore(overrides: Partial<QMDStore> = {}): QMDStore {
   } as unknown as QMDStore;
 }
 
+function createCollectionAwareStore(): QMDStore {
+  return {
+    close: vi.fn(async () => {}),
+    dbPath: '/home/tester/.cache/qmd/index.sqlite',
+    listCollections: vi.fn(async () => [
+      {
+        name: 'docs',
+        pwd: '/repo/docs',
+        glob_pattern: '**/*.md',
+        doc_count: 1,
+        active_count: 1,
+        last_modified: '2026-03-12T00:00:00.000Z',
+        includeByDefault: true,
+      },
+      {
+        name: 'notes',
+        pwd: '/repo/notes',
+        glob_pattern: '**/*.md',
+        doc_count: 1,
+        active_count: 1,
+        last_modified: '2026-03-12T00:00:00.000Z',
+        includeByDefault: false,
+      },
+    ]),
+    getDefaultCollectionNames: vi.fn(async () => ['docs']),
+    search: vi.fn(async () => [
+      {
+        file: 'qmd://docs/a.md',
+        displayPath: 'docs/a.md',
+        title: 'A',
+        body: 'auth flow summary',
+        bestChunk: 'auth flow summary',
+        bestChunkPos: 0,
+        score: 0.88,
+        context: null,
+        docid: 'abc123',
+      },
+    ]),
+    getStatus: vi.fn(async () => ({
+      totalDocuments: 2,
+      needsEmbedding: 0,
+      hasVectorIndex: true,
+      collections: [],
+    })),
+    internal: {
+      db: {
+        prepare: vi.fn(() => ({
+          all: vi.fn((...params: (string | number)[]) =>
+            params.includes('docs')
+              ? [{ model: KQMD_DEFAULT_EMBED_MODEL_URI, documents: 1 }]
+              : [
+                  { model: KQMD_DEFAULT_EMBED_MODEL_URI, documents: 1 },
+                  { model: 'embeddinggemma', documents: 1 },
+                ],
+          ),
+        })),
+      },
+    },
+  } as unknown as QMDStore;
+}
+
 describe('owned embedding-aware behavior', () => {
   test('query warns on mismatch via stderr while preserving stdout', async () => {
     const result = await handleQueryCommand(createContext(['query', 'auth flow']), {
@@ -102,6 +163,15 @@ describe('owned embedding-aware behavior', () => {
     expect(result.stdout).toContain('docs/a.md');
     expect(result.stderr).toContain('Embedding model mismatch detected.');
     expect(result.stderr).toContain("Run 'qmd embed --force'");
+  });
+
+  test('query does not warn for unrelated collection mismatches', async () => {
+    const result = await handleQueryCommand(createContext(['query', '-c', 'docs', 'auth flow']), {
+      runtimeDependencies: createRuntimeDependencies(createCollectionAwareStore()),
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBeUndefined();
   });
 
   test('embed blocks mismatch without force', async () => {

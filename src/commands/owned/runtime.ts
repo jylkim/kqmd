@@ -99,9 +99,19 @@ export function resolveOwnedRuntimePlan(
   const dbExists = hasPath(dbPath);
 
   switch (command) {
+    case 'status':
+      if (dbExists) {
+        return { kind: 'db-only', command, indexName, dbPath };
+      }
+
+      if (configExists) {
+        return { kind: 'config-file', command, indexName, dbPath, configPath };
+      }
+
+      return { kind: 'db-only', command, indexName, dbPath };
+
     case 'search':
     case 'query':
-    case 'status':
       if (dbExists) {
         return { kind: 'db-only', command, indexName, dbPath };
       }

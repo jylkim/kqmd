@@ -18,14 +18,17 @@ function withTrailingNewline(stdout: string | undefined): string {
   return stdout ? `${stdout}\n` : '';
 }
 
-function createRuntimeDependencies(store: QMDStore): OwnedRuntimeDependencies {
-  const existingPaths = new Set(['/home/tester/.cache/qmd/index.sqlite']);
+function createRuntimeDependencies(
+  store: QMDStore,
+  existingPaths: string[] = ['/home/tester/.cache/qmd/index.sqlite'],
+): OwnedRuntimeDependencies {
+  const paths = new Set(existingPaths);
 
   return {
     env: {
       HOME: '/home/tester',
     },
-    existsSync: (path) => existingPaths.has(path),
+    existsSync: (path) => paths.has(path),
     createStore: vi.fn(async () => store),
   };
 }
@@ -81,15 +84,21 @@ describe('owned status command', () => {
     }
   });
 
-  test('rejects command-specific flags', async () => {
+  test('keeps command-specific flags as upstream-compatible no-ops', async () => {
     const result = await handleStatusCommand(createContext(['status', '--json']), {
       runtimeDependencies: createRuntimeDependencies(createFakeStatusStore()),
     });
 
-    expect(result).toEqual({
-      exitCode: 1,
-      stderr: 'The `status` command does not accept command-specific flags.',
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBeUndefined();
+  });
+
+  test('works in a zero-config environment', async () => {
+    const result = await handleStatusCommand(createContext(['status']), {
+      runtimeDependencies: createRuntimeDependencies(createFakeStatusStore(), []),
     });
+
+    expect(result.exitCode).toBe(0);
   });
 
   test('uses the default effective model when rendering status', async () => {
