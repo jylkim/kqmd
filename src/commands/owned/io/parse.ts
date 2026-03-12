@@ -2,7 +2,7 @@ import { parseArgs } from 'node:util';
 
 import { CLI_OPTIONS } from '../../../cli_options.js';
 import type { CommandExecutionContext } from '../../../types/command.js';
-import { isOwnedCommandError, usageError } from './errors.js';
+import { isOwnedCommandError, usageError, validationError } from './errors.js';
 import type {
   EmbedCommandInput,
   ParseResult,
@@ -137,6 +137,12 @@ export function parseOwnedQueryInput(
 
   const parsedIntent = typeof values.intent === 'string' ? values.intent : undefined;
   const queryDocument = structuredQuery && 'searches' in structuredQuery ? structuredQuery : null;
+  const candidateLimit = resolveCandidateLimit(values);
+
+  if (candidateLimit !== undefined) {
+    return validationError('The `query` command does not yet support --candidate-limit.');
+  }
+
   const displayQuery = queryDocument
     ? (queryDocument.searches.find((search) => search.type === 'lex')?.query ??
       queryDocument.searches.find((search) => search.type === 'vec')?.query ??
@@ -155,7 +161,7 @@ export function parseOwnedQueryInput(
       lineNumbers: Boolean(values['line-numbers']),
       collections: resolveCollections(values),
       explain: Boolean(values.explain),
-      candidateLimit: resolveCandidateLimit(values),
+      candidateLimit,
       intent: parsedIntent ?? queryDocument?.intent,
       queryMode: queryDocument ? 'structured' : 'plain',
       queries: queryDocument?.searches,
@@ -171,6 +177,10 @@ export function parseOwnedUpdateInput(
 
   if (positionals.length > 1) {
     return usageError('Usage: qmd update [--pull]');
+  }
+
+  if (values.pull) {
+    return validationError('The `update` command does not yet support --pull.');
   }
 
   return {

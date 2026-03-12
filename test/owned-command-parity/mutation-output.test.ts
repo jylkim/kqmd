@@ -19,7 +19,7 @@ function withTrailingNewline(stdout: string | undefined): string {
 
 describe('owned mutation parity output', () => {
   test('matches update success output snapshot', async () => {
-    const result = await handleUpdateCommand(createContext(['update', '--pull']), {
+    const result = await handleUpdateCommand(createContext(['update']), {
       run: async () => ({
         collections: 2,
         indexed: 3,
@@ -54,5 +54,14 @@ describe('owned mutation parity output', () => {
         'test/fixtures/owned-command-parity/mutations/embed-success.output.txt',
       ),
     );
+  });
+
+  test('rejects unsupported update pull flag', async () => {
+    const result = await handleUpdateCommand(createContext(['update', '--pull']));
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stderr: 'The `update` command does not yet support --pull.',
+    });
   });
 });

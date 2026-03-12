@@ -303,9 +303,37 @@ export function formatSearchExecutionResult(
             row.title ? `${colors.bold}Title: ${row.title}${colors.reset}` : undefined,
             row.context ? `${colors.dim}Context: ${row.context}${colors.reset}` : undefined,
             `Score: ${colors.bold}${formatScore(row.score)}${colors.reset}`,
-            'explain' in input && input.explain && row.explain
-              ? `${colors.dim}Explain: fts=[${row.explain.ftsScores.map(formatExplainNumber).join(', ') || 'none'}] vec=[${row.explain.vectorScores.map(formatExplainNumber).join(', ') || 'none'}]${colors.reset}`
-              : undefined,
+            ...('explain' in input && input.explain && row.explain
+              ? (() => {
+                  const explain = row.explain;
+                  const ftsScores =
+                    explain.ftsScores.length > 0
+                      ? explain.ftsScores.map(formatExplainNumber).join(', ')
+                      : 'none';
+                  const vecScores =
+                    explain.vectorScores.length > 0
+                      ? explain.vectorScores.map(formatExplainNumber).join(', ')
+                      : 'none';
+                  const contributionSummary = explain.rrf.contributions
+                    .slice()
+                    .sort((left, right) => right.rrfContribution - left.rrfContribution)
+                    .slice(0, 3)
+                    .map(
+                      (contribution) =>
+                        `${contribution.source}/${contribution.queryType}#${contribution.rank}:${formatExplainNumber(contribution.rrfContribution)}`,
+                    )
+                    .join(' | ');
+
+                  return [
+                    `${colors.dim}Explain: fts=[${ftsScores}] vec=[${vecScores}]${colors.reset}`,
+                    `${colors.dim}  RRF: total=${formatExplainNumber(explain.rrf.totalScore)} base=${formatExplainNumber(explain.rrf.baseScore)} bonus=${formatExplainNumber(explain.rrf.topRankBonus)} rank=${explain.rrf.rank}${colors.reset}`,
+                    `${colors.dim}  Blend: ${Math.round(explain.rrf.weight * 100)}%*${formatExplainNumber(explain.rrf.positionScore)} + ${Math.round((1 - explain.rrf.weight) * 100)}%*${formatExplainNumber(explain.rerankScore)} = ${formatExplainNumber(explain.blendedScore)}${colors.reset}`,
+                    contributionSummary.length > 0
+                      ? `${colors.dim}  Top RRF contributions: ${contributionSummary}${colors.reset}`
+                      : undefined,
+                  ].filter((line): line is string => Boolean(line));
+                })()
+              : []),
             snippet.content ?? '',
           ].filter(Boolean);
 
@@ -320,7 +348,7 @@ export function formatSearchExecutionResult(
 
 export function formatUpdateExecutionResult(
   result: UpdateResult,
-  input: UpdateCommandInput,
+  _input: UpdateCommandInput,
 ): CommandExecutionResult {
   return {
     exitCode: 0,
@@ -330,7 +358,6 @@ export function formatUpdateExecutionResult(
       result.needsEmbedding > 0
         ? `Run 'qmd embed' to update embeddings (${result.needsEmbedding} unique hashes need vectors).`
         : undefined,
-      input.pull ? 'Pre-update pull requested.' : undefined,
     ]
       .filter(Boolean)
       .join('\n'),

@@ -63,12 +63,34 @@ describe('owned command parity parse', () => {
     });
   });
 
+  test('query rejects unsupported candidate-limit instead of silently ignoring it', () => {
+    const result = parseOwnedQueryInput(
+      createContext(['query', '--candidate-limit', '10', 'auth']),
+    );
+
+    expect(result).toEqual({
+      kind: 'validation',
+      stderr: 'The `query` command does not yet support --candidate-limit.',
+      exitCode: 1,
+    });
+  });
+
   test('update rejects unexpected positional arguments', () => {
     const result = parseOwnedUpdateInput(createContext(['update', 'extra']));
 
     expect(result).toEqual({
       kind: 'usage',
       stderr: 'Usage: qmd update [--pull]',
+      exitCode: 1,
+    });
+  });
+
+  test('update rejects unsupported pull flag instead of pretending it ran', () => {
+    const result = parseOwnedUpdateInput(createContext(['update', '--pull']));
+
+    expect(result).toEqual({
+      kind: 'validation',
+      stderr: 'The `update` command does not yet support --pull.',
       exitCode: 1,
     });
   });
