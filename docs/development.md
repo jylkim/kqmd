@@ -109,7 +109,7 @@ same-DB shadow FTS rebuild/query, 그리고 stale policy warning + legacy fallba
 ```bash
 bun pm pack --dry-run
 
-TARBALL=$(bun pm pack --quiet)
+TARBALL=$(bun pm pack --quiet | tail -n 1)
 tar -tf "$TARBALL" | rg '^(package/(bin|dist)/|package/README.md|package/LICENSE)'
 ```
 
