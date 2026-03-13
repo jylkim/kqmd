@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
@@ -55,6 +55,7 @@ export interface KiwiTokenizerDependencies {
   readonly expectedHashes?: Partial<Record<KiwiModelFile, string>>;
   readonly loadModelFiles?: () => Promise<Record<string, Uint8Array>>;
   readonly fetch?: typeof fetch;
+  readonly lstat?: typeof lstat;
   readonly mkdir?: typeof mkdir;
   readonly readFile?: typeof readFile;
   readonly rename?: typeof rename;
@@ -102,6 +103,24 @@ function isExpectedModelFile(
   return hashFileContents(data) === getExpectedModelHash(file, dependencies);
 }
 
+async function assertPathIsNotSymlink(
+  filePath: string,
+  lstatImpl: typeof lstat = lstat,
+): Promise<void> {
+  try {
+    const stats = await lstatImpl(filePath);
+    if (stats.isSymbolicLink()) {
+      throw new Error('Kiwi model path must not be a symlink.');
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return;
+    }
+
+    throw error;
+  }
+}
+
 async function downloadModelFile(
   file: KiwiModelFile,
   filePath: string,
@@ -141,17 +160,20 @@ async function ensureModelFiles(
   }
 
   const env = dependencies.env ?? process.env;
+  const lstatImpl = dependencies.lstat ?? lstat;
   const mkdirImpl = dependencies.mkdir ?? mkdir;
   const readFileImpl = dependencies.readFile ?? readFile;
   const statImpl = dependencies.stat ?? stat;
   const modelDir = join(getModelCacheDir(env), 'kiwi-nlp', KQMD_KIWI_PACKAGE_VERSION, 'cong');
 
   await mkdirImpl(modelDir, { recursive: true });
+  await assertPathIsNotSymlink(modelDir, lstatImpl);
 
   const modelFiles: Record<string, Uint8Array> = {};
 
   for (const file of KQMD_KIWI_MODEL_FILES) {
     const filePath = getModelFilePath(file, env);
+    await assertPathIsNotSymlink(filePath, lstatImpl);
     if (!(await pathExists(filePath, statImpl))) {
       await downloadModelFile(file, filePath, dependencies);
     }

@@ -1,6 +1,8 @@
 import {
   type EffectiveSearchPolicy,
+  KQMD_SEARCH_COLLECTION_SNAPSHOTS_METADATA_KEY,
   KQMD_SEARCH_POLICY_METADATA_KEY,
+  KQMD_SEARCH_SOURCE_SNAPSHOT_METADATA_KEY,
 } from '../../config/search_policy.js';
 
 interface MinimalStatement {
@@ -18,6 +20,14 @@ type SearchIndexHealthBase = {
   readonly indexedDocuments: number;
   readonly missingDocuments: number;
 };
+
+export interface SearchSourceSnapshot {
+  readonly totalDocuments: number;
+  readonly latestModifiedAt?: string;
+  readonly maxDocumentId?: number;
+}
+
+type SearchCollectionSnapshotMap = Record<string, SearchSourceSnapshot>;
 
 export type SearchIndexHealth =
   | (SearchIndexHealthBase & { readonly kind: 'clean' })
@@ -47,6 +57,73 @@ function readStoredPolicyId(db: MinimalDatabase): string | undefined {
   return typeof row?.value === 'string' ? row.value : undefined;
 }
 
+function readStoredSnapshot(db: MinimalDatabase, key: string): SearchSourceSnapshot | undefined {
+  const row = db.prepare(`SELECT value FROM store_config WHERE key = ?`).get(key) as
+    | { value?: string }
+    | undefined;
+
+  if (typeof row?.value !== 'string') {
+    return undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(row.value) as Partial<SearchSourceSnapshot>;
+    if (typeof parsed.totalDocuments !== 'number') {
+      return undefined;
+    }
+
+    return {
+      totalDocuments: parsed.totalDocuments,
+      latestModifiedAt:
+        typeof parsed.latestModifiedAt === 'string' ? parsed.latestModifiedAt : undefined,
+      maxDocumentId: typeof parsed.maxDocumentId === 'number' ? parsed.maxDocumentId : undefined,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function readStoredSourceSnapshot(db: MinimalDatabase): SearchSourceSnapshot | undefined {
+  return readStoredSnapshot(db, KQMD_SEARCH_SOURCE_SNAPSHOT_METADATA_KEY);
+}
+
+function readStoredCollectionSnapshots(
+  db: MinimalDatabase,
+): SearchCollectionSnapshotMap | undefined {
+  const row = db
+    .prepare(`SELECT value FROM store_config WHERE key = ?`)
+    .get(KQMD_SEARCH_COLLECTION_SNAPSHOTS_METADATA_KEY) as { value?: string } | undefined;
+
+  if (typeof row?.value !== 'string') {
+    return undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(row.value) as Record<string, Partial<SearchSourceSnapshot>>;
+    const entries = Object.entries(parsed).filter(
+      ([, value]) => typeof value.totalDocuments === 'number',
+    );
+
+    if (entries.length === 0) {
+      return undefined;
+    }
+
+    return Object.fromEntries(
+      entries.map(([collection, value]) => [
+        collection,
+        {
+          totalDocuments: value.totalDocuments as number,
+          latestModifiedAt:
+            typeof value.latestModifiedAt === 'string' ? value.latestModifiedAt : undefined,
+          maxDocumentId: typeof value.maxDocumentId === 'number' ? value.maxDocumentId : undefined,
+        },
+      ]),
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 function shadowTableExists(db: MinimalDatabase, tableName: string): boolean {
   const row = db
     .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`)
@@ -55,17 +132,82 @@ function shadowTableExists(db: MinimalDatabase, tableName: string): boolean {
   return typeof row?.name === 'string';
 }
 
-function countActiveDocuments(db: MinimalDatabase, collections?: readonly string[]): number {
+export function readCurrentSearchSourceSnapshot(
+  db: MinimalDatabase,
+  collections?: readonly string[],
+): SearchSourceSnapshot {
   const { clause, params } = buildCollectionClause(collections);
   const row = db
     .prepare(
-      ['SELECT COUNT(*) AS count', 'FROM documents d', 'WHERE d.active = 1', clause]
+      [
+        'SELECT',
+        '  COUNT(*) AS count,',
+        '  MAX(d.modified_at) AS latest_modified_at,',
+        '  MAX(d.id) AS max_document_id',
+        'FROM documents d',
+        'WHERE d.active = 1',
+        clause,
+      ]
         .filter((line): line is string => Boolean(line))
         .join('\n'),
     )
-    .get(...params) as { count?: number } | undefined;
+    .get(...params) as
+    | { count?: number; latest_modified_at?: string; max_document_id?: number }
+    | undefined;
 
-  return row?.count ?? 0;
+  return {
+    totalDocuments: row?.count ?? 0,
+    latestModifiedAt: row?.latest_modified_at,
+    maxDocumentId: row?.max_document_id,
+  };
+}
+
+function aggregateStoredCollectionSnapshot(
+  snapshots: SearchCollectionSnapshotMap | undefined,
+  collections?: readonly string[],
+): SearchSourceSnapshot | undefined {
+  if (!snapshots || !collections || collections.length === 0) {
+    return undefined;
+  }
+
+  let totalDocuments = 0;
+  let latestModifiedAt: string | undefined;
+  let maxDocumentId: number | undefined;
+  let matchedCollections = 0;
+
+  for (const collection of new Set(collections)) {
+    const snapshot = snapshots[collection];
+    if (!snapshot) {
+      continue;
+    }
+
+    matchedCollections += 1;
+    totalDocuments += snapshot.totalDocuments;
+
+    if (
+      latestModifiedAt === undefined ||
+      (snapshot.latestModifiedAt && snapshot.latestModifiedAt > latestModifiedAt)
+    ) {
+      latestModifiedAt = snapshot.latestModifiedAt;
+    }
+
+    if (
+      maxDocumentId === undefined ||
+      (snapshot.maxDocumentId !== undefined && snapshot.maxDocumentId > maxDocumentId)
+    ) {
+      maxDocumentId = snapshot.maxDocumentId;
+    }
+  }
+
+  if (matchedCollections === 0) {
+    return undefined;
+  }
+
+  return {
+    totalDocuments,
+    latestModifiedAt,
+    maxDocumentId,
+  };
 }
 
 function countIndexedDocuments(
@@ -94,10 +236,12 @@ function countIndexedDocuments(
 export function classifySearchIndexHealth(
   expectedPolicy: EffectiveSearchPolicy,
   storedPolicyId: string | undefined,
-  totalDocuments: number,
+  currentSnapshot: SearchSourceSnapshot,
   indexedDocuments: number,
   hasShadowTable: boolean,
+  storedSnapshot?: SearchSourceSnapshot,
 ): SearchIndexHealth {
+  const totalDocuments = currentSnapshot.totalDocuments;
   const missingDocuments = Math.max(totalDocuments - indexedDocuments, 0);
 
   if (storedPolicyId && storedPolicyId !== expectedPolicy.id) {
@@ -111,6 +255,12 @@ export function classifySearchIndexHealth(
     };
   }
 
+  const snapshotMatches =
+    storedSnapshot &&
+    storedSnapshot.totalDocuments === currentSnapshot.totalDocuments &&
+    storedSnapshot.latestModifiedAt === currentSnapshot.latestModifiedAt &&
+    storedSnapshot.maxDocumentId === currentSnapshot.maxDocumentId;
+
   if (totalDocuments === 0) {
     return {
       kind: 'clean',
@@ -122,7 +272,7 @@ export function classifySearchIndexHealth(
     };
   }
 
-  if (!hasShadowTable || !storedPolicyId) {
+  if (!hasShadowTable || !storedPolicyId || !storedSnapshot) {
     return {
       kind: 'untracked-index',
       expectedPolicy,
@@ -133,7 +283,7 @@ export function classifySearchIndexHealth(
     };
   }
 
-  if (missingDocuments > 0) {
+  if (missingDocuments > 0 || !snapshotMatches) {
     return {
       kind: 'stale-shadow-index',
       expectedPolicy,
@@ -159,22 +309,29 @@ export function readSearchIndexHealth(
   expectedPolicy: EffectiveSearchPolicy,
   options: {
     readonly collections?: readonly string[];
+    readonly currentSnapshot?: SearchSourceSnapshot;
     readonly shadowTableName?: string;
   } = {},
 ): SearchIndexHealth {
   const shadowTableName = options.shadowTableName ?? expectedPolicy.shadowTable;
   const hasShadowTable = shadowTableExists(db, shadowTableName);
-  const totalDocuments = countActiveDocuments(db, options.collections);
+  const currentSnapshot =
+    options.currentSnapshot ?? readCurrentSearchSourceSnapshot(db, options.collections);
   const indexedDocuments = hasShadowTable
     ? countIndexedDocuments(db, shadowTableName, options.collections)
     : 0;
+  const storedSnapshot =
+    options.collections && options.collections.length > 0
+      ? aggregateStoredCollectionSnapshot(readStoredCollectionSnapshots(db), options.collections)
+      : readStoredSourceSnapshot(db);
 
   return classifySearchIndexHealth(
     expectedPolicy,
     readStoredPolicyId(db),
-    totalDocuments,
+    currentSnapshot,
     indexedDocuments,
     hasShadowTable,
+    storedSnapshot,
   );
 }
 

@@ -42,7 +42,7 @@ bun run check
 - [`src/config/embedding_policy.ts`](../src/config/embedding_policy.ts)
   effective embedding model policy와 bootstrap helper
 - [`src/config/search_policy.ts`](../src/config/search_policy.ts)
-  Korean lexical search policy와 shadow FTS metadata key
+  Korean lexical search policy와 source snapshot metadata key
 - [`src/passthrough/delegate.ts`](../src/passthrough/delegate.ts)
   upstream `qmd` 위임 실행
 - [`src/commands/owned/embedding_health.ts`](../src/commands/owned/embedding_health.ts)
@@ -98,11 +98,78 @@ bun run test -- embedding-policy embedding-health owned-embedding-behavior statu
 ### Korean search policy / shadow index checks
 
 ```bash
-bun run test -- search-policy search-index-health kiwi-tokenizer search-shadow-index owned-search-behavior
+bun run test -- search-policy search-index-health kiwi-tokenizer search-shadow-index owned-search-behavior status-command
 ```
 
 이 suite는 canonical search policy, shadow index health classification, Kiwi token normalization,
-same-DB shadow FTS rebuild/query, 그리고 stale policy warning + legacy fallback UX를 고정한다.
+same-DB shadow FTS rebuild/query, `status` health surface, 그리고 stale policy warning + legacy fallback UX를 고정한다.
+freshness는 stored `source snapshot`과 live document snapshot만으로 계산한다.
+
+### Kiwi search reliability proof
+
+기능 테스트가 green이어도, 실제 런타임 계약은 아래 흐름으로 한 번 더 확인한다.
+
+```bash
+# 1. Reliability-focused suites
+bun run test -- kiwi-tokenizer search-policy search-index-health search-shadow-index owned-search-behavior status-command owned-embedding-behavior owned-command-parity/search-output
+
+# 1b. Record internal proxy metrics
+bun run measure:kiwi-reliability
+
+# 2. Manual CLI proof on a fixture collection
+qmd update
+qmd status
+qmd search "형태소 분석"
+qmd search '"형태소 분석"'
+```
+
+`measure:kiwi-reliability`는 synthetic fixture에서 `store.update()`, `rebuildSearchShadowIndex()`,
+`readSearchIndexHealth()`, `searchShadowIndex()`, `store.searchLex()`, 그리고 `BEGIN IMMEDIATE`
+contention probe를 재는 internal harness다. end-to-end `qmd update` / `qmd status` /
+`qmd search` command latency benchmark는 아니므로, 아래 manual CLI proof와 focused test를
+user-facing 근거로 함께 본다.
+
+기대 결과:
+
+- `qmd update`가 성공하면 Kiwi shadow index 동기화까지 끝난 상태여야 한다
+- `qmd status`가 `clean`이면 plain Hangul `qmd search`는 warning 없이 shadow path를 사용해야 한다
+- quoted/negated Hangul query는 보수적으로 legacy path를 유지할 수 있다
+- stale/policy mismatch 상태에서는 `qmd search --json`도 stdout은 유지하고 stderr advisory만 추가해야 한다
+
+성능/운영 메모:
+
+- write-lock 보유 시간과 `store.update()`, search health metadata read, shadow/legacy helper search proxy latency는 small / medium / large fixture에서 비교 기록한다
+- update 중 concurrent `status/search` 정책은 focused test + manual CLI proof로 확인하고, benchmark의 `BEGIN IMMEDIATE` probe는 보조 신호로만 사용한다
+- latest benchmark record: [docs/benchmarks/2026-03-13-kiwi-search-reliability-metrics.md](benchmarks/2026-03-13-kiwi-search-reliability-metrics.md)
+
+### Kiwi search release go / no-go
+
+배포 또는 publish 후보에서는 아래 조건이 모두 맞아야 `Go`로 본다.
+
+- 핵심 suite가 green이다
+- `qmd update` ordering regression이 green이다
+- `qmd status clean`과 plain Hangul `qmd search`의 의미가 실제로 일치한다
+- `search --json` stdout이 advisory 때문에 오염되지 않는다
+- stale 또는 policy mismatch 상태에서 false clean path를 타지 않는다
+- `measure:kiwi-reliability` 수치는 internal helper regression 참고값으로만 쓰고, user-facing `qmd status/search` hot-path latency 근거로 과장하지 않는다
+
+즉시 중단 조건:
+
+- `qmd update`가 성공처럼 끝났는데 shadow index freshness를 설명할 수 없다
+- `qmd status`가 clean인데 실제 `qmd search`는 fallback 또는 failure로 흐른다
+- machine-readable stdout이 warning/advisory 때문에 깨진다
+
+롤백/복구 기본 절차:
+
+```bash
+# 1. 이전 안정 커밋으로 되돌린다
+# 2. 영향 받은 fixture 또는 실제 index에서 다시 동기화한다
+qmd update
+qmd status
+qmd search "형태소 분석"
+```
+
+코드 롤백만으로 shadow metadata/state mismatch가 사라지지 않으면, 해당 index는 rebuild 기준으로 다시 검증한다.
 
 ### publish 산출물 확인
 

@@ -1,5 +1,7 @@
 export const KQMD_DEFAULT_SEARCH_POLICY_ID = 'kiwi-cong-shadow-v1';
 export const KQMD_SEARCH_POLICY_METADATA_KEY = 'kqmd_search_policy_id';
+export const KQMD_SEARCH_COLLECTION_SNAPSHOTS_METADATA_KEY = 'kqmd_search_collection_snapshots';
+export const KQMD_SEARCH_SOURCE_SNAPSHOT_METADATA_KEY = 'kqmd_search_source_snapshot';
 export const KQMD_SEARCH_SHADOW_TABLE = 'kqmd_documents_fts';
 
 export interface EffectiveSearchPolicy {

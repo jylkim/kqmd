@@ -35,13 +35,29 @@ function createRuntimeDependencies(
 
 function createFakeStatusStore(): QMDStore {
   const prepare = vi.fn((sql: string) => ({
-    get: vi.fn(() => {
+    get: vi.fn((...params: (string | number)[]) => {
       if (sql.includes('store_config')) {
-        return { value: 'kiwi-cong-shadow-v1' };
+        return params[0] === 'kqmd_search_source_snapshot'
+          ? {
+              value: JSON.stringify({
+                totalDocuments: 3,
+                latestModifiedAt: '2026-03-12T00:00:00.000Z',
+                maxDocumentId: 3,
+              }),
+            }
+          : { value: 'kiwi-cong-shadow-v1' };
       }
 
       if (sql.includes('sqlite_master')) {
         return { name: 'kqmd_documents_fts' };
+      }
+
+      if (sql.includes('MAX(d.modified_at)')) {
+        return {
+          count: 3,
+          latest_modified_at: '2026-03-12T00:00:00.000Z',
+          max_document_id: 3,
+        };
       }
 
       if (sql.includes('COUNT(*) AS count')) {
@@ -75,6 +91,65 @@ function createFakeStatusStore(): QMDStore {
           lastUpdated: '2026-03-12T00:00:00.000Z',
         },
       ],
+    })),
+    internal: {
+      db: {
+        prepare,
+      },
+    },
+  } as unknown as QMDStore;
+}
+
+function createStaleStatusStore(): QMDStore {
+  const prepare = vi.fn((sql: string) => ({
+    get: vi.fn((...params: (string | number)[]) => {
+      if (sql.includes('store_config')) {
+        return params[0] === 'kqmd_search_source_snapshot'
+          ? {
+              value: JSON.stringify({
+                totalDocuments: 3,
+                latestModifiedAt: '2026-03-12T00:00:00.000Z',
+                maxDocumentId: 3,
+              }),
+            }
+          : { value: 'kiwi-cong-shadow-v1' };
+      }
+
+      if (sql.includes('sqlite_master')) {
+        return { name: 'kqmd_documents_fts' };
+      }
+
+      if (sql.includes('MAX(d.modified_at)')) {
+        return {
+          count: 3,
+          latest_modified_at: '2026-03-13T00:00:00.000Z',
+          max_document_id: 3,
+        };
+      }
+
+      if (sql.includes('COUNT(*) AS count')) {
+        return { count: 3 };
+      }
+
+      return undefined;
+    }),
+    all: vi.fn(() => {
+      if (sql.includes('content_vectors')) {
+        return [{ model: 'embeddinggemma', documents: 3 }];
+      }
+
+      return [];
+    }),
+  }));
+
+  return {
+    close: vi.fn(async () => {}),
+    dbPath: '/home/tester/.cache/qmd/index.sqlite',
+    getStatus: vi.fn(async () => ({
+      totalDocuments: 3,
+      needsEmbedding: 0,
+      hasVectorIndex: true,
+      collections: [],
     })),
     internal: {
       db: {
@@ -130,5 +205,14 @@ describe('owned status command', () => {
     });
 
     expect(result.stdout).toContain(KQMD_DEFAULT_EMBED_MODEL_URI);
+  });
+
+  test('computes stale search health from the live snapshot', async () => {
+    const result = await handleStatusCommand(createContext(['status']), {
+      runtimeDependencies: createRuntimeDependencies(createStaleStatusStore()),
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Health:     stale shadow index');
   });
 });

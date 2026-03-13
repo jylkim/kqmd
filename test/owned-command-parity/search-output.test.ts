@@ -47,7 +47,37 @@ function createFakeStore(close = vi.fn(async () => {})): QMDStore {
             }
 
             if (sql.includes('store_config')) {
+              if (params[0] === 'kqmd_search_source_snapshot') {
+                return {
+                  value: JSON.stringify({
+                    totalDocuments: 1,
+                    latestModifiedAt: '2026-03-12T00:00:00.000Z',
+                    maxDocumentId: 1,
+                  }),
+                };
+              }
+
+              if (params[0] === 'kqmd_search_collection_snapshots') {
+                return {
+                  value: JSON.stringify({
+                    docs: {
+                      totalDocuments: 1,
+                      latestModifiedAt: '2026-03-12T00:00:00.000Z',
+                      maxDocumentId: 1,
+                    },
+                  }),
+                };
+              }
+
               return { value: 'kiwi-cong-shadow-v1' };
+            }
+
+            if (sql.includes('MAX(d.modified_at)')) {
+              return {
+                count: 1,
+                latest_modified_at: '2026-03-12T00:00:00.000Z',
+                max_document_id: 1,
+              };
             }
 
             if (sql.includes('COUNT(*) AS count')) {

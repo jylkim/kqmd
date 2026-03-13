@@ -31,12 +31,12 @@ export interface UpdateCommandDependencies {
     context: CommandExecutionContext,
     input: UpdateCommandInput,
     runtimeDependencies?: OwnedRuntimeDependencies,
-  ) => Promise<UpdateCommandSuccess | OwnedCommandError | OwnedRuntimeFailure>;
+  ) => Promise<UpdateOutcome | OwnedCommandError | OwnedRuntimeFailure>;
   readonly runtimeDependencies?: OwnedRuntimeDependencies;
   readonly searchIndexDependencies?: SearchShadowIndexDependencies;
 }
 
-type UpdateCommandSuccess = {
+export type UpdateOutcome = {
   readonly result: UpdateResult;
   readonly followUp?: string;
 };
@@ -53,7 +53,7 @@ async function runUpdateCommand(
   input: UpdateCommandInput,
   runtimeDependencies?: OwnedRuntimeDependencies,
   searchIndexDependencies?: SearchShadowIndexDependencies,
-): Promise<UpdateCommandSuccess | OwnedCommandError | OwnedRuntimeFailure> {
+): Promise<UpdateOutcome | OwnedCommandError | OwnedRuntimeFailure> {
   const effectiveModel = describeEffectiveEmbedModel(runtimeDependencies?.env);
   const searchPolicy = describeEffectiveSearchPolicy();
 

@@ -26,6 +26,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
+    "measure:kiwi-reliability": "bun run scripts/measure_kiwi_search_reliability.ts",
     "check": "bun run lint && bun run typecheck && bun run test"
   },
   "trustedDependencies": [

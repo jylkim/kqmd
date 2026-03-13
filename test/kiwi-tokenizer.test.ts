@@ -186,4 +186,26 @@ describe('kiwi tokenizer helpers', () => {
     expect(fetch as unknown as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(1);
     resetKiwiForTests();
   });
+
+  test('rejects symlinked Kiwi cache artifacts', async () => {
+    resetKiwiForTests();
+
+    await expect(
+      ensureKiwiReady({
+        stat: (async () => ({})) as unknown as typeof import('node:fs/promises').stat,
+        lstat: (async (filePath: string) => ({
+          isSymbolicLink: () => String(filePath).endsWith('combiningRule.txt'),
+        })) as unknown as typeof import('node:fs/promises').lstat,
+        createBuilder: (async () => ({
+          build: async () =>
+            ({
+              ready: () => true,
+              tokenize: () => [],
+            }) as never,
+        })) as never,
+      }),
+    ).rejects.toThrow('Kiwi model path must not be a symlink.');
+
+    resetKiwiForTests();
+  });
 });

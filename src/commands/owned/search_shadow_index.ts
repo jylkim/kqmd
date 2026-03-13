@@ -2,12 +2,16 @@ import type { SearchResult } from '@tobilu/qmd';
 
 import type { EffectiveSearchPolicy } from '../../config/search_policy.js';
 import {
+  KQMD_SEARCH_COLLECTION_SNAPSHOTS_METADATA_KEY,
   KQMD_SEARCH_POLICY_METADATA_KEY,
   KQMD_SEARCH_SHADOW_TABLE,
+  KQMD_SEARCH_SOURCE_SNAPSHOT_METADATA_KEY,
 } from '../../config/search_policy.js';
 import { buildShadowProjectionText, type KiwiTokenizerDependencies } from './kiwi_tokenizer.js';
+import type { SearchSourceSnapshot } from './search_index_health.js';
 
 interface MinimalStatement {
+  get: (...params: (string | number)[]) => unknown;
   all: (...params: (string | number)[]) => unknown[];
   run: (...params: (string | number)[]) => unknown;
 }
@@ -28,6 +32,7 @@ type RebuildRow = {
   readonly path: string;
   readonly title: string;
   readonly body: string;
+  readonly modified_at?: string;
 };
 
 type ShadowSearchRow = {
@@ -45,6 +50,16 @@ export interface SearchShadowIndexDependencies {
   readonly tokenize?: (text: string, dependencies?: KiwiTokenizerDependencies) => Promise<string>;
   readonly kiwiDependencies?: KiwiTokenizerDependencies;
 }
+
+export interface SearchShadowIndexRebuildResult {
+  readonly indexedDocuments: number;
+  readonly projectionDurationMs: number;
+  readonly writeDurationMs: number;
+  readonly totalDurationMs: number;
+  readonly sourceSnapshot: SearchSourceSnapshot;
+}
+
+type SearchCollectionSnapshotMap = Record<string, SearchSourceSnapshot>;
 
 function sanitizeFTS5Term(term: string): string {
   return term.replace(/[^\p{L}\p{N}']/gu, '').toLowerCase();
@@ -176,7 +191,7 @@ function listActiveDocuments(db: MinimalDatabase): RebuildRow[] {
   return db
     .prepare(
       [
-        'SELECT d.id, d.collection, d.path, d.title, c.doc AS body',
+        'SELECT d.id, d.collection, d.path, d.title, c.doc AS body, d.modified_at',
         'FROM documents d',
         'JOIN content c ON c.hash = d.hash',
         'WHERE d.active = 1',
@@ -199,17 +214,74 @@ function rollbackTransaction(db: MinimalDatabase): void {
   db.exec('ROLLBACK');
 }
 
+function buildSearchSourceSnapshot(rows: readonly RebuildRow[]): SearchSourceSnapshot {
+  let latestModifiedAt: string | undefined;
+  let maxDocumentId: number | undefined;
+
+  for (const row of rows) {
+    if (latestModifiedAt === undefined || (row.modified_at && row.modified_at > latestModifiedAt)) {
+      latestModifiedAt = row.modified_at;
+    }
+
+    if (maxDocumentId === undefined || row.id > maxDocumentId) {
+      maxDocumentId = row.id;
+    }
+  }
+
+  return {
+    totalDocuments: rows.length,
+    latestModifiedAt,
+    maxDocumentId,
+  };
+}
+
+function buildCollectionSnapshots(rows: readonly RebuildRow[]): SearchCollectionSnapshotMap {
+  const snapshots: SearchCollectionSnapshotMap = {};
+
+  for (const row of rows) {
+    const current = snapshots[row.collection];
+
+    snapshots[row.collection] = {
+      totalDocuments: (current?.totalDocuments ?? 0) + 1,
+      latestModifiedAt:
+        current?.latestModifiedAt === undefined ||
+        (row.modified_at && row.modified_at > current.latestModifiedAt)
+          ? row.modified_at
+          : current.latestModifiedAt,
+      maxDocumentId:
+        current?.maxDocumentId === undefined || row.id > current.maxDocumentId
+          ? row.id
+          : current.maxDocumentId,
+    };
+  }
+
+  return snapshots;
+}
+
+function upsertSearchMetadata(db: MinimalDatabase, key: string, value: string): void {
+  db.prepare(
+    [
+      'INSERT INTO store_config (key, value) VALUES (?, ?)',
+      'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    ].join('\n'),
+  ).run(key, value);
+}
+
 export async function rebuildSearchShadowIndex(
   db: MinimalDatabase,
   policy: EffectiveSearchPolicy,
   dependencies: SearchShadowIndexDependencies = {},
-): Promise<number> {
+): Promise<SearchShadowIndexRebuildResult> {
+  const totalStart = Date.now();
   const tokenize =
     dependencies.tokenize ??
     ((text: string, kiwiDependencies?: KiwiTokenizerDependencies) =>
       buildShadowProjectionText(text, kiwiDependencies));
   const kiwiDependencies = dependencies.kiwiDependencies;
   const rows = listActiveDocuments(db);
+  const snapshot = buildSearchSourceSnapshot(rows);
+  const collectionSnapshots = buildCollectionSnapshots(rows);
+  const projectionStart = Date.now();
   const projections = await Promise.all(
     rows.map(async (row) => ({
       rowId: row.id,
@@ -223,7 +295,9 @@ export async function rebuildSearchShadowIndex(
       ),
     })),
   );
+  const projectionDurationMs = Date.now() - projectionStart;
 
+  const writeStart = Date.now();
   beginTransaction(db);
   try {
     ensureSearchShadowTable(db);
@@ -233,20 +307,27 @@ export async function rebuildSearchShadowIndex(
     const insert = db.prepare(
       `INSERT INTO ${KQMD_SEARCH_SHADOW_TABLE}(rowid, filepath, title, body) VALUES (?, ?, ?, ?)`,
     );
-    const upsertPolicy = db.prepare(
-      [
-        'INSERT INTO store_config (key, value) VALUES (?, ?)',
-        'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-      ].join('\n'),
-    );
 
     for (const { rowId, projection } of projections) {
       insert.run(rowId, projection.filepath, projection.title, projection.body);
     }
 
-    upsertPolicy.run(KQMD_SEARCH_POLICY_METADATA_KEY, policy.id);
+    upsertSearchMetadata(db, KQMD_SEARCH_POLICY_METADATA_KEY, policy.id);
+    upsertSearchMetadata(db, KQMD_SEARCH_SOURCE_SNAPSHOT_METADATA_KEY, JSON.stringify(snapshot));
+    upsertSearchMetadata(
+      db,
+      KQMD_SEARCH_COLLECTION_SNAPSHOTS_METADATA_KEY,
+      JSON.stringify(collectionSnapshots),
+    );
     commitTransaction(db);
-    return rows.length;
+    const writeDurationMs = Date.now() - writeStart;
+    return {
+      indexedDocuments: rows.length,
+      projectionDurationMs,
+      writeDurationMs,
+      totalDurationMs: Date.now() - totalStart,
+      sourceSnapshot: snapshot,
+    };
   } catch (error) {
     rollbackTransaction(db);
     throw error;

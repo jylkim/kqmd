@@ -44,6 +44,14 @@ function createMismatchStore(overrides: Partial<QMDStore> = {}): QMDStore {
         return undefined;
       }
 
+      if (sql.includes('MAX(d.modified_at)')) {
+        return {
+          count: 1,
+          latest_modified_at: '2026-03-12T00:00:00.000Z',
+          max_document_id: 1,
+        };
+      }
+
       if (sql.includes('COUNT(*) AS count')) {
         return { count: 1 };
       }
@@ -383,6 +391,56 @@ describe('owned embedding-aware behavior', () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('kiwi bootstrap failed');
+    expect(update).not.toHaveBeenCalled();
+
+    resetKiwiForTests();
+  });
+
+  test('update sanitizes symlink cache failures without exposing local paths', async () => {
+    resetKiwiForTests();
+
+    const update = vi.fn(
+      async (): Promise<UpdateResult> => ({
+        collections: 1,
+        indexed: 0,
+        updated: 1,
+        unchanged: 0,
+        removed: 0,
+        needsEmbedding: 0,
+      }),
+    );
+
+    const result = await handleUpdateCommand(createContext(['update']), {
+      runtimeDependencies: createRuntimeDependencies(
+        createMismatchStore({
+          update,
+        }),
+        {
+          existingPaths: [
+            '/home/tester/.cache/qmd/index.sqlite',
+            '/home/tester/.config/qmd/index.yml',
+          ],
+        },
+      ),
+      searchIndexDependencies: {
+        kiwiDependencies: {
+          lstat: (async () => ({
+            isSymbolicLink: () => true,
+          })) as unknown as typeof import('node:fs/promises').lstat,
+          createBuilder: (async () => ({
+            build: async () =>
+              ({
+                ready: () => true,
+                tokenize: () => [],
+              }) as never,
+          })) as never,
+        },
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Kiwi model path must not be a symlink.');
+    expect(result.stderr).not.toContain('/home/tester');
     expect(update).not.toHaveBeenCalled();
 
     resetKiwiForTests();

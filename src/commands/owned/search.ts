@@ -86,9 +86,10 @@ async function runSearchCommand(
       const searchHealth = readSearchIndexHealth(session.store.internal.db, searchPolicy, {
         collections: selectedCollections,
       });
+      const shadowSearchReady = shouldUseShadowSearchIndex(searchHealth);
 
       let results =
-        koreanQuery && !conservativeSyntax && shouldUseShadowSearchIndex(searchHealth)
+        koreanQuery && !conservativeSyntax && shadowSearchReady
           ? searchShadowIndex(session.store.internal, input.query, {
               limit: fetchLimit,
               collections: selectedCollections,
@@ -105,7 +106,7 @@ async function runSearchCommand(
       return {
         rows: normalizeSearchResults(results),
         stderr:
-          koreanQuery && !shouldUseShadowSearchIndex(searchHealth)
+          koreanQuery && !conservativeSyntax && !shadowSearchReady
             ? buildSearchPolicyWarning(
                 searchPolicy.id,
                 summarizeStoredSearchPolicy(searchHealth),
