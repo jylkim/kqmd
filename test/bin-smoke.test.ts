@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 
@@ -13,25 +13,19 @@ describe('bin smoke test', () => {
     tempDir,
     process.platform === 'win32' ? 'upstream-fixture.cmd' : 'upstream-fixture',
   );
+  const bunBinary = resolveRuntimeBinary('bun', process.env.KQMD_BUN_BIN);
+  const nodeBinary = resolveRuntimeBinary('node', process.env.KQMD_NODE_BIN);
 
   beforeAll(() => {
-    execFileSync('npm', ['run', 'build'], {
+    execFileSync(bunBinary, ['run', 'build'], {
       cwd: process.cwd(),
       stdio: 'pipe',
     });
 
     if (process.platform === 'win32') {
-      writeFileSync(
-        wrapperPath,
-        `@echo off\r\n"${process.execPath}" "${fixturePath}" %*\r\n`,
-        'utf8',
-      );
+      writeFileSync(wrapperPath, `@echo off\r\n"${nodeBinary}" "${fixturePath}" %*\r\n`, 'utf8');
     } else {
-      writeFileSync(
-        wrapperPath,
-        `#!/bin/sh\nexec "${process.execPath}" "${fixturePath}" "$@"\n`,
-        'utf8',
-      );
+      writeFileSync(wrapperPath, `#!/bin/sh\nexec "${nodeBinary}" "${fixturePath}" "$@"\n`, 'utf8');
       execFileSync('chmod', ['+x', wrapperPath], {
         cwd: process.cwd(),
         stdio: 'pipe',
@@ -44,7 +38,7 @@ describe('bin smoke test', () => {
   });
 
   test('propagates passthrough argv and exit code through the published bin', () => {
-    const result = spawnSync(process.execPath, [binPath, 'collection', 'list'], {
+    const result = spawnSync(nodeBinary, [binPath, 'collection', 'list'], {
       cwd: process.cwd(),
       env: {
         ...process.env,
@@ -58,3 +52,30 @@ describe('bin smoke test', () => {
     expect(result.stdout).toContain('fixture argv: ["collection","list"]');
   });
 });
+
+function resolveRuntimeBinary(command: 'bun' | 'node', override?: string): string {
+  if (override) {
+    return override;
+  }
+
+  if (basename(process.execPath).startsWith(command)) {
+    return process.execPath;
+  }
+
+  const lookupCommand = process.platform === 'win32' ? 'where' : 'which';
+  const output = execFileSync(lookupCommand, [command], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    stdio: 'pipe',
+  });
+  const [resolvedPath] = output
+    .split(/\r?\n/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+
+  if (!resolvedPath) {
+    throw new Error(`Unable to locate ${command} binary for smoke tests.`);
+  }
+
+  return resolvedPath;
+}

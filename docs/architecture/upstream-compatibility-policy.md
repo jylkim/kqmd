@@ -24,9 +24,9 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 
 - 어떤 명령을 owned/passthrough로 둘지는 로컬 manifest에서 관리한다
 - path compatibility 테스트는 설치된 upstream 패키지 동작과 비교한다
-- publish 검증에는 `npm pack --dry-run`을 포함해 `qmd` bin, `files` allowlist,
-  build 산출 계약을 같이 확인한다
-- owned command parity는 `npm run test:parity`와 baseline metadata로 고정한다
+- publish 검증에는 `bun pm pack --dry-run`과 actual tarball smoke를 포함해 `qmd` bin,
+  `files` allowlist, build 산출 계약을 같이 확인한다
+- owned command parity는 `bun run test:parity`와 baseline metadata로 고정한다
 - owned runtime은 upstream의 DB-only mode를 그대로 신뢰하지 않고, K-QMD policy로
   "기존 DB가 실제로 있을 때만 reopen" 규칙을 추가한다
 - `search/query`는 config-file mode보다 기존 DB reopen을 우선해 read path metadata sync side effect를 줄인다
@@ -43,6 +43,7 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 - passthrough 실행은 `shell: false`인 직접 spawn을 기본으로 둔다
 - 실제 CLI 경로에서는 stdio를 그대로 상속한다
 - 테스트와 로컬 검증을 위해 `KQMD_UPSTREAM_BIN` override를 허용한다
+- bin smoke에서는 top-level `qmd` entrypoint와 delegated upstream fixture를 모두 explicit Node runtime으로 검증한다
 - passthrough subprocess는 현재 process env를 상속하므로 embed model default bootstrap도 동일하게 전달된다
 
 ## owned runtime 실행 원칙
@@ -65,3 +66,12 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 - `update/embed`는 progress-level parity 대신 success summary shape를 우선 고정한다
 - upstream `@tobilu/qmd` 버전이 바뀌면 `test/fixtures/owned-command-parity/baseline.json`과 parity suite를 함께 갱신한다
 - shadow FTS helper는 local implementation이지만, user-visible search formatter contract는 기존 parity baseline을 유지한다
+
+## Bun-first 레포 운영 원칙
+
+- repository toolchain의 canonical package manager는 Bun이다
+- package script 실행은 항상 `bun run <script>` 형태를 사용한다
+- lockfile migration과 install trust audit은 `bun pm migrate`, `bun pm untrusted`, `bun pm trust` 기준으로 관리한다
+- `trustedDependencies`는 exact allowlist와 rationale을 함께 관리한다
+- `run.bun` 또는 Bun runtime forcing은 baseline이 아니라 호환성 검증 뒤 opt-in 으로만 다룬다
+- published `bin/qmd.js`는 계속 Node-compatible contract를 유지한다

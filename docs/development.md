@@ -5,8 +5,8 @@
 
 ## 개발 환경
 
+- Bun `1.3.10`
 - Node.js `>=24`
-- npm `>=11`
 - TypeScript
 - Vitest
 - Biome
@@ -14,22 +14,22 @@
 ## 시작하기
 
 ```bash
-npm install
-npm run build
-npm run check
+bun install
+bun run build
+bun run check
 ```
 
 ## 주요 스크립트
 
-- `npm run lint`
-- `npm run format`
-- `npm run typecheck`
-- `npm run test`
-- `npm run test:parity`
-- `npm run test:watch`
-- `npm run test:coverage`
-- `npm run build`
-- `npm run check`
+- `bun run lint`
+- `bun run format`
+- `bun run typecheck`
+- `bun run test`
+- `bun run test:parity`
+- `bun run test:watch`
+- `bun run test:coverage`
+- `bun run build`
+- `bun run check`
 
 ## 현재 구조
 
@@ -74,13 +74,13 @@ npm run check
 ### 전체 품질 게이트
 
 ```bash
-npm run check
+bun run check
 ```
 
 ### owned command parity suite
 
 ```bash
-npm run test:parity
+bun run test:parity
 ```
 
 이 suite는 `search/query/update/embed`의 parse/validation/output contract를 고정한다.
@@ -89,7 +89,7 @@ npm run test:parity
 ### embedding policy / mismatch checks
 
 ```bash
-npm run test -- embedding-policy embedding-health owned-embedding-behavior status-command
+bun run test -- embedding-policy embedding-health owned-embedding-behavior status-command
 ```
 
 이 suite는 default embed policy precedence, stored vector mismatch detection, owned `status`,
@@ -98,7 +98,7 @@ npm run test -- embedding-policy embedding-health owned-embedding-behavior statu
 ### Korean search policy / shadow index checks
 
 ```bash
-npm run test -- search-policy search-index-health kiwi-tokenizer search-shadow-index owned-search-behavior
+bun run test -- search-policy search-index-health kiwi-tokenizer search-shadow-index owned-search-behavior
 ```
 
 이 suite는 canonical search policy, shadow index health classification, Kiwi token normalization,
@@ -107,25 +107,31 @@ same-DB shadow FTS rebuild/query, 그리고 stale policy warning + legacy fallba
 ### publish 산출물 확인
 
 ```bash
-npm pack --dry-run
+bun pm pack --dry-run
+
+TARBALL=$(bun pm pack --quiet)
+tar -tf "$TARBALL" | rg '^(package/(bin|dist)/|package/README.md|package/LICENSE)'
 ```
 
 ### bin smoke 경로 확인
 
 ```bash
-npm run build
+bun run build
 node ./bin/qmd.js collection list
 ```
 
 ### upstream qmd version bump checklist
 
 1. `package.json`에서 `@tobilu/qmd` 버전을 변경한다
-2. `npm install`
-3. `npm run test:parity`
-4. `node_modules/@tobilu/qmd/dist/cli/qmd.js`의 parse/default/usage/output 변경 사항을 검토한다
-5. intentional drift가 있으면 `test/fixtures/owned-command-parity/baseline.json`과 snapshot fixtures를 갱신한다
-6. `documents`, `content`, `store_config`, `QMDStore.internal` contract가 shadow FTS helper와 여전히 맞는지 확인한다
-7. 관련 문서와 plan/work log를 함께 갱신한다
+2. `bun install`
+3. `bun install --frozen-lockfile`
+4. `bun pm untrusted`로 install/lifecycle trust surface가 달라졌는지 확인한다
+5. `bun run test:parity`
+6. `node_modules/@tobilu/qmd/dist/cli/qmd.js`의 parse/default/usage/output 변경 사항을 검토한다
+7. intentional drift가 있으면 `test/fixtures/owned-command-parity/baseline.json`과 snapshot fixtures를 갱신한다
+8. `documents`, `content`, `store_config`, `QMDStore.internal` contract가 shadow FTS helper와 여전히 맞는지 확인한다
+9. `bun pm pack --dry-run`과 actual tarball smoke를 다시 확인한다
+10. 관련 문서와 plan/work log를 함께 갱신한다
 
 ## 관련 문서
 
