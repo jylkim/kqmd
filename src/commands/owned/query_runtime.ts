@@ -102,12 +102,15 @@ export async function executeOwnedQuerySearch(
     });
   }
 
-  const hybridQuery = dependencies.hybridQuery ?? (await loadQueryRuntimeHelpers()).hybridQuery;
+  if (selectedCollections.length > 1) {
+    throw new Error(
+      'The `--candidate-limit` option currently supports at most one collection filter.',
+    );
+  }
 
-  // Upstream hybridQuery accepts a single collection filter, so multiple
-  // filters intentionally fall back to the upstream "all collections" behavior.
+  const hybridQuery = dependencies.hybridQuery ?? (await loadQueryRuntimeHelpers()).hybridQuery;
   return hybridQuery(store.internal, input.query, {
-    collection: selectedCollections.length === 1 ? selectedCollections[0] : undefined,
+    collection: selectedCollections[0],
     limit,
     minScore: input.minScore,
     candidateLimit: input.candidateLimit,

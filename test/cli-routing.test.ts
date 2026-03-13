@@ -33,6 +33,10 @@ describe('CLI routing', () => {
       mode: 'passthrough',
       command: 'help',
     });
+    expect(parseCliInvocation(['help', 'search']).route).toEqual({
+      mode: 'owned',
+      command: 'search',
+    });
     expect(parseCliInvocation(['search', '--help']).route).toEqual({
       mode: 'owned',
       command: 'search',

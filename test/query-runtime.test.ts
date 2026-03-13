@@ -72,6 +72,26 @@ describe('owned query runtime', () => {
     });
   });
 
+  test('rejects plain query candidate-limit with multiple collection filters', async () => {
+    const store = createStore();
+    const hybridQuery = vi.fn(async () => []);
+
+    await expect(
+      executeOwnedQuerySearch(
+        store,
+        createInput({
+          candidateLimit: 10,
+        }),
+        ['docs', 'notes'],
+        { hybridQuery },
+      ),
+    ).rejects.toThrow(
+      'The `--candidate-limit` option currently supports at most one collection filter.',
+    );
+
+    expect(hybridQuery).not.toHaveBeenCalled();
+  });
+
   test('routes structured query candidate-limit through structuredSearch', async () => {
     const store = createStore();
     const structuredSearch = vi.fn(async () => []);

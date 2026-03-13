@@ -51,4 +51,16 @@ describe('owned command help output', () => {
       resolve(process.cwd(), 'test/fixtures/owned-command-parity/help/update-help.output.txt'),
     );
   });
+
+  test('matches help alias output for owned commands', async () => {
+    const capture = createIoCapture();
+
+    const exitCode = await runCli(['help', 'update'], capture.io);
+
+    expect(exitCode).toBe(0);
+    expect(capture.read().stderr).toBe('');
+    await expect(capture.read().stdout).toMatchFileSnapshot(
+      resolve(process.cwd(), 'test/fixtures/owned-command-parity/help/update-help.output.txt'),
+    );
+  });
 });

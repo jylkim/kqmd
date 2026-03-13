@@ -429,6 +429,7 @@ qmd query "형태소 분석"
 
 - [x] `bun run check`가 green이다
 - [x] `query --candidate-limit` plain/structured payload test가 존재한다
+- [x] `query` runtime adapter compatibility guard test가 존재한다
 - [x] invalid `candidate-limit` validation test가 존재한다
 - [x] `query --explain` conditional snapshot이 유지된다
 - [x] `status` zero-config / `status --json` regression test가 존재한다

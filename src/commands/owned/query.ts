@@ -11,6 +11,7 @@ import {
   isOwnedCommandError,
   isOwnedRuntimeFailure,
   toExecutionResult,
+  validationError,
 } from './io/errors.js';
 import { formatSearchExecutionResult, normalizeHybridQueryResults } from './io/format.js';
 import { parseOwnedQueryInput } from './io/parse.js';
@@ -71,6 +72,16 @@ async function runQueryCommand(
 
       if (isOwnedCommandError(selectedCollections)) {
         return selectedCollections;
+      }
+
+      if (
+        input.candidateLimit !== undefined &&
+        input.queryMode === 'plain' &&
+        selectedCollections.length > 1
+      ) {
+        return validationError(
+          'The `--candidate-limit` option currently supports at most one collection filter.',
+        );
       }
 
       const health = await readEmbeddingHealth(session.store, effectiveModel.uri, {

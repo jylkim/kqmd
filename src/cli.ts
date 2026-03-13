@@ -4,6 +4,7 @@ import { parseArgs } from 'node:util';
 import { CLI_OPTIONS } from './cli_options.js';
 import {
   formatSupportedCommandList,
+  isHelpAlias,
   isOwnedCommand,
   resolveCommandRoute,
 } from './commands/manifest.js';
@@ -43,6 +44,8 @@ export function parseCliInvocation(argv: string[]): ParsedCliInvocation {
       helpCommand && isOwnedCommand(helpCommand)
         ? { mode: 'owned', command: helpCommand }
         : { mode: 'passthrough', command: helpCommand ?? 'help' };
+  } else if (isHelpAlias(positionals[0]) && positionals[1] && isOwnedCommand(positionals[1])) {
+    route = { mode: 'owned', command: positionals[1] };
   } else if (values.version || values.skill) {
     route = { mode: 'passthrough', command: positionals[0] ?? 'help' };
   } else if (positionals.length === 0) {
@@ -71,7 +74,7 @@ function getOwnedCommandContext(invocation: ParsedCliInvocation): CommandExecuti
 async function executeOwnedCommand(
   invocation: ParsedCliInvocation & { route: { mode: 'owned'; command: OwnedCommand } },
 ): Promise<CommandExecutionResult> {
-  if (hasOwnedCommandHelpFlag(invocation.argv)) {
+  if (hasOwnedCommandHelpFlag(invocation.argv) || invocation.command === 'help') {
     return formatOwnedCommandHelp(invocation.route.command);
   }
 

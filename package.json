@@ -23,7 +23,7 @@
     "format": "biome format --write .",
     "test": "vitest run",
     "test:parity": "vitest run test/owned-command-parity",
-    "test:release-contract": "vitest run test/cli-routing.test.ts test/query-runtime.test.ts test/owned-command-parity test/status-command.test.ts test/owned-search-behavior.test.ts test/owned-embedding-behavior.test.ts test/update-command.test.ts test/trusted-dependencies.test.ts test/path-compatibility.test.ts test/passthrough-contract.test.ts",
+    "test:release-contract": "vitest run test/cli-routing.test.ts test/query-runtime.test.ts test/query-runtime-adapter.test.ts test/query-command.test.ts test/owned-command-parity test/status-command.test.ts test/owned-search-behavior.test.ts test/owned-embedding-behavior.test.ts test/update-command.test.ts test/trusted-dependencies.test.ts test/path-compatibility.test.ts test/passthrough-contract.test.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",

@@ -21,6 +21,10 @@ export const commandManifest = {
 
 const HELP_ALIASES = new Set(['help']);
 
+export function isHelpAlias(command?: string): boolean {
+  return typeof command === 'string' && HELP_ALIASES.has(command);
+}
+
 export function isOwnedCommand(command: string): command is OwnedCommand {
   return OWNED_COMMANDS.includes(command as OwnedCommand);
 }
@@ -34,7 +38,7 @@ export function resolveCommandRoute(command?: string): CommandRoute {
     return { mode: 'passthrough', command: 'help' };
   }
 
-  if (HELP_ALIASES.has(command)) {
+  if (isHelpAlias(command)) {
     return { mode: 'passthrough', command: 'help' };
   }
 
