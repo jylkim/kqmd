@@ -67,13 +67,29 @@ function resolveMinScore(values: ParsedValues): number {
   return Number.parseFloat(rawMinScore) || 0;
 }
 
-function resolveCandidateLimit(values: ParsedValues): number | undefined {
-  const rawCandidateLimit = values['candidate-limit'];
-  if (typeof rawCandidateLimit !== 'string') {
+function parsePositiveIntegerOption(
+  rawValue: string | undefined,
+  optionName: string,
+  maximum?: number,
+): number | ReturnType<typeof validationError> | undefined {
+  if (rawValue === undefined) {
     return undefined;
   }
 
-  return Number.parseInt(rawCandidateLimit, 10) || undefined;
+  if (!/^\d+$/.test(rawValue.trim())) {
+    return validationError(`The \`${optionName}\` option must be a positive integer.`);
+  }
+
+  const value = Number.parseInt(rawValue, 10);
+  if (value < 1) {
+    return validationError(`The \`${optionName}\` option must be a positive integer.`);
+  }
+
+  if (maximum !== undefined && value > maximum) {
+    return validationError(`The \`${optionName}\` option must be ${maximum} or less.`);
+  }
+
+  return value;
 }
 
 function resolveCollections(values: ParsedValues): string[] | undefined {
@@ -138,11 +154,17 @@ export function parseOwnedQueryInput(
 
   const parsedIntent = typeof values.intent === 'string' ? values.intent : undefined;
   const queryDocument = structuredQuery && 'searches' in structuredQuery ? structuredQuery : null;
-  const candidateLimit = resolveCandidateLimit(values);
+  const parsedCandidateLimit = parsePositiveIntegerOption(
+    typeof values['candidate-limit'] === 'string' ? values['candidate-limit'] : undefined,
+    '--candidate-limit',
+    100,
+  );
 
-  if (candidateLimit !== undefined) {
-    return validationError('The `query` command does not yet support --candidate-limit.');
+  if (isOwnedCommandError(parsedCandidateLimit)) {
+    return parsedCandidateLimit;
   }
+
+  const candidateLimit = parsedCandidateLimit;
 
   const displayQuery = queryDocument
     ? (queryDocument.searches.find((search) => search.type === 'lex')?.query ??
@@ -177,18 +199,16 @@ export function parseOwnedUpdateInput(
   const { values, positionals } = parseOwnedArgs(context.argv);
 
   if (positionals.length > 1) {
-    return usageError('Usage: qmd update [--pull]');
+    return usageError('Usage: qmd update');
   }
 
   if (values.pull) {
-    return validationError('The `update` command does not yet support --pull.');
+    return validationError('Unknown option for `qmd update`: --pull.');
   }
 
   return {
     kind: 'ok',
-    input: {
-      pull: Boolean(values.pull),
-    },
+    input: {},
   };
 }
 

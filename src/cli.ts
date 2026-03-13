@@ -2,8 +2,13 @@ import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import { CLI_OPTIONS } from './cli_options.js';
-import { formatSupportedCommandList, resolveCommandRoute } from './commands/manifest.js';
+import {
+  formatSupportedCommandList,
+  isOwnedCommand,
+  resolveCommandRoute,
+} from './commands/manifest.js';
 import { handleEmbedCommand } from './commands/owned/embed.js';
+import { formatOwnedCommandHelp, hasOwnedCommandHelpFlag } from './commands/owned/help.js';
 import { handleQueryCommand } from './commands/owned/query.js';
 import { handleSearchCommand } from './commands/owned/search.js';
 import { handleStatusCommand } from './commands/owned/status.js';
@@ -13,6 +18,7 @@ import type {
   CommandExecutionContext,
   CommandExecutionResult,
   CommandRoute,
+  OwnedCommand,
   ParsedCliInvocation,
 } from './types/command.js';
 
@@ -31,7 +37,13 @@ export function parseCliInvocation(argv: string[]): ParsedCliInvocation {
 
   let route: CommandRoute;
 
-  if (values.help || values.version || values.skill) {
+  if (values.help) {
+    const helpCommand = positionals[0];
+    route =
+      helpCommand && isOwnedCommand(helpCommand)
+        ? { mode: 'owned', command: helpCommand }
+        : { mode: 'passthrough', command: helpCommand ?? 'help' };
+  } else if (values.version || values.skill) {
     route = { mode: 'passthrough', command: positionals[0] ?? 'help' };
   } else if (positionals.length === 0) {
     route = { mode: 'passthrough', command: 'help' };
@@ -57,8 +69,12 @@ function getOwnedCommandContext(invocation: ParsedCliInvocation): CommandExecuti
 }
 
 async function executeOwnedCommand(
-  invocation: ParsedCliInvocation,
+  invocation: ParsedCliInvocation & { route: { mode: 'owned'; command: OwnedCommand } },
 ): Promise<CommandExecutionResult> {
+  if (hasOwnedCommandHelpFlag(invocation.argv)) {
+    return formatOwnedCommandHelp(invocation.route.command);
+  }
+
   const context = getOwnedCommandContext(invocation);
 
   switch (invocation.route.command) {
@@ -91,7 +107,11 @@ export async function runCli(argv: string[], io: CliIO = process): Promise<numbe
   const invocation = parseCliInvocation(argv);
 
   if (invocation.route.mode === 'owned') {
-    const result = await executeOwnedCommand(invocation);
+    const result = await executeOwnedCommand(
+      invocation as ParsedCliInvocation & {
+        route: { mode: 'owned'; command: OwnedCommand };
+      },
+    );
     writeResult(io, result);
     return result.exitCode;
   }

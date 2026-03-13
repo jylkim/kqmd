@@ -28,13 +28,13 @@ describe('CLI routing', () => {
     expect(invocation.route).toEqual({ mode: 'owned', command: 'status' });
   });
 
-  test('treats help-like entrypoints as passthrough', () => {
+  test('keeps top-level help passthrough while routing owned command help locally', () => {
     expect(parseCliInvocation(['--help']).route).toEqual({
       mode: 'passthrough',
       command: 'help',
     });
     expect(parseCliInvocation(['search', '--help']).route).toEqual({
-      mode: 'passthrough',
+      mode: 'owned',
       command: 'search',
     });
     expect(parseCliInvocation(['search', '--version']).route).toEqual({

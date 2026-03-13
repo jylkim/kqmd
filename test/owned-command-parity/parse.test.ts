@@ -64,14 +64,46 @@ describe('owned command parity parse', () => {
     });
   });
 
-  test('query rejects unsupported candidate-limit instead of silently ignoring it', () => {
+  test('query accepts candidate-limit when it is a positive integer', () => {
     const result = parseOwnedQueryInput(
       createContext(['query', '--candidate-limit', '10', 'auth']),
     );
 
     expect(result).toEqual({
+      kind: 'ok',
+      input: {
+        query: 'auth',
+        format: 'cli',
+        limit: 5,
+        minScore: 0,
+        all: false,
+        full: false,
+        lineNumbers: false,
+        collections: undefined,
+        explain: false,
+        candidateLimit: 10,
+        intent: undefined,
+        queryMode: 'plain',
+        queries: undefined,
+        displayQuery: 'auth',
+      },
+    });
+  });
+
+  test('query rejects invalid candidate-limit values', () => {
+    expect(
+      parseOwnedQueryInput(createContext(['query', '--candidate-limit', '0', 'auth'])),
+    ).toEqual({
       kind: 'validation',
-      stderr: 'The `query` command does not yet support --candidate-limit.',
+      stderr: 'The `--candidate-limit` option must be a positive integer.',
+      exitCode: 1,
+    });
+
+    expect(
+      parseOwnedQueryInput(createContext(['query', '--candidate-limit', '101', 'auth'])),
+    ).toEqual({
+      kind: 'validation',
+      stderr: 'The `--candidate-limit` option must be 100 or less.',
       exitCode: 1,
     });
   });
@@ -81,17 +113,17 @@ describe('owned command parity parse', () => {
 
     expect(result).toEqual({
       kind: 'usage',
-      stderr: 'Usage: qmd update [--pull]',
+      stderr: 'Usage: qmd update',
       exitCode: 1,
     });
   });
 
-  test('update rejects unsupported pull flag instead of pretending it ran', () => {
+  test('update rejects de-surfaced pull flag', () => {
     const result = parseOwnedUpdateInput(createContext(['update', '--pull']));
 
     expect(result).toEqual({
       kind: 'validation',
-      stderr: 'The `update` command does not yet support --pull.',
+      stderr: 'Unknown option for `qmd update`: --pull.',
       exitCode: 1,
     });
   });

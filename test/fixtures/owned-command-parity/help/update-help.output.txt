@@ -1,0 +1,4 @@
+Usage: qmd update
+
+Options:
+  -h, --help                  Show this help

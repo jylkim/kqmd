@@ -26,10 +26,13 @@ bun run check
 - `bun run typecheck`
 - `bun run test`
 - `bun run test:parity`
+- `bun run test:release-contract`
 - `bun run test:watch`
 - `bun run test:coverage`
 - `bun run build`
 - `bun run check`
+- `bun run release:artifact`
+- `bun run release:verify`
 
 ## 현재 구조
 
@@ -76,6 +79,21 @@ bun run check
 ```bash
 bun run check
 ```
+
+### owned CLI release contract gate
+
+릴리즈 후보를 한 번에 재판단할 때는 아래 두 스크립트를 기준으로 본다.
+
+```bash
+# Fast gate: lint/typecheck/contract tests/reliability signal
+bun run release:verify
+
+# Artifact gate only: actual pack + tarball inspect + temp install smoke
+bun run release:artifact
+```
+
+`release:verify`는 새 로직을 만드는 bespoke tool이 아니라, 기존 검증 명령을 canonical 순서로 묶는 얇은 entrypoint다.
+`measure:kiwi-reliability`는 supporting signal이며, end-to-end CLI proof를 대체하지 않는다.
 
 ### owned command parity suite
 
@@ -146,6 +164,7 @@ user-facing 근거로 함께 본다.
 
 배포 또는 publish 후보에서는 아래 조건이 모두 맞아야 `Go`로 본다.
 
+- `bun run release:verify`가 green이다
 - 핵심 suite가 green이다
 - `qmd update` ordering regression이 green이다
 - `qmd status clean`과 plain Hangul `qmd search`의 의미가 실제로 일치한다
@@ -175,10 +194,25 @@ qmd search "형태소 분석"
 
 ```bash
 bun pm pack --dry-run
+```
 
-TARBALL=$(bun pm pack --quiet | tail -n 1)
+`bun pm pack --dry-run`은 포함 파일 preview 용도다. canonical artifact 검증은 actual pack과 temp install smoke까지 포함한
+`bun run release:artifact`를 기준으로 본다.
+
+```bash
+bun run release:artifact
+
+TARBALL=$(bun pm pack --quiet)
 tar -tf "$TARBALL" | rg '^(package/(bin|dist)/|package/README.md|package/LICENSE)'
 ```
+
+release 직전 publish path 자체를 시뮬레이션하려면 별도로 아래를 사용한다.
+
+```bash
+bun publish --dry-run
+```
+
+`bun pm pack --dry-run`은 artifact inclusion preview이고, `bun publish --dry-run`은 publish simulation이다. 둘은 같은 검증이 아니다.
 
 ### bin smoke 경로 확인
 
@@ -197,7 +231,7 @@ node ./bin/qmd.js collection list
 6. `node_modules/@tobilu/qmd/dist/cli/qmd.js`의 parse/default/usage/output 변경 사항을 검토한다
 7. intentional drift가 있으면 `test/fixtures/owned-command-parity/baseline.json`과 snapshot fixtures를 갱신한다
 8. `documents`, `content`, `store_config`, `QMDStore.internal` contract가 shadow FTS helper와 여전히 맞는지 확인한다
-9. `bun pm pack --dry-run`과 actual tarball smoke를 다시 확인한다
+9. `bun run release:artifact`와 `bun publish --dry-run`을 다시 확인한다
 10. 관련 문서와 plan/work log를 함께 갱신한다
 
 ## 관련 문서

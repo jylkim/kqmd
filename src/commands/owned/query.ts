@@ -16,6 +16,7 @@ import { formatSearchExecutionResult, normalizeHybridQueryResults } from './io/f
 import { parseOwnedQueryInput } from './io/parse.js';
 import type { OwnedCommandError, QueryCommandInput, SearchOutputRow } from './io/types.js';
 import { resolveSelectedCollections } from './io/validate.js';
+import { executeOwnedQuerySearch } from './query_runtime.js';
 import type { OwnedRuntimeDependencies, OwnedRuntimeFailure } from './runtime.js';
 import { withOwnedStore } from './runtime.js';
 
@@ -76,24 +77,7 @@ async function runQueryCommand(
         collections: selectedCollections,
       });
 
-      const results =
-        input.queryMode === 'structured' && input.queries
-          ? await session.store.search({
-              queries: input.queries,
-              collections: selectedCollections.length > 0 ? selectedCollections : undefined,
-              limit: input.all ? 500 : input.limit,
-              minScore: input.minScore,
-              explain: input.explain,
-              intent: input.intent,
-            })
-          : await session.store.search({
-              query: input.query,
-              collections: selectedCollections.length > 0 ? selectedCollections : undefined,
-              limit: input.all ? 500 : input.limit,
-              minScore: input.minScore,
-              explain: input.explain,
-              intent: input.intent,
-            });
+      const results = await executeOwnedQuerySearch(session.store, input, selectedCollections);
 
       return {
         rows: normalizeHybridQueryResults(results),

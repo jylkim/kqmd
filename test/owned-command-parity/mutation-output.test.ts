@@ -58,12 +58,12 @@ describe('owned mutation parity output', () => {
     );
   });
 
-  test('rejects unsupported update pull flag', async () => {
+  test('rejects de-surfaced update pull flag', async () => {
     const result = await handleUpdateCommand(createContext(['update', '--pull']));
 
     expect(result).toEqual({
       exitCode: 1,
-      stderr: 'The `update` command does not yet support --pull.',
+      stderr: 'Unknown option for `qmd update`: --pull.',
     });
   });
 });

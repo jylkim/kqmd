@@ -26,9 +26,7 @@ export interface QueryCommandInput extends SearchCommandInput {
   readonly displayQuery: string;
 }
 
-export interface UpdateCommandInput {
-  readonly pull: boolean;
-}
+export type UpdateCommandInput = Record<string, never>;
 
 export interface EmbedCommandInput {
   readonly force: boolean;

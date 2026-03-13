@@ -1,0 +1,18 @@
+Usage: qmd query [options] <query>
+
+Options:
+  -c, --collection <name>     Filter to one or more collections
+  -n <n>                      Max results (default: 5 CLI, 20 json/files)
+  --min-score <n>             Minimum score threshold
+  --all                       Return up to 100000 results
+  --full                      Show full bodies instead of snippets
+  --line-numbers              Add line numbers to snippets or bodies
+  --json                      Output JSON
+  --csv                       Output CSV
+  --md                        Output Markdown
+  --xml                       Output XML
+  --files                     Output file list
+  --intent <text>             Domain intent hint
+  --explain                   Include explain traces
+  -C, --candidate-limit <n>   Max candidates to rerank (default: 40, lower = faster)
+  -h, --help                  Show this help
