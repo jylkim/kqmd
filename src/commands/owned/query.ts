@@ -1,23 +1,16 @@
 import { describeEffectiveEmbedModel } from '../../config/embedding_policy.js';
 import type { CommandExecutionContext, CommandExecutionResult } from '../../types/command.js';
 import {
-  hasEmbeddingMismatch,
-  readEmbeddingHealth,
-  summarizeStoredEmbeddingModels,
-} from './embedding_health.js';
-import {
   fromExecutionFailure,
   fromRuntimeFailure,
   isOwnedCommandError,
   isOwnedRuntimeFailure,
   toExecutionResult,
-  validationError,
 } from './io/errors.js';
-import { formatSearchExecutionResult, normalizeHybridQueryResults } from './io/format.js';
+import { formatSearchExecutionResult } from './io/format.js';
 import { parseOwnedQueryInput } from './io/parse.js';
 import type { OwnedCommandError, QueryCommandInput, SearchOutputRow } from './io/types.js';
-import { resolveSelectedCollections } from './io/validate.js';
-import { executeOwnedQuerySearch } from './query_runtime.js';
+import { executeQueryCore } from './query_core.js';
 import type { OwnedRuntimeDependencies, OwnedRuntimeFailure } from './runtime.js';
 import { withOwnedStore } from './runtime.js';
 
@@ -35,15 +28,6 @@ type QueryCommandSuccess = {
   readonly stderr?: string;
 };
 
-function buildQueryMismatchWarning(expectedModel: string, storedModels: string): string {
-  return [
-    'Embedding model mismatch detected.',
-    `Expected effective model: ${expectedModel}`,
-    `Stored models: ${storedModels}`,
-    "Run 'qmd embed --force' to rebuild embeddings for the current model.",
-  ].join('\n');
-}
-
 function looksLikeModelFailure(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return /(model|embedding|llm|sqlite-vec|resolveModel)/i.test(message);
@@ -54,47 +38,19 @@ async function runQueryCommand(
   input: QueryCommandInput,
   runtimeDependencies?: OwnedRuntimeDependencies,
 ): Promise<QueryCommandSuccess | OwnedCommandError | OwnedRuntimeFailure> {
-  const effectiveModel = describeEffectiveEmbedModel(runtimeDependencies?.env);
-
   return withOwnedStore(
     'query',
     context,
     async (session) => {
-      const [availableCollections, defaultCollections] = await Promise.all([
-        session.store.listCollections(),
-        session.store.getDefaultCollectionNames(),
-      ]);
-      const selectedCollections = resolveSelectedCollections(
-        input.collections,
-        availableCollections.map((collection) => collection.name),
-        defaultCollections,
-      );
+      const result = await executeQueryCore(session.store, input, runtimeDependencies?.env);
 
-      if (isOwnedCommandError(selectedCollections)) {
-        return selectedCollections;
+      if (isOwnedCommandError(result)) {
+        return result;
       }
-
-      if (
-        input.candidateLimit !== undefined &&
-        input.queryMode === 'plain' &&
-        selectedCollections.length > 1
-      ) {
-        return validationError(
-          'The `--candidate-limit` option currently supports at most one collection filter.',
-        );
-      }
-
-      const health = await readEmbeddingHealth(session.store, effectiveModel.uri, {
-        collections: selectedCollections,
-      });
-
-      const results = await executeOwnedQuerySearch(session.store, input, selectedCollections);
 
       return {
-        rows: normalizeHybridQueryResults(results),
-        stderr: hasEmbeddingMismatch(health)
-          ? buildQueryMismatchWarning(effectiveModel.uri, summarizeStoredEmbeddingModels(health))
-          : undefined,
+        rows: result.rows,
+        stderr: result.advisories.length > 0 ? result.advisories.join('\n\n') : undefined,
       };
     },
     runtimeDependencies,

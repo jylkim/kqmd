@@ -1,6 +1,6 @@
-export type OwnedCommand = 'search' | 'query' | 'update' | 'embed' | 'status';
+export type OwnedCommand = 'search' | 'query' | 'update' | 'embed' | 'status' | 'mcp';
 
-export type PassthroughCommand = 'collection' | 'ls' | 'get' | 'multi-get' | 'mcp';
+export type PassthroughCommand = 'collection' | 'ls' | 'get' | 'multi-get';
 
 export type CommandRoute =
   | { mode: 'owned'; command: OwnedCommand }
@@ -25,4 +25,5 @@ export interface CommandExecutionResult {
   readonly exitCode: number;
   readonly stdout?: string;
   readonly stderr?: string;
+  readonly directIO?: boolean;
 }

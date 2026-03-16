@@ -20,6 +20,14 @@ describe('CLI routing', () => {
     expect(invocation.commandArgs).toEqual(['list']);
   });
 
+  test('routes mcp through the owned manifest', () => {
+    const invocation = parseCliInvocation(['mcp']);
+
+    expect(invocation.route).toEqual({ mode: 'owned', command: 'mcp' });
+    expect(OWNED_COMMANDS).toContain(invocation.command);
+    expect(invocation.commandArgs).toEqual([]);
+  });
+
   test('keeps top-level option parsing minimal while preserving command position', () => {
     const invocation = parseCliInvocation(['--index', 'work', 'status']);
 

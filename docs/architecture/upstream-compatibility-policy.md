@@ -8,9 +8,10 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 - `QMD_CONFIG_DIR` 기반 설정 경로 override
 - `INDEX_PATH` 기반 DB 경로 override
 - XDG 기반 config/cache fallback
-- 현재 passthrough 명령 표면
+- 현재 passthrough CLI 명령 표면
 - `createStore({ dbPath, configPath? })` 기반 owned runtime bootstrap 계약
 - `search/query/update/embed`의 parse/validation/output parity baseline
+- `mcp`의 tool/resource names, route paths, PID/log path conventions
 - `QMD_EMBED_MODEL` override precedence와 K-QMD default embed bootstrap
 - same-DB Korean lexical shadow FTS ownership과 `store_config` metadata policy
 
@@ -31,6 +32,8 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
   "기존 DB가 실제로 있을 때만 reopen" 규칙을 추가한다
 - `search/query`는 config-file mode보다 기존 DB reopen을 우선해 read path metadata sync side effect를 줄인다
 - upstream private CLI 경로(`@tobilu/qmd/dist/cli/*`)는 직접 import하지 않고 local adapter로 semantics를 반영한다
+- upstream MCP surface는 tool/resource names와 transport routes를 기준선으로 삼되, local MCP adapter가 execution semantics를 소유할 수 있다
+- intentional MCP divergence는 [`docs/architecture/mcp-divergence-registry.md`](./mcp-divergence-registry.md)에 기록한다
 - default embedding model은 upstream `llm.js` override example과 같은
   `hf:Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf`를 사용하되,
   explicit `QMD_EMBED_MODEL` override가 항상 우선한다
@@ -45,6 +48,15 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 - 테스트와 로컬 검증을 위해 `KQMD_UPSTREAM_BIN` override를 허용한다
 - bin smoke에서는 top-level `qmd` entrypoint와 delegated upstream fixture를 모두 explicit Node runtime으로 검증한다
 - passthrough subprocess는 현재 process env를 상속하므로 embed model default bootstrap도 동일하게 전달된다
+
+## owned MCP 실행 원칙
+
+- `qmd mcp`는 local ownership boundary다
+- stdio mode의 stdout은 MCP protocol 전용으로 유지한다
+- HTTP mode는 localhost bind를 기본값으로 두고, `/mcp`, `/health`, `/query`, `/search`를 upstream-compatible route로 유지한다
+- HTTP mode는 `Origin`이 있을 때 exact self-origin(`http://<host:port>`)만 허용한다
+- MCP daemon은 upstream-compatible PID/log path를 사용한다
+- `query/status` tool semantics는 K-QMD-owned policy를 따르고, `get/multi_get`는 thin adapter로 upstream-compatible retrieval semantics를 유지한다
 
 ## owned runtime 실행 원칙
 

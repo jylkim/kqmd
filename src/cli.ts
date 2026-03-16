@@ -10,6 +10,7 @@ import {
 } from './commands/manifest.js';
 import { handleEmbedCommand } from './commands/owned/embed.js';
 import { formatOwnedCommandHelp, hasOwnedCommandHelpFlag } from './commands/owned/help.js';
+import { handleMcpCommand } from './commands/owned/mcp.js';
 import { handleQueryCommand } from './commands/owned/query.js';
 import { handleSearchCommand } from './commands/owned/search.js';
 import { handleStatusCommand } from './commands/owned/status.js';
@@ -91,12 +92,18 @@ async function executeOwnedCommand(
       return handleEmbedCommand(context);
     case 'status':
       return handleStatusCommand(context);
+    case 'mcp':
+      return handleMcpCommand(context);
   }
 
   throw new Error(`Unhandled owned command: ${invocation.route.command}`);
 }
 
 function writeResult(io: CliIO, result: CommandExecutionResult): void {
+  if (result.directIO) {
+    return;
+  }
+
   if (result.stdout) {
     io.stdout.write(`${result.stdout}\n`);
   }

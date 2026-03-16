@@ -160,6 +160,17 @@ export function resolveOwnedRuntimePlan(
         configPath,
         reason: 'no-config-or-db',
       };
+
+    case 'mcp':
+      if (dbExists) {
+        return { kind: 'db-only', command, indexName, dbPath };
+      }
+
+      if (configExists) {
+        return { kind: 'config-file', command, indexName, dbPath, configPath };
+      }
+
+      return { kind: 'db-only', command, indexName, dbPath };
   }
 
   return assertNever(command);

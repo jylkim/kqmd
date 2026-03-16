@@ -26,7 +26,7 @@ describe('unknown command handling', () => {
     expect(exitCode).toBe(1);
     expect(stdoutChunks).toEqual([]);
     expect(stderrChunks.join('')).toContain('Unknown command: vsearch');
-    expect(stderrChunks.join('')).toContain('owned: search, query, update, embed, status');
-    expect(stderrChunks.join('')).toContain('passthrough: collection, ls, get, multi-get, mcp');
+    expect(stderrChunks.join('')).toContain('owned: search, query, update, embed, status, mcp');
+    expect(stderrChunks.join('')).toContain('passthrough: collection, ls, get, multi-get');
   });
 });

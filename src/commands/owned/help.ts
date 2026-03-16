@@ -55,6 +55,21 @@ const HELP_TEXT: Record<OwnedCommand, string> = {
     'Options:',
     '  -h, --help                  Show this help',
   ].join('\n'),
+  mcp: [
+    'Usage: qmd mcp [options]',
+    '',
+    'Modes:',
+    '  qmd mcp                     Start the MCP server on stdio',
+    '  qmd mcp --http              Start the MCP server over HTTP on localhost',
+    '  qmd mcp --http --daemon     Start the HTTP server in the background',
+    '  qmd mcp stop                Stop the background HTTP server',
+    '',
+    'Options:',
+    '  --http                      Use Streamable HTTP transport',
+    '  --daemon                    Run the HTTP server in the background',
+    '  --port <n>                  Custom HTTP port (default: 8181)',
+    '  -h, --help                  Show this help',
+  ].join('\n'),
 };
 
 export function hasOwnedCommandHelpFlag(argv: string[]): boolean {

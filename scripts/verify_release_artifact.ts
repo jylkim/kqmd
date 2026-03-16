@@ -1,7 +1,13 @@
-import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
+
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 function resolveRuntimeBinary(command: 'bun' | 'node', override?: string): string {
   if (override) {
@@ -51,6 +57,57 @@ function runAndAssert(command: string, args: string[], options: Parameters<typeo
   }
 
   return result;
+}
+
+async function getFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createNetServer();
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (!address || typeof address === 'string') {
+        reject(new Error('Unable to allocate a free port for release artifact checks.'));
+        return;
+      }
+
+      const { port } = address;
+      server.close((error) => (error ? reject(error) : resolve(port)));
+    });
+  });
+}
+
+async function waitForHealth(url: string): Promise<void> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        return;
+      }
+
+      lastError = new Error(`Unexpected health status: ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+
+    await sleep(100);
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Timed out waiting for MCP health endpoint.');
+}
+
+async function closeQuietly(closeFn: () => Promise<void>): Promise<void> {
+  try {
+    await closeFn();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/Connection closed|transport is not connected|not connected/i.test(message)) {
+      throw error;
+    }
+  }
 }
 
 const root = process.cwd();
@@ -109,10 +166,17 @@ try {
   const installedBinPath = resolve(tempDir, 'node_modules', 'kqmd', 'bin', 'qmd.js');
   assert(existsSync(installedBinPath), `Installed package bin not found: ${installedBinPath}`);
 
+  const packageEnv = {
+    ...process.env,
+    HOME: tempDir,
+    XDG_CACHE_HOME: resolve(tempDir, '.cache'),
+  };
+  mkdirSync(resolve(packageEnv.XDG_CACHE_HOME, 'qmd'), { recursive: true });
+
   const queryHelp = runAndAssert(nodeBinary, [installedBinPath, 'query', '--help'], {
     cwd: tempDir,
     encoding: 'utf8',
-    env: process.env,
+    env: packageEnv,
   });
   assert(
     queryHelp.stdout.includes('--candidate-limit'),
@@ -122,9 +186,70 @@ try {
   const updateHelp = runAndAssert(nodeBinary, [installedBinPath, 'update', '--help'], {
     cwd: tempDir,
     encoding: 'utf8',
-    env: process.env,
+    env: packageEnv,
   });
   assert(!updateHelp.stdout.includes('--pull'), 'Installed update help still advertises --pull.');
+
+  const stdioClient = new Client({
+    name: 'artifact-stdio-client',
+    version: '1.0.0',
+  });
+  const stdioTransport = new StdioClientTransport({
+    command: nodeBinary,
+    args: [installedBinPath, 'mcp'],
+    cwd: tempDir,
+    env: packageEnv,
+    stderr: 'pipe',
+  });
+  await stdioClient.connect(stdioTransport);
+  const stdioTools = await stdioClient.listTools();
+  assert(
+    stdioTools.tools.some((tool) => tool.name === 'query'),
+    'Installed stdio MCP server is missing the query tool.',
+  );
+  await closeQuietly(() => stdioClient.close());
+  await closeQuietly(() => stdioTransport.close());
+
+  const port = await getFreePort();
+  const daemonStart = runAndAssert(
+    nodeBinary,
+    [installedBinPath, 'mcp', '--http', '--daemon', '--port', String(port)],
+    {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: packageEnv,
+    },
+  );
+  assert(
+    daemonStart.stdout.includes(`http://127.0.0.1:${port}/mcp`),
+    'Installed MCP daemon did not report the expected HTTP endpoint.',
+  );
+
+  await waitForHealth(`http://127.0.0.1:${port}/health`);
+
+  const httpClient = new Client({
+    name: 'artifact-http-client',
+    version: '1.0.0',
+  });
+  const httpTransport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`));
+  await httpClient.connect(httpTransport);
+  const httpTools = await httpClient.listTools();
+  assert(
+    httpTools.tools.some((tool) => tool.name === 'status'),
+    'Installed HTTP MCP server is missing the status tool.',
+  );
+  await closeQuietly(() => httpClient.close());
+  await closeQuietly(() => httpTransport.close());
+
+  const daemonStop = runAndAssert(nodeBinary, [installedBinPath, 'mcp', 'stop'], {
+    cwd: tempDir,
+    encoding: 'utf8',
+    env: packageEnv,
+  });
+  assert(
+    daemonStop.stdout.includes('Stopped QMD MCP server'),
+    'Installed MCP daemon did not stop cleanly.',
+  );
 
   const fixturePath = resolve(root, 'test/fixtures/upstream-fixture.mjs');
   const wrapperPath = resolve(
@@ -146,7 +271,7 @@ try {
     cwd: tempDir,
     encoding: 'utf8',
     env: {
-      ...process.env,
+      ...packageEnv,
       KQMD_UPSTREAM_BIN: wrapperPath,
       TEST_UPSTREAM_EXIT_CODE: '17',
     },

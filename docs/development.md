@@ -58,6 +58,12 @@ bun run check
   Kiwi wasm/model cache bootstrap과 Korean token augmentation helper
 - [`src/commands/owned/status.ts`](../src/commands/owned/status.ts)
   owned status output과 embedding/search health surface
+- [`src/commands/owned/mcp.ts`](../src/commands/owned/mcp.ts)
+  owned MCP CLI entry, stdio/HTTP/daemon dispatch
+- [`src/mcp/server.ts`](../src/mcp/server.ts)
+  local MCP server, tool/resource registration, HTTP transport
+- [`src/mcp/daemon_state.ts`](../src/mcp/daemon_state.ts)
+  daemon PID/log safety helpers and daemon state inspection
 - [`src/commands/owned/io/`](../src/commands/owned/io)
   owned command parse/validation/output parity contract
 - [`src/config/qmd_paths.ts`](../src/config/qmd_paths.ts)
@@ -94,6 +100,46 @@ bun run release:artifact
 
 `release:verify`는 새 로직을 만드는 bespoke tool이 아니라, 기존 검증 명령을 canonical 순서로 묶는 얇은 entrypoint다.
 `measure:kiwi-reliability`는 supporting signal이며, end-to-end CLI proof를 대체하지 않는다.
+
+### MCP contract checks
+
+```bash
+bun run test -- mcp-command mcp-server mcp-http mcp-stdio mcp-runtime mcp-daemon-state query-core status-core
+```
+
+이 suite는 `mcp` route ownership, local server tool/resource exposure, `query/status` semantics,
+stdio contamination safety, HTTP invalid/concurrent handling, read-path open policy, daemon path/process guard,
+그리고 thin retrieval wrappers를 고정한다.
+
+### MCP protocol smoke
+
+```bash
+# Automated protocol/invalid-input/concurrency coverage
+bun run test -- mcp-http mcp-stdio
+
+# Manual Inspector smoke when needed
+npx @modelcontextprotocol/inspector node ./bin/qmd.js mcp
+```
+
+권장 manual checks:
+
+- `tools/list`
+- `resources/list` / `resources/read`
+- invalid `query` input
+- repeated `status`
+- parallel `query` + `status`
+
+Inspector smoke는 local protocol debugging 도구고, canonical gate는 계속 Vitest contract suite다.
+
+### MCP performance metrics
+
+```bash
+bun run measure:mcp-contract
+```
+
+latest benchmark record:
+
+- [docs/benchmarks/2026-03-16-mcp-contract-metrics.md](benchmarks/2026-03-16-mcp-contract-metrics.md)
 
 ### owned command parity suite
 
@@ -231,11 +277,15 @@ node ./bin/qmd.js collection list
 6. `node_modules/@tobilu/qmd/dist/cli/qmd.js`의 parse/default/usage/output 변경 사항을 검토한다
 7. intentional drift가 있으면 `test/fixtures/owned-command-parity/baseline.json`과 snapshot fixtures를 갱신한다
 8. `documents`, `content`, `store_config`, `QMDStore.internal` contract가 shadow FTS helper와 여전히 맞는지 확인한다
-9. `bun run release:artifact`와 `bun publish --dry-run`을 다시 확인한다
-10. 관련 문서와 plan/work log를 함께 갱신한다
+9. `node_modules/@tobilu/qmd/dist/mcp/server.js`의 tool/resource names, `/mcp`/`/health` route shape, daemon lifecycle semantics를 검토한다
+10. `bun run test -- mcp-upstream-guard mcp-http mcp-stdio`로 MCP guard와 protocol suite를 다시 확인한다
+11. [`docs/architecture/mcp-divergence-registry.md`](architecture/mcp-divergence-registry.md) 의 intentional divergence를 재검토한다
+12. `bun run release:artifact`와 `bun publish --dry-run`을 다시 확인한다
+13. 관련 문서와 plan/work log를 함께 갱신한다
 
 ## 관련 문서
 
 - [docs/architecture/kqmd-command-boundary.md](architecture/kqmd-command-boundary.md)
 - [docs/architecture/upstream-compatibility-policy.md](architecture/upstream-compatibility-policy.md)
+- [docs/architecture/mcp-divergence-registry.md](architecture/mcp-divergence-registry.md)
 - [docs/plans/2026-03-11-feat-kqmd-replacement-distribution-scaffold-plan.md](plans/2026-03-11-feat-kqmd-replacement-distribution-scaffold-plan.md)
