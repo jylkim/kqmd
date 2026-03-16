@@ -41,13 +41,49 @@ describe('CLI routing', () => {
       mode: 'passthrough',
       command: 'help',
     });
+    expect(parseCliInvocation(['-h']).route).toEqual({
+      mode: 'passthrough',
+      command: 'help',
+    });
     expect(parseCliInvocation(['help', 'search']).route).toEqual({
       mode: 'owned',
       command: 'search',
     });
+    expect(parseCliInvocation(['help', 'search', '--help']).route).toEqual({
+      mode: 'owned',
+      command: 'search',
+    });
+    expect(parseCliInvocation(['help', 'search', '-h']).route).toEqual({
+      mode: 'owned',
+      command: 'search',
+    });
+    expect(parseCliInvocation(['help', 'collection']).route).toEqual({
+      mode: 'passthrough',
+      command: 'help',
+    });
+    expect(parseCliInvocation(['help', 'collection', '--help']).route).toEqual({
+      mode: 'passthrough',
+      command: 'help',
+    });
+    expect(parseCliInvocation(['help', 'nope']).route).toEqual({
+      mode: 'passthrough',
+      command: 'help',
+    });
     expect(parseCliInvocation(['search', '--help']).route).toEqual({
       mode: 'owned',
       command: 'search',
+    });
+    expect(parseCliInvocation(['search', '-h']).route).toEqual({
+      mode: 'owned',
+      command: 'search',
+    });
+    expect(parseCliInvocation(['--help', 'query']).route).toEqual({
+      mode: 'owned',
+      command: 'query',
+    });
+    expect(parseCliInvocation(['-h', 'query']).route).toEqual({
+      mode: 'owned',
+      command: 'query',
     });
     expect(parseCliInvocation(['search', '--version']).route).toEqual({
       mode: 'passthrough',

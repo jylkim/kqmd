@@ -51,6 +51,21 @@ describe('bin smoke test', () => {
     expect(result.status).toBe(17);
     expect(result.stdout).toContain('fixture argv: ["collection","list"]');
   });
+
+  test('keeps bare help as an upstream passthrough entrypoint', () => {
+    const result = spawnSync(nodeBinary, [binPath, 'help'], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        KQMD_UPSTREAM_BIN: wrapperPath,
+        TEST_UPSTREAM_EXIT_CODE: '19',
+      },
+      encoding: 'utf8',
+    });
+
+    expect(result.status).toBe(19);
+    expect(result.stdout).toContain('fixture argv: ["help"]');
+  });
 });
 
 function resolveRuntimeBinary(command: 'bun' | 'node', override?: string): string {

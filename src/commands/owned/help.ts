@@ -65,7 +65,7 @@ const HELP_TEXT: Record<OwnedCommand, string> = {
     '  qmd mcp stop                Stop the background HTTP server',
     '',
     'Options:',
-    '  --http                      Use Streamable HTTP transport',
+    '  --http                      Use localhost HTTP routes: /mcp, /health, /query, /search',
     '  --daemon                    Run the HTTP server in the background',
     '  --port <n>                  Custom HTTP port (default: 8181)',
     '  -h, --help                  Show this help',

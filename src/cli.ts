@@ -38,15 +38,16 @@ export function parseCliInvocation(argv: string[]): ParsedCliInvocation {
   });
 
   let route: CommandRoute;
+  const helpAliasCommand = isHelpAlias(positionals[0]) ? positionals[1] : undefined;
 
-  if (values.help) {
+  if (helpAliasCommand && isOwnedCommand(helpAliasCommand)) {
+    route = { mode: 'owned', command: helpAliasCommand };
+  } else if (values.help) {
     const helpCommand = positionals[0];
     route =
       helpCommand && isOwnedCommand(helpCommand)
         ? { mode: 'owned', command: helpCommand }
         : { mode: 'passthrough', command: helpCommand ?? 'help' };
-  } else if (isHelpAlias(positionals[0]) && positionals[1] && isOwnedCommand(positionals[1])) {
-    route = { mode: 'owned', command: positionals[1] };
   } else if (values.version || values.skill) {
     route = { mode: 'passthrough', command: positionals[0] ?? 'help' };
   } else if (positionals.length === 0) {

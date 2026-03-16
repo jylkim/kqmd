@@ -61,7 +61,7 @@ bun run check
 - [`src/commands/owned/mcp.ts`](../src/commands/owned/mcp.ts)
   owned MCP CLI entry, stdio/HTTP/daemon dispatch
 - [`src/mcp/server.ts`](../src/mcp/server.ts)
-  local MCP server, tool/resource registration, HTTP transport
+  local MCP server, tool/resource registration, HTTP transport (`/mcp`, `/health`, `/query`, `/search`)
 - [`src/mcp/daemon_state.ts`](../src/mcp/daemon_state.ts)
   daemon PID/log safety helpers and daemon state inspection
 - [`src/commands/owned/io/`](../src/commands/owned/io)
@@ -275,13 +275,14 @@ node ./bin/qmd.js collection list
 4. `bun pm untrusted`로 install/lifecycle trust surface가 달라졌는지 확인한다
 5. `bun run test:parity`
 6. `node_modules/@tobilu/qmd/dist/cli/qmd.js`의 parse/default/usage/output 변경 사항을 검토한다
-7. intentional drift가 있으면 `test/fixtures/owned-command-parity/baseline.json`과 snapshot fixtures를 갱신한다
-8. `documents`, `content`, `store_config`, `QMDStore.internal` contract가 shadow FTS helper와 여전히 맞는지 확인한다
-9. `node_modules/@tobilu/qmd/dist/mcp/server.js`의 tool/resource names, `/mcp`/`/health` route shape, daemon lifecycle semantics를 검토한다
-10. `bun run test -- mcp-upstream-guard mcp-http mcp-stdio`로 MCP guard와 protocol suite를 다시 확인한다
-11. [`docs/architecture/mcp-divergence-registry.md`](architecture/mcp-divergence-registry.md) 의 intentional divergence를 재검토한다
-12. `bun run release:artifact`와 `bun publish --dry-run`을 다시 확인한다
-13. 관련 문서와 plan/work log를 함께 갱신한다
+7. owned help entrypoint(`qmd <owned> --help`, `qmd help <owned>`, `qmd --help <owned>`)와 de-surfaced option leak를 함께 검토한다
+8. intentional drift가 있으면 `test/fixtures/owned-command-parity/baseline.json`과 help/output snapshot fixtures를 갱신한다
+9. `documents`, `content`, `store_config`, `QMDStore.internal` contract가 shadow FTS helper와 여전히 맞는지 확인한다
+10. `node_modules/@tobilu/qmd/dist/mcp/server.js`의 tool/resource names, `/mcp`/`/health`/`/query`/`/search` route shape, daemon lifecycle semantics를 검토한다
+11. `bun run test -- mcp-upstream-guard mcp-http mcp-stdio`로 MCP guard와 protocol suite를 다시 확인한다
+12. [`docs/architecture/mcp-divergence-registry.md`](architecture/mcp-divergence-registry.md) 의 intentional divergence를 재검토한다
+13. `bun run release:artifact`와 `bun publish --dry-run`을 다시 확인한다
+14. 관련 문서와 plan/work log를 함께 갱신한다
 
 ## 관련 문서
 

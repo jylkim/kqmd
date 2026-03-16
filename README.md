@@ -42,8 +42,9 @@ qmd mcp --http --daemon
 
 ### Help behavior
 
-- `qmd --help`는 upstream `qmd`의 전체 도움말을 보여줍니다.
-- `qmd <owned-command> --help`는 K-QMD가 직접 소유하는 명령의 도움말을 보여줍니다.
+- `qmd --help`, `qmd -h`는 upstream `qmd`의 전체 도움말을 보여줍니다.
+- `qmd <owned-command> --help`, `qmd <owned-command> -h`, `qmd help <owned-command>`, `qmd --help <owned-command>`는 K-QMD가 직접 소유하는 명령의 도움말을 보여줍니다.
+- bare `qmd help`는 upstream passthrough 경로를 그대로 타므로 top-level 도움말 alias로 지원하지 않습니다. 전체 도움말이 필요하면 `qmd --help`를 사용하세요.
 
 ## Features
 
