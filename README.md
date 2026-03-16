@@ -1,104 +1,108 @@
 # K-QMD
 
-K-QMD는 기존 `qmd` 사용 습관을 바꾸지 않으면서 한국어 검색 지원을 강화하기 위한
-`qmd-compatible replacement distribution` 프로젝트입니다. 패키지는 `kqmd`로 배포하지만,
-사용자가 실제로 실행하는 명령은 계속 `qmd`입니다.
+Better Korean search for `qmd`, without changing how you use `qmd`.
 
-## 이 프로젝트가 하려는 일
+K-QMD는 기존 `qmd` 워크플로를 유지한 채 한국어 검색 경험을 개선하는 `qmd` 호환 배포판입니다. 새 CLI 이름을 배우게 하거나 저장 경로를 옮기게 하기보다, 한국어 지원이 중요한 명령만 선택적으로 소유하는 방향을 택합니다.
 
-- 사용자가 새 CLI 이름을 외우지 않아도 되게 한다
-- upstream `qmd`와 같은 설정/DB/캐시 경로를 공유한다
-- 한국어 지원이 필요한 명령만 별도로 소유할 수 있는 경계를 만든다
-- 나머지 저위험 명령은 upstream `qmd`로 그대로 위임한다
+## Problem & Solution
 
-## 현재 상태
+한국어 문서는 복합어와 띄어쓰기 차이 때문에 plain lexical search만으로는 recall이 쉽게 떨어질 수 있습니다. 그렇다고 이 문제를 해결하려고 CLI 이름, 인덱스 위치, 기존 스크립트까지 모두 바꾸게 만들면 도입 비용이 너무 커집니다.
 
-지금 저장소는 **첫 owned CLI release candidate를 준비하는 단계**입니다.
-CLI 경계, 패키징, 테스트, 문서 구조 위에, `qmd search`의 한글 복합어/붙여쓰기 recall을 높이기 위한
-Kiwi 기반 shadow FTS 경로와 release verification gate가 추가되어 있습니다.
+K-QMD는 이 사이를 메웁니다. 사용자는 계속 `qmd`를 실행하고, 설정·캐시·DB 경로도 upstream `qmd`와 같은 자리를 쓰면서, 한국어 검색 품질에 직접 영향을 주는 명령만 K-QMD가 직접 구현합니다. 나머지 표면은 upstream `qmd`에 그대로 위임합니다.
 
-즉, 아직 장기 roadmap이 모두 닫힌 완성 도구는 아니지만, `search/query/update/embed/status/mcp`
-owned surface에 대해서는 “무엇을 지원한다고 주장하는가”를 help, parse, output, tarball smoke까지
-같이 맞추는 방향으로 정리되고 있습니다.
+## Quick Start
 
-## 지원 매트릭스
+### Requirements
 
-- Node: `>=24`
-- OS: macOS/Linux 기준으로 개발 및 smoke 검증, Windows는 별도 smoke 없이는 주장하지 않음
-- 설치 채널: repo checkout 실행과 tarball install smoke를 기준으로 검증
-- 패키지 이름: `kqmd`
-- 실행 명령: `qmd`
+- Node.js `>=24`
+- Bun `1.3.10` for local development
 
-### owned surface matrix
+### Run from a checkout
 
-| Surface | Status |
-|---|---|
-| `search` | supported |
-| `query` | supported |
-| `query --candidate-limit` | supported |
-| `update` | supported |
-| `update --pull` | not claimed |
-| `embed` | supported |
-| `status` | supported |
-| `mcp` | supported |
+```bash
+bun install
+bun run build
 
-## 지금 동작하는 범위
+node bin/qmd.js update
+node bin/qmd.js search "형태소 분석"
+node bin/qmd.js query --candidate-limit 20 "거대언어모델"
+node bin/qmd.js status
+node bin/qmd.js mcp --http --port 8181
+```
 
-### K-QMD가 소유하는 명령
+패키지로 설치된 뒤에도 사용자가 실행하는 명령은 계속 `qmd`입니다.
 
-아래 명령은 K-QMD가 직접 소유하는 표면입니다. 현재는 upstream-compatible I/O contract와
-runtime bootstrap 경로까지 연결되어 있습니다.
+```bash
+qmd update
+qmd search "형태소 분석"
+qmd query --explain "auth flow"
+qmd status
+qmd mcp --http --daemon
+```
 
-- `search`
-- `query`
-- `update`
-- `embed`
-- `status`
-- `mcp`
+### Help behavior
 
-### upstream로 위임하는 명령
+- `qmd --help`는 upstream `qmd`의 전체 도움말을 보여줍니다.
+- `qmd <owned-command> --help`는 K-QMD가 직접 소유하는 명령의 도움말을 보여줍니다.
 
-아래 명령은 현재 upstream `qmd`로 passthrough 됩니다.
+## Features
 
-- `collection`
-- `ls`
-- `get`
-- `multi-get`
+### Korean-aware search without a workflow reset
 
-## 사용자 관점에서 알아둘 점
+- `search`는 Kiwi 기반 shadow FTS 경로를 사용해 한국어 복합어와 붙여쓰기 차이에서 오는 recall 손실을 줄입니다.
+- shadow index가 없거나 현재 policy와 맞지 않으면 경고를 출력하고 legacy lexical path로 fallback 합니다.
+- quoted query나 negation처럼 보수적으로 다뤄야 하는 문법은 shadow path 대신 legacy path를 유지할 수 있습니다.
 
-- 설치 패키지 이름은 `kqmd`지만, 실행 명령은 `qmd`입니다
-- 설정 경로는 upstream `qmd`와 동일하게 유지합니다
-- `search/query/update/embed/status/mcp`는 fixed stub가 아니라 owned runtime과 local contract 위에서 동작합니다
-- `qmd <owned-command> --help`는 K-QMD가 현재 주장하는 owned surface를 기준으로 출력됩니다
-- 기본 embedding model은 upstream override 예시와 같은 Qwen3 URI를 zero-config 기본값으로 사용합니다
-- 사용자가 `QMD_EMBED_MODEL`을 직접 지정하면 그 값이 effective model이 됩니다
-- 기존 인덱스의 stored vectors가 현재 effective model과 다르면 `status/query/embed/update`가 mismatch를 감지하고
-  `qmd embed --force`를 안내합니다
-- `search`는 Kiwi 기반 한국어 shadow FTS를 사용해 `형태소 분석`/`형태소분석기`, `모델`/`거대언어모델`
-  같은 복합어 recall을 개선합니다
-- `query --candidate-limit`는 rerank 후보 수를 줄여 더 빠른 질의를 만들 수 있는 owned option입니다
-- Korean search shadow index가 없거나 현재 policy와 어긋나면 `status`가 이를 드러내고, `search`는 경고 후 legacy lexical path로 fallback 합니다
-- `update`는 upstream 문서 스캔 뒤 K-QMD-owned Korean shadow index를 rebuild 합니다
-- `mcp`는 upstream-compatible tool/resource names를 유지하되, `query`/`status` semantics는 K-QMD-owned policy를 반영합니다
-- `qmd mcp --http --daemon`은 upstream-compatible PID/log path를 사용합니다
-- `update --pull`는 현재 owned release surface에 포함되지 않습니다
-- 다만 아직 사용자 사전, 동의어 사전, 한글 전용 ranking, `query` 경로의 의미 검색 개선은 첫 릴리스 범위 밖입니다
+### Drop-in compatibility where it matters
 
-## 문서 안내
+- 실행 명령은 계속 `qmd`입니다.
+- 설정, 캐시, 인덱스 DB 경로는 upstream `qmd`와 공유합니다.
+- top-level `qmd --help`, `qmd --version`, `qmd --skill`은 upstream 동작을 그대로 유지합니다.
+- 전체 CLI를 다시 구현하지 않고 필요한 표면만 교체합니다.
 
-개발자용 문서는 README에서 분리했습니다.
+### Owned runtime for the commands that shape search quality
 
+- 직접 소유하는 명령: `search`, `query`, `update`, `embed`, `status`, `mcp`
+- upstream passthrough 명령: `collection`, `ls`, `get`, `multi-get`
+- `query`는 owned runtime에서 hybrid query를 실행하며 `--candidate-limit`, `--intent`, `--explain`를 지원합니다.
+- `update`는 upstream 문서 스캔 뒤 Korean shadow index를 함께 동기화합니다.
+- `status`는 인덱스 상태와 함께 embedding mismatch, Korean search index health를 보여줍니다.
+- `embed`는 현재 effective model 기준으로 임베딩을 생성하며 `--force`를 지원합니다.
+- `mcp`는 stdio, HTTP, background daemon 모드를 지원합니다.
+
+### Safe defaults and explicit health signals
+
+- 기본 embedding model은 `hf:Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf`입니다.
+- `QMD_EMBED_MODEL`을 지정하면 그 값이 effective model이 됩니다.
+- 저장된 벡터와 현재 effective model이 어긋나면 `status`, `query`, `embed`, `update`에서 mismatch를 드러냅니다.
+- 현재 Korean search policy ID는 `kiwi-cong-shadow-v1`입니다.
+- `update --pull`는 현재 owned release surface에 포함되지 않습니다.
+
+### Current scope
+
+첫 릴리스 범위는 Korean-aware lexical recall과 owned command boundary를 안정적으로 제공하는 데 맞춰져 있습니다. 사용자 사전, 동의어 정책, 한글 전용 ranking 조정, `query` 경로의 장기적인 한국어 의미 검색 개선은 아직 범위 밖입니다.
+
+## Development & Contribution
+
+로컬 개발의 기본 품질 게이트는 아래 명령입니다.
+
+```bash
+bun run check
+```
+
+릴리스 후보를 검증할 때는 아래 명령을 사용합니다.
+
+```bash
+bun run release:verify
+bun run release:artifact
+```
+
+구현과 검증 기준은 아래 문서에 정리되어 있습니다.
+
+- 기여 가이드: [CONTRIBUTING.md](CONTRIBUTING.md)
 - 개발 환경과 스크립트: [docs/development.md](docs/development.md)
 - 명령 소유 경계: [docs/architecture/kqmd-command-boundary.md](docs/architecture/kqmd-command-boundary.md)
 - upstream 호환 정책: [docs/architecture/upstream-compatibility-policy.md](docs/architecture/upstream-compatibility-policy.md)
-- 구현 계획: [docs/plans/2026-03-11-feat-kqmd-replacement-distribution-scaffold-plan.md](docs/plans/2026-03-11-feat-kqmd-replacement-distribution-scaffold-plan.md)
+- MCP divergence 메모: [docs/architecture/mcp-divergence-registry.md](docs/architecture/mcp-divergence-registry.md)
 
-## 다음 단계
-
-다음 단계는 첫 lexical recall 기능을 더 단단하게 만드는 것입니다. 특히:
-
-- `search` shadow index의 rebuild 비용 최적화
-- user dictionary / synonym 정책 검토
-- `query` 경로와 lexical Korean policy의 장기 관계 정리
-- release gate를 CI나 publish workflow까지 어떻게 넓힐지 판단
+이슈와 PR은 환영합니다. 변경 전에 빠르게 맥락을 잡고 싶다면 위 문서들부터 읽으시면 됩니다.
