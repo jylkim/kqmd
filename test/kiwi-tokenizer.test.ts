@@ -109,7 +109,6 @@ describe('kiwi tokenizer helpers', () => {
       ['dialect.dict', goodData],
       ['extract.mdl', goodData],
       ['multi.dict', goodData],
-      ['nounchr.mdl', goodData],
       ['sj.morph', goodData],
       ['typo.dict', goodData],
     ]);
@@ -127,7 +126,6 @@ describe('kiwi tokenizer helpers', () => {
           'dialect.dict': expectedHash,
           'extract.mdl': expectedHash,
           'multi.dict': expectedHash,
-          'nounchr.mdl': expectedHash,
           'sj.morph': expectedHash,
           'typo.dict': expectedHash,
         },
@@ -184,6 +182,87 @@ describe('kiwi tokenizer helpers', () => {
     ).resolves.toBeUndefined();
 
     expect(fetch as unknown as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(1);
+    resetKiwiForTests();
+  });
+
+  test('downloads LFS-backed model files from media.githubusercontent.com', async () => {
+    resetKiwiForTests();
+
+    const goodData = new Uint8Array([1, 2, 3, 4]);
+    const hash = await crypto.subtle.digest('SHA-256', goodData);
+    const expectedHash = Array.from(new Uint8Array(hash))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
+    const files = new Map<string, Uint8Array>();
+    const urls: string[] = [];
+    const fetch = vi.fn(async (input: Parameters<typeof globalThis.fetch>[0]) => {
+      urls.push(String(input));
+      return {
+        ok: true,
+        arrayBuffer: async () => goodData.buffer,
+      };
+    }) as unknown as typeof globalThis.fetch;
+
+    await expect(
+      ensureKiwiReady({
+        expectedHashes: {
+          'combiningRule.txt': expectedHash,
+          'cong.mdl': expectedHash,
+          'default.dict': expectedHash,
+          'dialect.dict': expectedHash,
+          'extract.mdl': expectedHash,
+          'multi.dict': expectedHash,
+          'sj.morph': expectedHash,
+          'typo.dict': expectedHash,
+        },
+        stat: (async () => {
+          throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+        }) as unknown as typeof import('node:fs/promises').stat,
+        readFile: (async (filePath) => {
+          const name = String(filePath).split('/').pop();
+          const data = files.get(name ?? '');
+          if (!data) {
+            throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+          }
+
+          return data;
+        }) as typeof import('node:fs/promises').readFile,
+        writeFile: (async (filePath, data) => {
+          files.set(String(filePath).split('/').pop() ?? '', new Uint8Array(data as Uint8Array));
+        }) as typeof import('node:fs/promises').writeFile,
+        rename: (async (from, to) => {
+          const data = files.get(String(from).split('/').pop() ?? '');
+          if (data) {
+            files.set(String(to).split('/').pop() ?? '', data);
+          }
+        }) as typeof import('node:fs/promises').rename,
+        rm: (async (filePath) => {
+          files.delete(String(filePath).split('/').pop() ?? '');
+        }) as typeof import('node:fs/promises').rm,
+        fetch,
+        createBuilder: (async () => ({
+          build: async () =>
+            ({
+              ready: () => true,
+              tokenize: () => [],
+            }) as never,
+        })) as never,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(urls).toContain(
+      'https://raw.githubusercontent.com/bab2min/Kiwi/v0.22.1/models/cong/base/combiningRule.txt',
+    );
+    expect(urls).toContain(
+      'https://media.githubusercontent.com/media/bab2min/Kiwi/v0.22.1/models/cong/base/cong.mdl',
+    );
+    expect(urls).toContain(
+      'https://media.githubusercontent.com/media/bab2min/Kiwi/v0.22.1/models/cong/base/extract.mdl',
+    );
+    expect(urls).toContain(
+      'https://media.githubusercontent.com/media/bab2min/Kiwi/v0.22.1/models/cong/base/sj.morph',
+    );
+    expect(fetch as unknown as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(8);
     resetKiwiForTests();
   });
 

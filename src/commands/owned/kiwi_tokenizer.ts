@@ -18,7 +18,8 @@ const require = createRequire(import.meta.url);
 const KQMD_KIWI_PACKAGE_VERSION = '0.22.1';
 const KQMD_KIWI_GIT_TAG = `v${KQMD_KIWI_PACKAGE_VERSION}`;
 const KQMD_KIWI_WASM_PATH = require.resolve('kiwi-nlp/dist/kiwi-wasm.wasm');
-const KQMD_KIWI_MODEL_BASE_URL = `https://raw.githubusercontent.com/bab2min/Kiwi/${KQMD_KIWI_GIT_TAG}/models/cong/base`;
+const KQMD_KIWI_MODEL_RAW_BASE_URL = `https://raw.githubusercontent.com/bab2min/Kiwi/${KQMD_KIWI_GIT_TAG}/models/cong/base`;
+const KQMD_KIWI_MODEL_MEDIA_BASE_URL = `https://media.githubusercontent.com/media/bab2min/Kiwi/${KQMD_KIWI_GIT_TAG}/models/cong/base`;
 const KQMD_KIWI_DOWNLOAD_TIMEOUT_MS = 15_000;
 const SEARCHABLE_TOKEN_PREFIXES = ['N', 'XR', 'SL', 'SH', 'SN'] as const;
 const KQMD_KIWI_MODEL_FILES = [
@@ -28,21 +29,20 @@ const KQMD_KIWI_MODEL_FILES = [
   'dialect.dict',
   'extract.mdl',
   'multi.dict',
-  'nounchr.mdl',
   'sj.morph',
   'typo.dict',
 ] as const;
 const KQMD_KIWI_MODEL_FILE_HASHES: Record<KiwiModelFile, string> = {
   'combiningRule.txt': 'ae618482b51a93fb60c100ec2a2ca031967ef2c58e3da75b0575261a131f7289',
-  'cong.mdl': 'e1daec4efe77f779d9eb5462ead21cb162b9acd12c184df6ea452230190138e1',
+  'cong.mdl': 'bd9ca89ee1b72e750c8e2166a17c80a0fe3fabd828c78b1f0928486a6b1833a7',
   'default.dict': 'd4293e44b2588d0c3aabbce607a0f41ad3534abd31b34139847b127254e01549',
   'dialect.dict': 'bb6f0ab37dbfcc0fd33dc679121218d24725ae438f31bb362f9b24703e93cda2',
-  'extract.mdl': '07302ee2804c6d1c95139d05728f88b49b01ec989816484a559334c2e6306af6',
+  'extract.mdl': 'a0c92ffc051e43ae497845cdb8d4c8b9e2f359893cb55c67279c76d1d531ee17',
   'multi.dict': 'e9eff7712d163b214c750333a5d388ab77b50ec386ae55b360babcd24c0c3195',
-  'nounchr.mdl': '6d6224b88174b9f6fae74f07347ab364619d1423e4d18a4f5d284f8b52a82ef8',
-  'sj.morph': 'ad4220df3261b80251392b293b4f0f9881162a97014422c3827f349a28834324',
+  'sj.morph': '5e3dab2def6d2cc079e21d5477bd610a391c69045d08caf1e0bbeabda8db8d1b',
   'typo.dict': 'aa15e48fcd32886441fc1ff9719a3109d3192e91d4b67efbd64260610d68322d',
 };
+const KQMD_KIWI_MEDIA_MODEL_FILES = new Set<KiwiModelFile>(['cong.mdl', 'extract.mdl', 'sj.morph']);
 
 type KiwiModelFile = (typeof KQMD_KIWI_MODEL_FILES)[number];
 
@@ -72,7 +72,10 @@ function getModelFilePath(file: KiwiModelFile, env: NodeJS.ProcessEnv): string {
 }
 
 function getModelFileUrl(file: KiwiModelFile): string {
-  return `${KQMD_KIWI_MODEL_BASE_URL}/${file}`;
+  const baseUrl = KQMD_KIWI_MEDIA_MODEL_FILES.has(file)
+    ? KQMD_KIWI_MODEL_MEDIA_BASE_URL
+    : KQMD_KIWI_MODEL_RAW_BASE_URL;
+  return `${baseUrl}/${file}`;
 }
 
 async function pathExists(filePath: string, fileStat: typeof stat = stat): Promise<boolean> {
