@@ -1,3 +1,15 @@
+/**
+ * Store 세션 관리 — 커맨드별 config/DB 요구사항을 해석하고 QMDStore를 열고 닫는다.
+ *
+ * 커맨드마다 config 파일과 DB 파일의 필요 여부가 다르다:
+ *   - update:        config 필수 (컬렉션 정의가 있어야 인덱싱 가능)
+ *   - search/query:  DB만 있으면 동작, 둘 다 없으면 실패
+ *   - embed:         config 우선, DB만 있어도 동작
+ *   - status/mcp:    DB 우선, 없어도 최소한의 정보 표시
+ *
+ * 이 로직을 resolveOwnedRuntimePlan()에서 결정하고,
+ * openOwnedStoreSession()과 withOwnedStore()가 실제 열기/닫기를 관리한다.
+ */
 import { existsSync } from 'node:fs';
 
 import { createStore, type QMDStore } from '@tobilu/qmd';
@@ -5,6 +17,11 @@ import { createStore, type QMDStore } from '@tobilu/qmd';
 import { getConfigFilePath, getDefaultDbPath } from '#src/config/qmd_paths.js';
 import type { CommandExecutionContext, OwnedCommand } from '#src/types/command.js';
 
+/**
+ * Store를 열 수 있는 실행 계획.
+ * 'config-file': config.yml + DB 모두 사용
+ * 'db-only': DB만으로 동작 (읽기 전용 커맨드)
+ */
 type OpenableRuntimePlan =
   | {
       readonly kind: 'config-file';
@@ -20,6 +37,11 @@ type OpenableRuntimePlan =
       readonly dbPath: string;
     };
 
+/**
+ * Store를 열 수 없는 실패 상태.
+ * 'config-required': update처럼 config가 반드시 필요한 커맨드인데 config가 없음
+ * 'no-config-or-db': search/query처럼 최소한 DB는 필요한데 둘 다 없음
+ */
 export type ConfigMissingFailure = {
   readonly kind: 'config-missing';
   readonly command: OwnedCommand;

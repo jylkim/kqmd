@@ -61,6 +61,7 @@ function formatScore(score: number): string {
     return percentage;
   }
 
+  // 스코어 색상 구간: 70%↑ 초록(높은 관련도), 40%↑ 노랑(중간), 그 외 흐림(낮음)
   if (score >= 0.7) {
     return `${colors.green}${percentage}${colors.reset}`;
   }

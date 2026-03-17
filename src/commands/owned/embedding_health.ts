@@ -1,3 +1,12 @@
+/**
+ * 임베딩 헬스 체크 — DB에 저장된 임베딩 모델 상태를 분석한다.
+ *
+ * 헬스 상태:
+ *   - clean:           현재 모델로 모든 문서가 임베딩됨
+ *   - needs-embedding:  모델은 맞지만 아직 임베딩되지 않은 문서가 있음
+ *   - model-mismatch:   단일 모델이지만 현재 설정과 다름 (qmd embed --force 필요)
+ *   - mixed-models:     여러 모델이 혼재됨 (모델 변경 중 중단된 상태)
+ */
 import type { IndexStatus, QMDStore } from '@tobilu/qmd';
 import type { MinimalDatabase } from '#src/types/database.js';
 

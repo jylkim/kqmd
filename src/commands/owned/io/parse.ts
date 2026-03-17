@@ -43,6 +43,11 @@ function resolveFormat(values: ParsedValues): SearchOutputFormat {
   return 'cli';
 }
 
+/**
+ * 출력 포맷에 따른 기본 결과 수.
+ * files/json: 기계 소비용이므로 넉넉하게 20건.
+ * cli/md/csv/xml: 사람이 읽는 용도이므로 5건.
+ */
 function resolveDefaultLimit(format: SearchOutputFormat): number {
   return format === 'files' || format === 'json' ? 20 : 5;
 }

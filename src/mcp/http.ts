@@ -1,3 +1,21 @@
+/**
+ * MCP HTTP 서버 — Streamable HTTP transport로 MCP 프로토콜을 서빙한다.
+ *
+ * 엔드포인트:
+ *   POST /mcp         — MCP JSON-RPC (세션 기반, Streamable HTTP transport)
+ *   POST /query|search — 직접 쿼리 API (MCP 없이 HTTP로 검색)
+ *   GET  /health       — 헬스체크 (uptime 반환)
+ *
+ * 세션 관리:
+ *   - 각 MCP 클라이언트는 initialize 요청으로 세션을 생성한다.
+ *   - 세션은 sessionTtlMs(기본 5분) 후 자동 만료되며, 주기적으로 sweep된다.
+ *   - 요청마다 TTL이 갱신되어 활성 클라이언트는 만료되지 않는다.
+ *
+ * 보안:
+ *   - 127.0.0.1에서만 listen하여 외부 접근을 차단한다.
+ *   - Origin 헤더가 있으면 localhost만 허용한다 (CSRF 방어).
+ *   - 요청 본문은 64KB로 제한한다.
+ */
 import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -96,8 +114,8 @@ export async function startOwnedMcpHttpServer(
   };
   const store = options.store ?? (await createStoreImpl(storeOptions));
   const instructions = options.instructions ?? (await buildInstructions(store, env));
-  const sessionTtlMs = options.sessionTtlMs ?? 5 * 60 * 1000;
-  const metadataTtlMs = options.metadataTtlMs ?? 5 * 1000;
+  const sessionTtlMs = options.sessionTtlMs ?? 5 * 60 * 1000; // 세션 유휴 만료 시간 (기본 5분)
+  const metadataTtlMs = options.metadataTtlMs ?? 5 * 1000; // 컬렉션 메타데이터 캐시 TTL (기본 5초)
   let queryMetadataCache:
     | {
         readonly loadedAt: number;

@@ -1,3 +1,15 @@
+/**
+ * Korean search index 헬스 체크 — shadow index의 최신 상태를 진단한다.
+ *
+ * shadow index가 원본 documents 테이블과 동기화되어 있는지를 스냅샷 비교로 판단한다.
+ * 스냅샷 = (문서 수, 최신 modified_at, 최대 document ID) 세 값의 조합.
+ *
+ * 헬스 상태:
+ *   - clean:              인덱스가 최신이고 정책도 일치
+ *   - untracked-index:    shadow table이 없거나 정책 메타데이터가 없음 (첫 빌드 전)
+ *   - policy-mismatch:    저장된 정책 ID와 현재 설정이 다름 (재빌드 필요)
+ *   - stale-shadow-index: 정책은 맞지만 문서가 추가/수정되어 인덱스가 오래됨
+ */
 import {
   type EffectiveSearchPolicy,
   KQMD_SEARCH_COLLECTION_SNAPSHOTS_METADATA_KEY,

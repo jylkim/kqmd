@@ -1,3 +1,14 @@
+/**
+ * Korean FTS5 shadow index.
+ *
+ * upstream qmd의 기본 FTS 검색은 한국어 형태소 분석을 지원하지 않는다.
+ * 이 모듈은 Kiwi 토크나이저로 문서를 사전 처리(projection)한 뒤,
+ * 별도의 FTS5 가상 테이블("shadow table")에 저장하여 한국어 검색을 구현한다.
+ *
+ * 흐름: 원본 문서 → Kiwi 토큰화 → FTS5 shadow table INSERT → BM25 검색
+ *
+ * shadow table의 rowid는 documents.id와 1:1 매핑되어 JOIN으로 원본 메타데이터를 복원한다.
+ */
 import type { SearchResult } from '@tobilu/qmd';
 
 import type { EffectiveSearchPolicy } from '#src/config/search_policy.js';
@@ -52,10 +63,24 @@ export interface SearchShadowIndexRebuildResult {
   readonly sourceSnapshot: SearchSourceSnapshot;
 }
 
+/** FTS5 특수문자를 제거하고 소문자로 정규화한다. 유니코드 문자와 숫자, 아포스트로피만 남긴다. */
 function sanitizeFTS5Term(term: string): string {
   return term.replace(/[^\p{L}\p{N}']/gu, '').toLowerCase();
 }
 
+/**
+ * 사용자 검색 쿼리를 SQLite FTS5 MATCH 구문으로 변환한다.
+ *
+ * 지원하는 구문:
+ *   - 일반 단어: prefix 매칭 → `"term"*`
+ *   - "따옴표 구문": exact phrase 매칭 → `"term1 term2"`
+ *   - -부정: NOT 절로 변환 → `NOT "term"`
+ *   - 여러 positive 항은 AND로 결합
+ *
+ * positive 항이 없으면 null을 반환하여 빈 검색을 방지한다.
+ *
+ * 예시: `react -vue "상태 관리"` → `"react"* AND "상태 관리" NOT "vue"*`
+ */
 function buildFTS5Query(query: string): string | null {
   const positive: string[] = [];
   const negative: string[] = [];
@@ -63,6 +88,7 @@ function buildFTS5Query(query: string): string | null {
   const source = query.trim();
 
   while (index < source.length) {
+    // 공백 건너뛰기
     while (index < source.length && /\s/.test(source[index] ?? '')) {
       index += 1;
     }
@@ -71,11 +97,13 @@ function buildFTS5Query(query: string): string | null {
       break;
     }
 
+    // '-' prefix → 부정 검색
     const negated = source[index] === '-';
     if (negated) {
       index += 1;
     }
 
+    // 따옴표로 감싼 구문 → FTS5 phrase query (exact match)
     if (source[index] === '"') {
       const start = index + 1;
       index += 1;
@@ -108,6 +136,7 @@ function buildFTS5Query(query: string): string | null {
       continue;
     }
 
+    // 일반 단어 → prefix 매칭 ("term"*)으로 변환하여 부분 일치도 허용
     const start = index;
     while (index < source.length && !/[\s"]/.test(source[index] ?? '')) {
       index += 1;
@@ -130,6 +159,7 @@ function buildFTS5Query(query: string): string | null {
     return null;
   }
 
+  // positive 항은 AND로 결합, negative 항은 NOT으로 추가
   let result = positive.join(' AND ');
   for (const term of negative) {
     result = `${result} NOT ${term}`;
@@ -138,10 +168,15 @@ function buildFTS5Query(query: string): string | null {
   return result;
 }
 
+/** content hash 앞 6자를 문서 식별자로 사용한다 (CLI 출력용 short ID). */
 function toDocId(hash: string): string {
   return hash.slice(0, 6);
 }
 
+/**
+ * 문서의 filepath/title/body를 Kiwi 토크나이저로 변환하여 FTS5에 저장할 projection을 만든다.
+ * 세 필드를 병렬로 토큰화하여 성능을 확보한다.
+ */
 function buildShadowProjection(
   collection: string,
   path: string,
@@ -165,6 +200,11 @@ function buildShadowProjection(
   }));
 }
 
+/**
+ * FTS5 shadow table을 생성한다.
+ * porter + unicode61 토크나이저를 사용하여 영문 stemming과 유니코드 정규화를 기본 적용한다.
+ * (한국어 형태소 분석은 projection 단계에서 Kiwi가 미리 처리한다.)
+ */
 export function ensureSearchShadowTable(db: MinimalDatabase): void {
   db.exec(
     [
@@ -258,6 +298,15 @@ function upsertSearchMetadata(db: MinimalDatabase, key: string, value: string): 
   ).run(key, value);
 }
 
+/**
+ * shadow index를 전체 재구축한다.
+ *
+ * 1. 모든 active 문서를 읽어 Kiwi로 projection 생성 (병렬)
+ * 2. 트랜잭션 안에서 기존 FTS 데이터 삭제 → 새 projection INSERT
+ * 3. store_config에 정책 ID와 스냅샷 메타데이터 저장 (health 추적용)
+ *
+ * 실패 시 트랜잭션을 롤백하여 기존 인덱스를 보존한다.
+ */
 export async function rebuildSearchShadowIndex(
   db: MinimalDatabase,
   policy: EffectiveSearchPolicy,
@@ -325,6 +374,14 @@ export async function rebuildSearchShadowIndex(
   }
 }
 
+/**
+ * shadow FTS5 index에서 검색을 실행한다.
+ *
+ * 쿼리를 FTS5 MATCH 구문으로 변환한 뒤, documents/content 테이블과 JOIN하여
+ * 원본 메타데이터를 복원한다. BM25 스코어를 0~1 범위로 정규화하여 반환한다.
+ *
+ * bm25() 가중치: filepath=10.0, title=1.0 (파일 경로 매칭에 높은 가중치)
+ */
 export function searchShadowIndex(
   store: SearchStoreLike,
   query: string,
@@ -367,6 +424,8 @@ export function searchShadowIndex(
     .map((row) => row as ShadowSearchRow);
 
   return rows.map((row) => {
+    // BM25 원시 스코어(음수, 낮을수록 좋음)를 0~1 범위로 정규화한다.
+    // sigmoid 변환: |s| / (1 + |s|) → 0에 가까울수록 관련도 낮음, 1에 가까울수록 높음.
     const score = Math.abs(row.bm25_score) / (1 + Math.abs(row.bm25_score));
 
     return {

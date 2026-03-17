@@ -1,3 +1,21 @@
+/**
+ * 쿼리 입력 검증 및 구조화 쿼리 파싱.
+ *
+ * 쿼리 모드:
+ *   - plain:      단일 텍스트 쿼리 (기본)
+ *   - structured: 여러 줄의 typed 쿼리 문서 (lex:/vec:/hyde: prefix)
+ *   - expand:     단일 쿼리를 자동 확장 (expand: prefix)
+ *
+ * 구조화 쿼리 문서 형식:
+ *   lex: 한국어 형태소 검색   ← BM25 lexical 검색
+ *   vec: semantic search     ← vector 유사도 검색
+ *   hyde: hypothetical doc    ← HyDE(Hypothetical Document Embeddings) 검색
+ *   intent: 검색 의도 설명    ← 선택적, 결과 스니펫 추출에 활용
+ *
+ * 보안:
+ *   - 제어 문자(NUL, ESC 등)를 거부하여 터미널 이스케이프 공격을 방지한다.
+ *   - 쿼리 길이를 500자, 줄 수를 10줄로 제한한다.
+ */
 import type { ExpandedQuery } from '@tobilu/qmd';
 
 import { validationError } from './errors.js';
@@ -6,6 +24,10 @@ import type { OwnedCommandError } from './types.js';
 export const MAX_QUERY_TEXT_LENGTH = 500;
 export const MAX_STRUCTURED_QUERY_LINES = 10;
 
+/**
+ * 탭(9), LF(10), CR(13)을 제외한 제어 문자를 감지한다.
+ * NUL(0), ESC(27), DEL(127) 등은 터미널 이스케이프 시퀀스에 악용될 수 있다.
+ */
 function hasDisallowedControlCharacters(text: string): boolean {
   for (const char of text) {
     const code = char.charCodeAt(0);

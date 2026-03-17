@@ -1,3 +1,12 @@
+/**
+ * Kiwi 한국어 형태소 분석기 — 모델 관리 및 토큰화.
+ *
+ * Kiwi(https://github.com/bab2min/Kiwi)의 WASM 빌드를 사용하여
+ * 한국어 텍스트를 형태소 단위로 분석하고, 검색에 유의미한 토큰만 추출한다.
+ *
+ * 모델 파일은 최초 실행 시 GitHub에서 다운로드하여 ~/.cache/qmd/models/ 에 캐싱한다.
+ * SHA-256 해시로 무결성을 검증하고, symlink를 거부하여 경로 조작 공격을 방지한다.
+ */
 import { createHash } from 'node:crypto';
 import { lstat, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -21,6 +30,16 @@ const KQMD_KIWI_WASM_PATH = require.resolve('kiwi-nlp/dist/kiwi-wasm.wasm');
 const KQMD_KIWI_MODEL_RAW_BASE_URL = `https://raw.githubusercontent.com/bab2min/Kiwi/${KQMD_KIWI_GIT_TAG}/models/cong/base`;
 const KQMD_KIWI_MODEL_MEDIA_BASE_URL = `https://media.githubusercontent.com/media/bab2min/Kiwi/${KQMD_KIWI_GIT_TAG}/models/cong/base`;
 const KQMD_KIWI_DOWNLOAD_TIMEOUT_MS = 15_000;
+/**
+ * 검색 인덱스에 포함할 품사 태그 접두사.
+ * Kiwi 품사 태그 체계(https://github.com/bab2min/Kiwi#pos-tag-list) 기준:
+ *   N:  체언 (명사, 대명사, 수사 등 — NNG, NNP, NR, NP 등)
+ *   XR: 어근 (한자어 등 복합어의 구성 요소)
+ *   SL: 외국어 (영문 토큰)
+ *   SH: 한자
+ *   SN: 숫자
+ * 조사·어미·부사 등은 검색 노이즈가 크므로 제외한다.
+ */
 const SEARCHABLE_TOKEN_PREFIXES = ['N', 'XR', 'SL', 'SH', 'SN'] as const;
 const KQMD_KIWI_MODEL_FILES = [
   'combiningRule.txt',
@@ -106,6 +125,11 @@ function isExpectedModelFile(
   return hashFileContents(data) === getExpectedModelHash(file, dependencies);
 }
 
+/**
+ * 경로가 symlink가 아닌지 확인한다.
+ * symlink를 통해 모델 파일을 악의적 경로로 대체하는 공격을 방지한다.
+ * 파일이 아직 존재하지 않으면 (ENOENT) 통과시킨다.
+ */
 async function assertPathIsNotSymlink(
   filePath: string,
   lstatImpl: typeof lstat = lstat,
@@ -216,12 +240,18 @@ function isSearchableToken(token: TokenInfo): boolean {
   return SEARCHABLE_TOKEN_PREFIXES.some((prefix) => token.tag.startsWith(prefix));
 }
 
+/**
+ * 토큰 텍스트를 정규화한다.
+ * 문자·숫자가 없는 토큰은 제거하고, 단일 한글 음절(예: '은', '를')도
+ * 검색 노이즈이므로 제거한다.
+ */
 function normalizeTokenText(token: TokenInfo): string | null {
   const normalized = token.str.trim().toLowerCase();
   if (!normalized || !/[\p{L}\p{N}]/u.test(normalized)) {
     return null;
   }
 
+  // 한글 한 글자는 대부분 조사·어미의 잔여 형태이므로 제외
   if (normalized.length === 1 && /[가-힣]/.test(normalized)) {
     return null;
   }
@@ -229,6 +259,10 @@ function normalizeTokenText(token: TokenInfo): string | null {
   return normalized;
 }
 
+/**
+ * Kiwi 분석 결과에서 검색용 토큰만 추출하고 중복을 제거한다.
+ * 입력 순서를 유지하면서 Set으로 dedup한다.
+ */
 export function normalizeKiwiTokens(tokens: TokenInfo[]): string[] {
   const seen = new Set<string>();
   const normalized: string[] = [];
@@ -281,6 +315,11 @@ export async function extractKoreanSearchTokens(
   return normalizeKiwiTokens(kiwi.tokenize(text, Match.allWithNormalizing));
 }
 
+/**
+ * 원본 텍스트와 Kiwi 분석 토큰을 합쳐 FTS5에 저장할 검색 텍스트를 만든다.
+ * 원본을 유지하여 영문/숫자 prefix 매칭도 가능하게 하고,
+ * 분석 토큰을 추가하여 한국어 형태소 매칭을 지원한다.
+ */
 export function buildLexicalSearchText(raw: string, analyzedTokens: readonly string[]): string {
   return [raw, ...analyzedTokens].filter(Boolean).join(' ');
 }

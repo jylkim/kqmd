@@ -1,3 +1,12 @@
+/**
+ * 쿼리 실행 브릿지 — upstream qmd의 내부 함수를 lazy-load하여 호출한다.
+ *
+ * --candidate-limit 옵션을 사용할 때, store.search()의 공개 API로는
+ * 후보 수를 제어할 수 없으므로, upstream의 hybridQuery/structuredSearch를
+ * 동적으로 import하여 직접 호출한다.
+ *
+ * candidate-limit이 없는 일반 쿼리는 store.search() 공개 API를 그대로 사용한다.
+ */
 import { pathToFileURL } from 'node:url';
 import type { ExpandedQuery, QMDStore } from '@tobilu/qmd';
 import { findUpstreamPackageRoot } from '#src/passthrough/upstream_locator.js';

@@ -1,3 +1,16 @@
+/**
+ * Upstream qmd 패키지 탐색.
+ *
+ * kqmd는 @tobilu/qmd 패키지를 래핑하여 한국어 검색을 추가한다.
+ * upstream의 바이너리와 내부 모듈을 사용하기 위해 node_modules에서
+ * @tobilu/qmd의 설치 위치를 찾아야 한다.
+ *
+ * 탐색 경로 (상위 디렉토리를 순회):
+ *   1. {dir}/node_modules/@tobilu/qmd/package.json — 일반적인 npm install 구조
+ *   2. {dir}/@tobilu/qmd/package.json — pnpm/yarn PnP 등 flat 구조
+ *
+ * KQMD_UPSTREAM_BIN 환경변수로 바이너리 경로를 직접 지정할 수도 있다.
+ */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
