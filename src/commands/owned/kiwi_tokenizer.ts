@@ -11,7 +11,7 @@ import {
   type TokenInfo,
 } from 'kiwi-nlp';
 
-import { getModelCacheDir } from '../../config/qmd_paths.js';
+import { getModelCacheDir } from '#src/config/qmd_paths.js';
 
 const require = createRequire(import.meta.url);
 

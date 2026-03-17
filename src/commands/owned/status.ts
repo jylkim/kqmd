@@ -1,4 +1,4 @@
-import type { CommandExecutionContext, CommandExecutionResult } from '../../types/command.js';
+import type { CommandExecutionContext, CommandExecutionResult } from '#src/types/command.js';
 import {
   fromExecutionFailure,
   fromRuntimeFailure,

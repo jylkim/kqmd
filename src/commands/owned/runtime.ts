@@ -2,8 +2,8 @@ import { existsSync } from 'node:fs';
 
 import { createStore, type QMDStore } from '@tobilu/qmd';
 
-import { getConfigFilePath, getDefaultDbPath } from '../../config/qmd_paths.js';
-import type { CommandExecutionContext, OwnedCommand } from '../../types/command.js';
+import { getConfigFilePath, getDefaultDbPath } from '#src/config/qmd_paths.js';
+import type { CommandExecutionContext, OwnedCommand } from '#src/types/command.js';
 
 type OpenableRuntimePlan =
   | {

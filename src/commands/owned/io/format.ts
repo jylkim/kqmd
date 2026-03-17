@@ -1,16 +1,16 @@
 import type { EmbedResult, HybridQueryResult, SearchResult, UpdateResult } from '@tobilu/qmd';
 
-import type { CommandExecutionResult } from '../../../types/command.js';
+import type { CommandExecutionResult } from '#src/types/command.js';
 import {
   hasEmbeddingMismatch,
   preferredEmbedCommand,
   summarizeStoredEmbeddingModels,
-} from '../embedding_health.js';
+} from '#src/commands/owned/embedding_health.js';
 import {
   hasSearchIndexMismatch,
   preferredSearchRecoveryCommand,
   summarizeStoredSearchPolicy,
-} from '../search_index_health.js';
+} from '#src/commands/owned/search_index_health.js';
 import { buildRowSnippet } from './query_rows.js';
 import type {
   EmbedCommandInput,

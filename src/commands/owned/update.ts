@@ -1,7 +1,7 @@
 import type { UpdateResult } from '@tobilu/qmd';
-import { describeEffectiveEmbedModel } from '../../config/embedding_policy.js';
-import { describeEffectiveSearchPolicy } from '../../config/search_policy.js';
-import type { CommandExecutionContext, CommandExecutionResult } from '../../types/command.js';
+import { describeEffectiveEmbedModel } from '#src/config/embedding_policy.js';
+import { describeEffectiveSearchPolicy } from '#src/config/search_policy.js';
+import type { CommandExecutionContext, CommandExecutionResult } from '#src/types/command.js';
 import { hasEmbeddingMismatch, readEmbeddingHealth } from './embedding_health.js';
 import {
   fromExecutionFailure,

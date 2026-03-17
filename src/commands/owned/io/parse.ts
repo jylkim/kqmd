@@ -1,7 +1,7 @@
 import { parseArgs } from 'node:util';
 
-import { CLI_OPTIONS } from '../../../cli_options.js';
-import type { CommandExecutionContext } from '../../../types/command.js';
+import { CLI_OPTIONS } from '#src/cli_options.js';
+import type { CommandExecutionContext } from '#src/types/command.js';
 import { isOwnedCommandError, usageError, validationError } from './errors.js';
 import type {
   EmbedCommandInput,

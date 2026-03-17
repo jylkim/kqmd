@@ -1,7 +1,7 @@
 import type { QMDStore } from '@tobilu/qmd';
 
-import { describeEffectiveEmbedModel } from '../../config/embedding_policy.js';
-import { describeEffectiveSearchPolicy } from '../../config/search_policy.js';
+import { describeEffectiveEmbedModel } from '#src/config/embedding_policy.js';
+import { describeEffectiveSearchPolicy } from '#src/config/search_policy.js';
 import { readEmbeddingHealth } from './embedding_health.js';
 import type { StatusCommandOutput } from './io/types.js';
 import { readSearchIndexHealth } from './search_index_health.js';

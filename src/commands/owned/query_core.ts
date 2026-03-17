@@ -1,6 +1,6 @@
 import type { QMDStore } from '@tobilu/qmd';
 
-import { describeEffectiveEmbedModel } from '../../config/embedding_policy.js';
+import { describeEffectiveEmbedModel } from '#src/config/embedding_policy.js';
 import {
   hasEmbeddingMismatch,
   readEmbeddingHealth,
