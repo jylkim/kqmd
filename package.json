@@ -34,7 +34,7 @@
     "measure:recall-comparison": "bun run scripts/measure_recall_comparison.ts > docs/benchmarks/2026-03-17-recall-comparison-metrics.md",
     "check": "bun run lint && bun run typecheck && bun run test",
     "release:artifact": "bun run scripts/verify_release_artifact.ts",
-    "release:verify": "bun run lint && bun run typecheck && bun run test:release-contract && bun run measure:kiwi-reliability && bun run release:artifact"
+    "release:verify": "bun run lint && bun run typecheck && bun run test:release-contract && bun run measure:kiwi-reliability && bun run measure:mcp-contract && bun run release:artifact"
   },
   "trustedDependencies": [
     "better-sqlite3",

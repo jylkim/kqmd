@@ -10,7 +10,14 @@
 bun run release:verify
 ```
 
-lint, typecheck, release contract 테스트, Kiwi reliability 측정을 순서대로 실행합니다.
+아래 항목을 순서대로 실행합니다.
+
+1. Biome lint
+2. TypeScript typecheck
+3. Release contract 테스트 (`test:release-contract` — owned command parity, passthrough contract 포함)
+4. Kiwi search 안정성 측정 (`measure:kiwi-reliability`)
+5. MCP contract 정합성 측정 (`measure:mcp-contract`)
+6. 산출물 검증 (`release:artifact`)
 
 ### 산출물 검증
 
@@ -62,15 +69,20 @@ qmd search "형태소 분석"
 
 코드 롤백만으로 shadow metadata mismatch가 해소되지 않으면, 해당 인덱스를 rebuild 기준으로 다시 검증합니다.
 
-## 벤치마크
+## 측정 스크립트
 
-| 벤치마크 | 명령 | 결과 |
-|---|---|---|
-| Kiwi reliability | `bun run measure:kiwi-reliability` | [metrics](benchmarks/2026-03-13-kiwi-search-reliability-metrics.md) |
-| MCP contract | `bun run measure:mcp-contract` | [metrics](benchmarks/2026-03-16-mcp-contract-metrics.md) |
-| Adaptive query ranking | `bun run measure:query-adaptive` | [metrics](benchmarks/2026-03-17-query-adaptive-ranking-metrics.md) |
-| Adaptive query E2E | `bun run measure:query-adaptive-e2e` | [metrics](benchmarks/2026-03-17-query-adaptive-e2e-metrics.md) |
-| Recall comparison | `bun run measure:recall-comparison` | [metrics](benchmarks/2026-03-17-recall-comparison-metrics.md) |
+### 성능 프로파일링
+
+| 항목 | 명령 |
+|---|---|
+| Query adaptive ranking (p50/p95, heap/rss) | `bun run measure:query-adaptive` |
+| Query adaptive E2E (p50/p95, heap/rss) | `bun run measure:query-adaptive-e2e` |
+
+### 벤치마크
+
+| 항목 | 명령 |
+|---|---|
+| Upstream vs shadow FTS recall 비교 | `bun run measure:recall-comparison` |
 
 ## Upstream QMD version bump checklist
 

@@ -3,3 +3,10 @@ dist/
 coverage/
 *.log
 
+# Internal development artifacts (compound-engineering pipeline)
+docs/brainstorms/
+docs/plans/
+docs/solutions/
+docs/benchmarks/
+todos/
+compound-engineering.local.md
