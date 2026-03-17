@@ -293,10 +293,4 @@ export async function buildKoreanAwareLexQuery(
   return analyzedTokens.length > 0 ? buildLexicalSearchText(raw, analyzedTokens) : raw;
 }
 
-export async function buildShadowProjectionText(
-  raw: string,
-  dependencies: KiwiTokenizerDependencies = {},
-): Promise<string> {
-  const analyzedTokens = await extractKoreanSearchTokens(raw, dependencies);
-  return analyzedTokens.length > 0 ? buildLexicalSearchText(raw, analyzedTokens) : raw;
-}
+export const buildShadowProjectionText = buildKoreanAwareLexQuery;

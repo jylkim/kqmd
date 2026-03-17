@@ -362,14 +362,20 @@ export async function startOwnedMcpHttpServer(
     });
   }
 
-  process.on('SIGTERM', async () => {
-    await stop();
+  let stopping = false;
+  async function gracefulShutdown() {
+    if (stopping) return;
+    stopping = true;
+    try {
+      await stop();
+    } catch {
+      // Best-effort cleanup on shutdown.
+    }
     process.exit(0);
-  });
-  process.on('SIGINT', async () => {
-    await stop();
-    process.exit(0);
-  });
+  }
+
+  process.on('SIGTERM', () => void gracefulShutdown());
+  process.on('SIGINT', () => void gracefulShutdown());
 
   log(`QMD MCP server listening on http://127.0.0.1:${port}/mcp`);
   return { httpServer, stop };

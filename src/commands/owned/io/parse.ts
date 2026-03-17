@@ -12,11 +12,15 @@ import type {
   StatusCommandInput,
   UpdateCommandInput,
 } from './types.js';
-import { parseStructuredQueryDocument, validatePlainQueryText } from './validate.js';
+import {
+  parseStructuredQueryDocument,
+  resolvePrimaryQuery,
+  validatePlainQueryText,
+} from './validate.js';
 
-type ParsedValues = Record<string, string | boolean | string[] | undefined>;
+export type ParsedValues = Record<string, string | boolean | string[] | undefined>;
 
-function parseOwnedArgs(argv: string[]): { values: ParsedValues; positionals: string[] } {
+export function parseOwnedArgs(argv: string[]): { values: ParsedValues; positionals: string[] } {
   const { values, positionals } = parseArgs({
     args: argv,
     options: CLI_OPTIONS,
@@ -173,11 +177,7 @@ export function parseOwnedQueryInput(
 
   const candidateLimit = parsedCandidateLimit;
 
-  const displayQuery = queryDocument
-    ? (queryDocument.searches.find((search) => search.type === 'lex')?.query ??
-      queryDocument.searches.find((search) => search.type === 'vec')?.query ??
-      query)
-    : query;
+  const displayQuery = queryDocument ? resolvePrimaryQuery(queryDocument.searches) || query : query;
 
   return {
     kind: 'ok',

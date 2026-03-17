@@ -4,14 +4,7 @@ import {
   KQMD_SEARCH_POLICY_METADATA_KEY,
   KQMD_SEARCH_SOURCE_SNAPSHOT_METADATA_KEY,
 } from '#src/config/search_policy.js';
-
-interface MinimalStatement {
-  get: (...params: (string | number)[]) => unknown;
-}
-
-interface MinimalDatabase {
-  prepare(sql: string): MinimalStatement;
-}
+import type { MinimalDatabase } from '#src/types/database.js';
 
 type SearchIndexHealthBase = {
   readonly expectedPolicy: EffectiveSearchPolicy;
@@ -27,7 +20,7 @@ export interface SearchSourceSnapshot {
   readonly maxDocumentId?: number;
 }
 
-type SearchCollectionSnapshotMap = Record<string, SearchSourceSnapshot>;
+export type SearchCollectionSnapshotMap = Record<string, SearchSourceSnapshot>;
 
 export type SearchIndexHealth =
   | (SearchIndexHealthBase & { readonly kind: 'clean' })

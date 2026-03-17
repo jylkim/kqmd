@@ -5,11 +5,12 @@ import { buildMcpQueryRows } from '#src/commands/owned/io/query_rows.js';
 import type { QueryCommandInput } from '#src/commands/owned/io/types.js';
 import {
   parseStructuredQueryDocument,
+  resolvePrimaryQuery,
   validatePlainQueryText,
   validateSingleLineQueryText,
 } from '#src/commands/owned/io/validate.js';
 import { classifyQuery } from '#src/commands/owned/query_classifier.js';
-import type { executeQueryCore } from '#src/commands/owned/query_core.js';
+import type { QueryCoreSuccess } from '#src/commands/owned/query_core.js';
 import type { queryRequestSchema } from './types.js';
 
 export function encodeQmdPath(path: string): string {
@@ -52,38 +53,8 @@ export function formatSearchSummary(
   return lines.join('\n');
 }
 
-export function resolvePrimaryQuery(
-  searches: Array<{ readonly type: 'lex' | 'vec' | 'hyde'; readonly query: string }>,
-): string {
-  return (
-    searches.find((search) => search.type === 'lex')?.query ??
-    searches.find((search) => search.type === 'vec')?.query ??
-    searches[0]?.query ??
-    ''
-  );
-}
-
-function shapeQueryRows(
-  rows: Awaited<ReturnType<typeof executeQueryCore>> extends infer Result
-    ? Result extends { rows: infer QueryRows }
-      ? QueryRows
-      : never
-    : never,
-  primaryQuery: string,
-  intent?: string,
-) {
-  return buildMcpQueryRows(rows, primaryQuery, intent);
-}
-
-export function buildQueryResponse(
-  result: Awaited<ReturnType<typeof executeQueryCore>> extends infer QueryResult
-    ? QueryResult extends { rows: infer QueryRows; advisories: infer QueryAdvisories }
-      ? { readonly rows: QueryRows; readonly advisories: QueryAdvisories }
-      : never
-    : never,
-  input: QueryCommandInput,
-) {
-  const rows = shapeQueryRows(result.rows, input.displayQuery, input.intent);
+export function buildQueryResponse(result: QueryCoreSuccess, input: QueryCommandInput) {
+  const rows = buildMcpQueryRows(result.rows, input.displayQuery, input.intent);
 
   return {
     primaryQuery: input.displayQuery,
@@ -154,6 +125,28 @@ function normalizeStructuredSearches(
   };
 }
 
+function buildMcpQueryInput(
+  body: z.infer<typeof queryRequestSchema>,
+  collections: string[] | undefined,
+  overrides: Pick<QueryCommandInput, 'query' | 'queryMode' | 'displayQuery' | 'intent'> &
+    Partial<Pick<QueryCommandInput, 'queries'>>,
+): { readonly input: QueryCommandInput } {
+  return {
+    input: {
+      format: 'json',
+      limit: body.limit ?? 10,
+      minScore: body.minScore ?? 0,
+      all: false,
+      full: false,
+      lineNumbers: false,
+      collections,
+      candidateLimit: body.candidateLimit,
+      explain: false,
+      ...overrides,
+    },
+  };
+}
+
 export function buildQueryInputFromRequest(
   body: z.infer<typeof queryRequestSchema>,
 ): { readonly input: QueryCommandInput } | ReturnType<typeof validationError> {
@@ -168,25 +161,13 @@ export function buildQueryInputFromRequest(
       return normalized;
     }
 
-    const primaryQuery = resolvePrimaryQuery(normalized.searches);
-    return {
-      input: {
-        query: buildStructuredQueryText(normalized.searches, normalized.intent),
-        format: 'json',
-        limit: body.limit ?? 10,
-        minScore: body.minScore ?? 0,
-        all: false,
-        full: false,
-        lineNumbers: false,
-        collections,
-        candidateLimit: body.candidateLimit,
-        explain: false,
-        intent: normalized.intent,
-        queryMode: 'structured',
-        queries: normalized.searches,
-        displayQuery: primaryQuery,
-      },
-    };
+    return buildMcpQueryInput(body, collections, {
+      query: buildStructuredQueryText(normalized.searches, normalized.intent),
+      intent: normalized.intent,
+      queryMode: 'structured',
+      queries: normalized.searches,
+      displayQuery: resolvePrimaryQuery(normalized.searches),
+    });
   }
 
   const query = body.query ?? '';
@@ -214,41 +195,19 @@ export function buildQueryInputFromRequest(
       }
     }
 
-    return {
-      input: {
-        query,
-        format: 'json',
-        limit: body.limit ?? 10,
-        minScore: body.minScore ?? 0,
-        all: false,
-        full: false,
-        lineNumbers: false,
-        collections,
-        candidateLimit: body.candidateLimit,
-        explain: false,
-        intent: body.intent,
-        queryMode: 'plain',
-        displayQuery: query,
-      },
-    };
+    return buildMcpQueryInput(body, collections, {
+      query,
+      intent: body.intent,
+      queryMode: 'plain',
+      displayQuery: query,
+    });
   }
 
-  return {
-    input: {
-      query,
-      format: 'json',
-      limit: body.limit ?? 10,
-      minScore: body.minScore ?? 0,
-      all: false,
-      full: false,
-      lineNumbers: false,
-      collections,
-      candidateLimit: body.candidateLimit,
-      explain: false,
-      intent: structuredQuery.intent,
-      queryMode: 'structured',
-      queries: structuredQuery.searches,
-      displayQuery: resolvePrimaryQuery(structuredQuery.searches),
-    },
-  };
+  return buildMcpQueryInput(body, collections, {
+    query,
+    intent: structuredQuery.intent,
+    queryMode: 'structured',
+    queries: structuredQuery.searches,
+    displayQuery: resolvePrimaryQuery(structuredQuery.searches),
+  });
 }

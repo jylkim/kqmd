@@ -29,10 +29,6 @@ export function isOwnedCommand(command: string): command is OwnedCommand {
   return OWNED_COMMANDS.includes(command as OwnedCommand);
 }
 
-export function isPassthroughCommand(command: string): command is PassthroughCommand {
-  return PASSTHROUGH_COMMANDS.includes(command as PassthroughCommand);
-}
-
 export function resolveCommandRoute(command?: string): CommandRoute {
   if (!command) {
     return { mode: 'passthrough', command: 'help' };

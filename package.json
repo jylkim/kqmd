@@ -5,7 +5,7 @@
   "description": "qmd-compatible replacement distribution scaffold for Korean-focused search experiments",
   "type": "module",
   "imports": {
-    "#src/*": "./src/*"
+    "#src/*": "./dist/*"
   },
   "bin": {
     "qmd": "./bin/qmd.js"

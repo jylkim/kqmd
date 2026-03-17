@@ -1,6 +1,6 @@
 import type { CommandExecutionResult, OwnedCommand } from '#src/types/command.js';
 import type { OwnedRuntimeFailure } from '#src/commands/owned/runtime.js';
-import type { OwnedCommandError, ParseResult } from './types.js';
+import type { OwnedCommandError } from './types.js';
 
 export function usageError(stderr: string): OwnedCommandError {
   return { kind: 'usage', stderr, exitCode: 1 };
@@ -14,7 +14,7 @@ export function runtimeError(stderr: string): OwnedCommandError {
   return { kind: 'runtime', stderr, exitCode: 1 };
 }
 
-export function executionError(stderr: string): OwnedCommandError {
+function executionError(stderr: string): OwnedCommandError {
   return { kind: 'execution', stderr, exitCode: 1 };
 }
 
@@ -33,10 +33,6 @@ export function isOwnedCommandError(value: unknown): value is OwnedCommandError 
     'stderr' in value &&
     'exitCode' in value
   );
-}
-
-export function isParseSuccess<T>(result: ParseResult<T>): result is { kind: 'ok'; input: T } {
-  return result.kind === 'ok';
 }
 
 export function isOwnedRuntimeFailure(value: unknown): value is OwnedRuntimeFailure {

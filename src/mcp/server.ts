@@ -20,7 +20,6 @@ import {
 import type { OwnedMcpServerOptions } from './types.js';
 import { queryRequestSchema } from './types.js';
 
-// Re-export public API for backwards compatibility
 export type { OwnedMcpServerOptions } from './types.js';
 export { startOwnedMcpHttpServer } from './http.js';
 

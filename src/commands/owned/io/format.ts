@@ -150,15 +150,18 @@ export function formatSearchExecutionResult(
     return empty ? { exitCode: 0, stdout: empty } : { exitCode: 0 };
   }
 
+  const effectiveQuery = 'displayQuery' in input ? input.displayQuery : input.query;
+  const effectiveIntent = 'intent' in input ? input.intent : undefined;
+
   switch (input.format) {
     case 'json': {
       const output = filteredRows.map((row) => {
         const snippet = buildSnippet(
           row,
-          'displayQuery' in input ? input.displayQuery : input.query,
+          effectiveQuery,
           input.full,
           input.lineNumbers,
-          'intent' in input ? input.intent : undefined,
+          effectiveIntent,
         );
 
         return {
@@ -200,10 +203,10 @@ export function formatSearchExecutionResult(
       const rowsText = filteredRows.map((row) => {
         const snippet = buildSnippet(
           row,
-          'displayQuery' in input ? input.displayQuery : input.query,
+          effectiveQuery,
           input.full,
           input.lineNumbers,
-          'intent' in input ? input.intent : undefined,
+          effectiveIntent,
         );
         const content = snippet.content ?? '';
         const escapeCsvValue = (value: string) =>
@@ -233,10 +236,10 @@ export function formatSearchExecutionResult(
         .map((row) => {
           const snippet = buildSnippet(
             row,
-            'displayQuery' in input ? input.displayQuery : input.query,
+            effectiveQuery,
             input.full,
             input.lineNumbers,
-            'intent' in input ? input.intent : undefined,
+            effectiveIntent,
           );
           const contextLine = row.context ? `**context:** ${row.context}\n` : '';
           return `---\n# ${row.title || row.displayPath}\n\n**docid:** \`#${row.docid}\`\n${contextLine}\n${snippet.content ?? ''}\n`;
@@ -251,10 +254,10 @@ export function formatSearchExecutionResult(
         .map((row) => {
           const snippet = buildSnippet(
             row,
-            'displayQuery' in input ? input.displayQuery : input.query,
+            effectiveQuery,
             input.full,
             input.lineNumbers,
-            'intent' in input ? input.intent : undefined,
+            effectiveIntent,
           );
           const escapeXml = (value: string) =>
             value
@@ -278,13 +281,13 @@ export function formatSearchExecutionResult(
         .map((row) => {
           const snippet = buildSnippet(
             row,
-            'displayQuery' in input ? input.displayQuery : input.query,
+            effectiveQuery,
             input.full,
             input.lineNumbers,
-            'intent' in input ? input.intent : undefined,
+            effectiveIntent,
           );
           const snippetBody = (snippet.content ?? '').split('\n').slice(1).join('\n').toLowerCase();
-          const hasMatch = ('displayQuery' in input ? input.displayQuery : input.query)
+          const hasMatch = (effectiveQuery)
             .toLowerCase()
             .split(/\s+/)
             .some((term) => term.length > 0 && snippetBody.includes(term));

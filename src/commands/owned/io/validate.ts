@@ -217,3 +217,14 @@ export function resolveSelectedCollections(
 
   return requestedCollections;
 }
+
+export function resolvePrimaryQuery(
+  searches: ReadonlyArray<{ readonly type: string; readonly query: string }>,
+): string {
+  return (
+    searches.find((search) => search.type === 'lex')?.query ??
+    searches.find((search) => search.type === 'vec')?.query ??
+    searches[0]?.query ??
+    ''
+  );
+}

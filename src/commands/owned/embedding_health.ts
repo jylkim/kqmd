@@ -1,4 +1,5 @@
 import type { IndexStatus, QMDStore } from '@tobilu/qmd';
+import type { MinimalDatabase } from '#src/types/database.js';
 
 export interface StoredEmbeddingModel {
   readonly model: string;
@@ -17,12 +18,6 @@ export type EmbeddingHealth =
   | (EmbeddingHealthBase & { readonly kind: 'needs-embedding' })
   | (EmbeddingHealthBase & { readonly kind: 'model-mismatch' })
   | (EmbeddingHealthBase & { readonly kind: 'mixed-models' });
-
-interface MinimalDatabase {
-  prepare(sql: string): {
-    all: (...params: (string | number)[]) => unknown[];
-  };
-}
 
 type StoreLike = Pick<QMDStore, 'getStatus'> & {
   readonly internal: {

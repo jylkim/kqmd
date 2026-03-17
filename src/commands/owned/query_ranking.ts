@@ -49,9 +49,8 @@ function getScoringBody(row: SearchOutputRow): string {
   return sourceBody.slice(adjustedStart, end);
 }
 
-function extractHeadings(body: string): string[] {
-  return body
-    .split('\n')
+function extractHeadings(lines: readonly string[]): string[] {
+  return lines
     .filter((line) => /^#{1,6}\s+/.test(line))
     .map((line) =>
       line
@@ -85,8 +84,8 @@ function computeSignals(row: SearchOutputRow, traits: QueryTraits): StructuralSi
   const titleText = row.title.toLowerCase();
   const scoringBody = getScoringBody(row);
   const sourceBody = scoringBody.toLowerCase();
-  const headings = extractHeadings(scoringBody);
   const lines = scoringBody.split('\n');
+  const headings = extractHeadings(lines);
   const termCount = traits.terms.length === 0 ? 1 : traits.terms.length;
   const coverageRatio = countMatches(sourceBody, traits.terms) / termCount;
   const wholeForm = traits.wholeForm;

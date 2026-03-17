@@ -11,10 +11,8 @@ import {
 import { createServer as createNetServer } from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { parseArgs } from 'node:util';
 import { createStore } from '@tobilu/qmd';
 
-import { CLI_OPTIONS } from '#src/cli_options.js';
 import { getMcpPidPath } from '#src/config/qmd_paths.js';
 import {
   ensureRegularPath,
@@ -24,6 +22,7 @@ import {
 } from '#src/mcp/daemon_state.js';
 import { startOwnedMcpHttpServer, startOwnedMcpServer } from '#src/mcp/server.js';
 import type { CommandExecutionContext, CommandExecutionResult } from '#src/types/command.js';
+import { parseOwnedArgs, type ParsedValues } from './io/parse.js';
 import { resolveOwnedRuntimePlan } from './runtime.js';
 
 function usage(): CommandExecutionResult {
@@ -215,21 +214,6 @@ async function startDaemon(
   };
 }
 
-type ParsedValues = Record<string, string | boolean | string[] | undefined>;
-
-function parseMcpArgs(argv: string[]): { values: ParsedValues; positionals: string[] } {
-  const { values, positionals } = parseArgs({
-    args: argv,
-    options: CLI_OPTIONS,
-    allowPositionals: true,
-    strict: false,
-  });
-
-  return {
-    values: values as ParsedValues,
-    positionals,
-  };
-}
 
 function resolveMcpStartupOptions(
   context: CommandExecutionContext,
@@ -265,7 +249,7 @@ export async function handleMcpCommand(
   dependencies: McpCommandDependencies = {},
 ): Promise<CommandExecutionResult> {
   const env = dependencies.env ?? process.env;
-  const { values, positionals } = parseMcpArgs(context.argv);
+  const { values, positionals } = parseOwnedArgs(context.argv);
   const subcommand = positionals[1];
 
   if (subcommand === 'stop') {

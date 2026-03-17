@@ -7,19 +7,12 @@ import {
   KQMD_SEARCH_SHADOW_TABLE,
   KQMD_SEARCH_SOURCE_SNAPSHOT_METADATA_KEY,
 } from '#src/config/search_policy.js';
+import type { MinimalDatabase } from '#src/types/database.js';
 import { buildShadowProjectionText, type KiwiTokenizerDependencies } from './kiwi_tokenizer.js';
-import type { SearchSourceSnapshot } from './search_index_health.js';
-
-interface MinimalStatement {
-  get: (...params: (string | number)[]) => unknown;
-  all: (...params: (string | number)[]) => unknown[];
-  run: (...params: (string | number)[]) => unknown;
-}
-
-interface MinimalDatabase {
-  exec(sql: string): void;
-  prepare(sql: string): MinimalStatement;
-}
+import type {
+  SearchCollectionSnapshotMap,
+  SearchSourceSnapshot,
+} from './search_index_health.js';
 
 type SearchStoreLike = {
   readonly db: MinimalDatabase;
@@ -58,8 +51,6 @@ export interface SearchShadowIndexRebuildResult {
   readonly totalDurationMs: number;
   readonly sourceSnapshot: SearchSourceSnapshot;
 }
-
-type SearchCollectionSnapshotMap = Record<string, SearchSourceSnapshot>;
 
 function sanitizeFTS5Term(term: string): string {
   return term.replace(/[^\p{L}\p{N}']/gu, '').toLowerCase();
