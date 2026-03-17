@@ -1,4 +1,4 @@
-import type { CommandRoute, OwnedCommand, PassthroughCommand } from '../types/command.js';
+import type { CommandRoute, OwnedCommand, PassthroughCommand } from '#src/types/command.js';
 
 export const OWNED_COMMANDS = ['search', 'query', 'update', 'embed', 'status', 'mcp'] as const;
 

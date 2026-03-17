@@ -1,5 +1,5 @@
-import { describeEffectiveSearchPolicy } from '../../config/search_policy.js';
-import type { CommandExecutionContext, CommandExecutionResult } from '../../types/command.js';
+import { describeEffectiveSearchPolicy } from '#src/config/search_policy.js';
+import type { CommandExecutionContext, CommandExecutionResult } from '#src/types/command.js';
 import {
   fromRuntimeFailure,
   isOwnedCommandError,

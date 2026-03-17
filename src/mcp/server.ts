@@ -7,10 +7,10 @@ import {
   type QMDStore,
 } from '@tobilu/qmd';
 import { z } from 'zod';
-import { isOwnedCommandError } from '../commands/owned/io/errors.js';
-import { executeQueryCore } from '../commands/owned/query_core.js';
-import { readStatusCore } from '../commands/owned/status_core.js';
-import { getDefaultDbPath } from '../config/qmd_paths.js';
+import { isOwnedCommandError } from '#src/commands/owned/io/errors.js';
+import { executeQueryCore } from '#src/commands/owned/query_core.js';
+import { readStatusCore } from '#src/commands/owned/status_core.js';
+import { getDefaultDbPath } from '#src/config/qmd_paths.js';
 import { readMcpDaemonState } from './daemon_state.js';
 import {
   buildQueryInputFromRequest,

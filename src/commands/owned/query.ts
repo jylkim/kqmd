@@ -1,5 +1,5 @@
-import { describeEffectiveEmbedModel } from '../../config/embedding_policy.js';
-import type { CommandExecutionContext, CommandExecutionResult } from '../../types/command.js';
+import { describeEffectiveEmbedModel } from '#src/config/embedding_policy.js';
+import type { CommandExecutionContext, CommandExecutionResult } from '#src/types/command.js';
 import {
   fromExecutionFailure,
   fromRuntimeFailure,

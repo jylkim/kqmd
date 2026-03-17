@@ -1,12 +1,12 @@
 import type { SearchResult } from '@tobilu/qmd';
 
-import type { EffectiveSearchPolicy } from '../../config/search_policy.js';
+import type { EffectiveSearchPolicy } from '#src/config/search_policy.js';
 import {
   KQMD_SEARCH_COLLECTION_SNAPSHOTS_METADATA_KEY,
   KQMD_SEARCH_POLICY_METADATA_KEY,
   KQMD_SEARCH_SHADOW_TABLE,
   KQMD_SEARCH_SOURCE_SNAPSHOT_METADATA_KEY,
-} from '../../config/search_policy.js';
+} from '#src/config/search_policy.js';
 import { buildShadowProjectionText, type KiwiTokenizerDependencies } from './kiwi_tokenizer.js';
 import type { SearchSourceSnapshot } from './search_index_health.js';
 

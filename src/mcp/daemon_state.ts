@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, lstatSync, readFileSync, unlinkSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { getMcpLogPath, getMcpPidPath } from '../config/qmd_paths.js';
+import { getMcpLogPath, getMcpPidPath } from '#src/config/qmd_paths.js';
 
 export interface McpDaemonState {
   readonly running: boolean;

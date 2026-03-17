@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import type { ExpandedQuery, QMDStore } from '@tobilu/qmd';
-import { findUpstreamPackageRoot } from '../../passthrough/upstream_locator.js';
+import { findUpstreamPackageRoot } from '#src/passthrough/upstream_locator.js';
 import type { QueryCommandInput } from './io/types.js';
 
 type QueryResults = Awaited<ReturnType<QMDStore['search']>>;

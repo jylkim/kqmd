@@ -1,15 +1,15 @@
 import type { ExpandedQuery } from '@tobilu/qmd';
 import type { z } from 'zod';
-import { isOwnedCommandError, validationError } from '../commands/owned/io/errors.js';
-import { buildMcpQueryRows } from '../commands/owned/io/query_rows.js';
-import type { QueryCommandInput } from '../commands/owned/io/types.js';
+import { isOwnedCommandError, validationError } from '#src/commands/owned/io/errors.js';
+import { buildMcpQueryRows } from '#src/commands/owned/io/query_rows.js';
+import type { QueryCommandInput } from '#src/commands/owned/io/types.js';
 import {
   parseStructuredQueryDocument,
   validatePlainQueryText,
   validateSingleLineQueryText,
-} from '../commands/owned/io/validate.js';
-import { classifyQuery } from '../commands/owned/query_classifier.js';
-import type { executeQueryCore } from '../commands/owned/query_core.js';
+} from '#src/commands/owned/io/validate.js';
+import { classifyQuery } from '#src/commands/owned/query_classifier.js';
+import type { executeQueryCore } from '#src/commands/owned/query_core.js';
 import type { queryRequestSchema } from './types.js';
 
 export function encodeQmdPath(path: string): string {

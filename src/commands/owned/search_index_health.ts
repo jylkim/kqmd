@@ -3,7 +3,7 @@ import {
   KQMD_SEARCH_COLLECTION_SNAPSHOTS_METADATA_KEY,
   KQMD_SEARCH_POLICY_METADATA_KEY,
   KQMD_SEARCH_SOURCE_SNAPSHOT_METADATA_KEY,
-} from '../../config/search_policy.js';
+} from '#src/config/search_policy.js';
 
 interface MinimalStatement {
   get: (...params: (string | number)[]) => unknown;

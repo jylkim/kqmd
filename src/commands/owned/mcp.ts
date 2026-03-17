@@ -14,16 +14,16 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
 import { createStore } from '@tobilu/qmd';
 
-import { CLI_OPTIONS } from '../../cli_options.js';
-import { getMcpPidPath } from '../../config/qmd_paths.js';
+import { CLI_OPTIONS } from '#src/cli_options.js';
+import { getMcpPidPath } from '#src/config/qmd_paths.js';
 import {
   ensureRegularPath,
   isExpectedMcpProcess,
   readMcpDaemonState,
   UnsafeDaemonPathError,
-} from '../../mcp/daemon_state.js';
-import { startOwnedMcpHttpServer, startOwnedMcpServer } from '../../mcp/server.js';
-import type { CommandExecutionContext, CommandExecutionResult } from '../../types/command.js';
+} from '#src/mcp/daemon_state.js';
+import { startOwnedMcpHttpServer, startOwnedMcpServer } from '#src/mcp/server.js';
+import type { CommandExecutionContext, CommandExecutionResult } from '#src/types/command.js';
 import { resolveOwnedRuntimePlan } from './runtime.js';
 
 function usage(): CommandExecutionResult {

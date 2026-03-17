@@ -1,4 +1,4 @@
-import type { CommandExecutionResult, OwnedCommand } from '../../types/command.js';
+import type { CommandExecutionResult, OwnedCommand } from '#src/types/command.js';
 
 const COMMON_OUTPUT_OPTIONS = [
   '  --json                      Output JSON',
