@@ -1,11 +1,4 @@
-import {
-  addLineNumbers,
-  type EmbedResult,
-  extractSnippet,
-  type HybridQueryResult,
-  type SearchResult,
-  type UpdateResult,
-} from '@tobilu/qmd';
+import type { EmbedResult, HybridQueryResult, SearchResult, UpdateResult } from '@tobilu/qmd';
 
 import type { CommandExecutionResult } from '../../../types/command.js';
 import {
@@ -18,6 +11,7 @@ import {
   preferredSearchRecoveryCommand,
   summarizeStoredSearchPolicy,
 } from '../search_index_health.js';
+import { buildRowSnippet } from './query_rows.js';
 import type {
   EmbedCommandInput,
   QueryCommandInput,
@@ -82,14 +76,6 @@ function formatExplainNumber(value: number): string {
   return value.toFixed(4);
 }
 
-function maybeAddLineNumbers(text: string | undefined, lineNumbers: boolean): string | undefined {
-  if (!text) {
-    return text;
-  }
-
-  return lineNumbers ? addLineNumbers(text) : text;
-}
-
 function buildSnippet(
   row: SearchOutputRow,
   query: string,
@@ -97,18 +83,7 @@ function buildSnippet(
   lineNumbers: boolean,
   intent?: string,
 ): { line: number; content?: string } {
-  if (full) {
-    return {
-      line: 1,
-      content: maybeAddLineNumbers(row.body, lineNumbers),
-    };
-  }
-
-  const { line, snippet } = extractSnippet(row.body, query, 500, row.chunkPos, undefined, intent);
-  return {
-    line,
-    content: maybeAddLineNumbers(snippet, lineNumbers),
-  };
+  return buildRowSnippet(row, query, full, lineNumbers, 500, intent);
 }
 
 function filterRows(rows: SearchOutputRow[], limit: number, minScore: number): SearchOutputRow[] {
@@ -153,10 +128,12 @@ export function normalizeHybridQueryResults(results: HybridQueryResult[]): Searc
     displayPath: result.displayPath,
     title: result.title,
     body: result.bestChunk,
+    sourceBody: result.body,
     context: result.context,
     score: result.score,
     docid: result.docid,
     chunkPos: result.bestChunkPos,
+    sourceChunkPos: result.bestChunkPos,
     explain: result.explain,
   }));
 }
@@ -196,6 +173,9 @@ export function formatSearchExecutionResult(
               ? { snippet: snippet.content }
               : {}),
           ...('explain' in input && input.explain && row.explain ? { explain: row.explain } : {}),
+          ...('explain' in input && input.explain && row.adaptive
+            ? { adaptive: row.adaptive }
+            : {}),
         };
       });
 
@@ -340,6 +320,9 @@ export function formatSearchExecutionResult(
                     `${colors.dim}Explain: fts=[${ftsScores}] vec=[${vecScores}]${colors.reset}`,
                     `${colors.dim}  RRF: total=${formatExplainNumber(explain.rrf.totalScore)} base=${formatExplainNumber(explain.rrf.baseScore)} bonus=${formatExplainNumber(explain.rrf.topRankBonus)} rank=${explain.rrf.rank}${colors.reset}`,
                     `${colors.dim}  Blend: ${Math.round(explain.rrf.weight * 100)}%*${formatExplainNumber(explain.rrf.positionScore)} + ${Math.round((1 - explain.rrf.weight) * 100)}%*${formatExplainNumber(explain.rerankScore)} = ${formatExplainNumber(explain.blendedScore)}${colors.reset}`,
+                    row.adaptive
+                      ? `${colors.dim}  Adaptive: class=${row.adaptive.queryClass} phrase=${formatExplainNumber(row.adaptive.phrase)} title=${formatExplainNumber(row.adaptive.title)} heading=${formatExplainNumber(row.adaptive.heading)} coverage=${formatExplainNumber(row.adaptive.coverage)} proximity=${formatExplainNumber(row.adaptive.proximity)} literal=${formatExplainNumber(row.adaptive.literalAnchor)} vector=${row.adaptive.vectorStrength}${colors.reset}`
+                      : undefined,
                     contributionSummary.length > 0
                       ? `${colors.dim}  Top RRF contributions: ${contributionSummary}${colors.reset}`
                       : undefined,

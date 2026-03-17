@@ -15,6 +15,7 @@ type HybridQueryFn = (
     readonly candidateLimit?: number;
     readonly explain?: boolean;
     readonly intent?: string;
+    readonly skipRerank?: boolean;
   },
 ) => Promise<QueryResults>;
 
@@ -28,6 +29,7 @@ type StructuredSearchFn = (
     readonly candidateLimit?: number;
     readonly explain?: boolean;
     readonly intent?: string;
+    readonly skipRerank?: boolean;
   },
 ) => Promise<QueryResults>;
 
@@ -55,6 +57,10 @@ async function loadQueryRuntimeHelpers(): Promise<
 }
 
 function resolveQueryLimit(input: QueryCommandInput): number {
+  if (input.fetchLimit !== undefined) {
+    return input.fetchLimit;
+  }
+
   return input.all ? 500 : input.limit;
 }
 
@@ -75,6 +81,7 @@ export async function executeOwnedQuerySearch(
         minScore: input.minScore,
         explain: input.explain,
         intent: input.intent,
+        ...(input.disableRerank ? { rerank: false } : {}),
       });
     }
 
@@ -88,6 +95,7 @@ export async function executeOwnedQuerySearch(
       candidateLimit: input.candidateLimit,
       explain: input.explain,
       intent: input.intent,
+      skipRerank: input.disableRerank,
     });
   }
 
@@ -99,6 +107,7 @@ export async function executeOwnedQuerySearch(
       minScore: input.minScore,
       explain: input.explain,
       intent: input.intent,
+      ...(input.disableRerank ? { rerank: false } : {}),
     });
   }
 
@@ -116,5 +125,6 @@ export async function executeOwnedQuerySearch(
     candidateLimit: input.candidateLimit,
     explain: input.explain,
     intent: input.intent,
+    skipRerank: input.disableRerank,
   });
 }

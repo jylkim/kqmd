@@ -36,15 +36,69 @@ describe('owned query runtime', () => {
   test('uses public store.search when candidate-limit is not set', async () => {
     const store = createStore();
 
-    await executeOwnedQuerySearch(store, createInput(), ['docs']);
+    await executeOwnedQuerySearch(
+      store,
+      createInput({
+        fetchLimit: 20,
+      }),
+      ['docs'],
+    );
 
     expect(store.search).toHaveBeenCalledWith({
       query: 'auth flow',
       collections: ['docs'],
-      limit: 5,
+      limit: 20,
       minScore: 0,
       explain: false,
       intent: undefined,
+    });
+  });
+
+  test('disables rerank on public store.search when requested', async () => {
+    const store = createStore();
+
+    await executeOwnedQuerySearch(
+      store,
+      createInput({
+        disableRerank: true,
+        fetchLimit: 20,
+      }),
+      ['docs'],
+    );
+
+    expect(store.search).toHaveBeenCalledWith({
+      query: 'auth flow',
+      collections: ['docs'],
+      limit: 20,
+      minScore: 0,
+      explain: false,
+      intent: undefined,
+      rerank: false,
+    });
+  });
+
+  test('passes rerank false for quoted phrase queries when classifier disables rerank', async () => {
+    const store = createStore();
+
+    await executeOwnedQuerySearch(
+      store,
+      createInput({
+        query: '"agent orchestration"',
+        displayQuery: '"agent orchestration"',
+        disableRerank: true,
+        fetchLimit: 20,
+      }),
+      ['docs'],
+    );
+
+    expect(store.search).toHaveBeenCalledWith({
+      query: '"agent orchestration"',
+      collections: ['docs'],
+      limit: 20,
+      minScore: 0,
+      explain: false,
+      intent: undefined,
+      rerank: false,
     });
   });
 
@@ -56,6 +110,7 @@ describe('owned query runtime', () => {
       store,
       createInput({
         candidateLimit: 10,
+        fetchLimit: 20,
       }),
       ['docs'],
       { hybridQuery },
@@ -64,11 +119,37 @@ describe('owned query runtime', () => {
     expect(store.search).not.toHaveBeenCalled();
     expect(hybridQuery).toHaveBeenCalledWith(store.internal, 'auth flow', {
       collection: 'docs',
-      limit: 5,
+      limit: 20,
       minScore: 0,
       candidateLimit: 10,
       explain: false,
       intent: undefined,
+    });
+  });
+
+  test('passes skipRerank to hybridQuery when candidate-limit path disables rerank', async () => {
+    const store = createStore();
+    const hybridQuery = vi.fn(async () => []);
+
+    await executeOwnedQuerySearch(
+      store,
+      createInput({
+        candidateLimit: 10,
+        disableRerank: true,
+        fetchLimit: 20,
+      }),
+      ['docs'],
+      { hybridQuery },
+    );
+
+    expect(hybridQuery).toHaveBeenCalledWith(store.internal, 'auth flow', {
+      collection: 'docs',
+      limit: 20,
+      minScore: 0,
+      candidateLimit: 10,
+      explain: false,
+      intent: undefined,
+      skipRerank: true,
     });
   });
 
@@ -106,6 +187,7 @@ describe('owned query runtime', () => {
         candidateLimit: 10,
         queryMode: 'structured',
         queries,
+        fetchLimit: 20,
       }),
       ['docs', 'notes'],
       { structuredSearch },
@@ -114,7 +196,7 @@ describe('owned query runtime', () => {
     expect(store.search).not.toHaveBeenCalled();
     expect(structuredSearch).toHaveBeenCalledWith(store.internal, queries, {
       collections: ['docs', 'notes'],
-      limit: 5,
+      limit: 20,
       minScore: 0,
       candidateLimit: 10,
       explain: false,

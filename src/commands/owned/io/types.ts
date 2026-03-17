@@ -19,11 +19,29 @@ export interface SearchCommandInput {
 
 export interface QueryCommandInput extends SearchCommandInput {
   readonly candidateLimit?: number;
+  readonly disableRerank?: boolean;
+  readonly fetchLimit?: number;
   readonly explain: boolean;
   readonly intent?: string;
   readonly queryMode: 'plain' | 'structured';
   readonly queries?: ExpandedQuery[];
   readonly displayQuery: string;
+}
+
+export type QueryClass = 'short-korean-phrase' | 'mixed-technical' | 'general' | 'structured';
+
+export interface AdaptiveQueryExplain {
+  readonly queryClass: QueryClass;
+  readonly candidateSource: 'adaptive' | 'structured-compatibility';
+  readonly vectorStrength: 'strong' | 'weak' | 'absent';
+  readonly baseScore: number;
+  readonly adjustedScore: number;
+  readonly phrase: number;
+  readonly title: number;
+  readonly heading: number;
+  readonly coverage: number;
+  readonly proximity: number;
+  readonly literalAnchor: number;
 }
 
 export type UpdateCommandInput = Record<string, never>;
@@ -38,11 +56,14 @@ export interface SearchOutputRow {
   readonly displayPath: string;
   readonly title: string;
   readonly body: string;
+  readonly sourceBody?: string;
   readonly context: string | null;
   readonly score: number;
   readonly docid: string;
   readonly chunkPos?: number;
+  readonly sourceChunkPos?: number;
   readonly explain?: HybridQueryExplain;
+  readonly adaptive?: AdaptiveQueryExplain;
 }
 
 export interface StatusCommandOutput {

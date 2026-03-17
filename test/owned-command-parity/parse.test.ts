@@ -108,6 +108,23 @@ describe('owned command parity parse', () => {
     });
   });
 
+  test('query rejects oversized plain text and structured line overflow', () => {
+    expect(parseOwnedQueryInput(createContext(['query', 'x'.repeat(501)]))).toEqual({
+      kind: 'validation',
+      stderr: 'Query text must be 500 characters or less for plain queries.',
+      exitCode: 1,
+    });
+
+    const queryDocument = Array.from({ length: 11 }, (_, index) => `lex: line ${index + 1}`).join(
+      '\n',
+    );
+    expect(parseOwnedQueryInput(createContext(['query', queryDocument]))).toEqual({
+      kind: 'validation',
+      stderr: 'Query documents support at most 10 non-empty lines.',
+      exitCode: 1,
+    });
+  });
+
   test('update rejects unexpected positional arguments', () => {
     const result = parseOwnedUpdateInput(createContext(['update', 'extra']));
 

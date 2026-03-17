@@ -31,6 +31,8 @@ bun run check
 - `bun run test:coverage`
 - `bun run build`
 - `bun run check`
+- `bun run measure:query-adaptive`
+- `bun run measure:query-adaptive-e2e`
 - `bun run release:artifact`
 - `bun run release:verify`
 
@@ -140,6 +142,42 @@ bun run measure:mcp-contract
 latest benchmark record:
 
 - [docs/benchmarks/2026-03-16-mcp-contract-metrics.md](benchmarks/2026-03-16-mcp-contract-metrics.md)
+
+### Adaptive query ranking metrics
+
+```bash
+bun run measure:query-adaptive
+```
+
+이 harness는 synthetic result set 위에서 adaptive query ranking의 local overhead를 기록한다.
+실제 corpus/model latency가 아니라 아래 항목의 regression 신호로 본다.
+
+- query class별 fetch window
+- mixed-technical `candidate-limit` sweep (`40`, `50`)
+- large-body row shaping / formatting cost
+- vector explain signal이 섞인 row set에서의 local ranking cost
+- `rerank: false` 적용 여부
+- local classification/ranking/row shaping/formatting p50/p95
+- process heap/RSS delta와 peak heap/RSS
+
+latest benchmark record:
+
+- [docs/benchmarks/2026-03-17-query-adaptive-ranking-metrics.md](benchmarks/2026-03-17-query-adaptive-ranking-metrics.md)
+
+### Adaptive query ranking E2E metrics
+
+```bash
+bun run measure:query-adaptive-e2e
+```
+
+이 harness는 temp fixture store에서 `createStore() + update()` 이후 warm-cache query를 재는 end-to-end benchmark다.
+vectors absent fixture와 deterministic vector-signaled hybrid fixture를 모두 사용한다.
+mixed-technical 경로는 large-body 문서, `candidate-limit 40/50`, explain/full output 조합을 포함해 baseline/adaptive 회귀를 비교한다.
+vector-signaled 케이스는 sqlite-vec availability와 무관하게 돌 수 있도록 deterministic store-local helper/LLM stub로 비용 축을 고정한다.
+
+latest benchmark record:
+
+- [docs/benchmarks/2026-03-17-query-adaptive-e2e-metrics.md](benchmarks/2026-03-17-query-adaptive-e2e-metrics.md)
 
 ### owned command parity suite
 

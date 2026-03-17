@@ -5,6 +5,7 @@ Score:  87%
 Explain: fts=[0.7000] vec=[0.6100]
   RRF: total=0.6600 base=0.5500 bonus=0.1100 rank=1
   Blend: 60%*0.8100 + 40%*0.7300 = 0.7700
+  Adaptive: class=mixed-technical phrase=0.1200 title=0.0600 heading=0.0000 coverage=0.0400 proximity=0.0200 literal=0.0800 vector=strong
   Top RRF contributions: fts/lex#1:0.4400
 @@ -1,1 @@ (0 before, 0 after)
 auth flow summary

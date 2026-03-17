@@ -28,6 +28,12 @@ function createCollectionStore(): QMDStore {
     listCollections: vi.fn(async () => [{ name: 'docs' }, { name: 'notes' }]),
     getDefaultCollectionNames: vi.fn(async () => ['docs']),
     search: vi.fn(async () => []),
+    getStatus: vi.fn(async () => ({
+      totalDocuments: 2,
+      needsEmbedding: 0,
+      hasVectorIndex: true,
+      collections: [],
+    })),
     internal: {
       db: {
         prepare: vi.fn((sql: string) => ({
@@ -67,6 +73,40 @@ describe('owned query command', () => {
     expect(result).toEqual({
       exitCode: 1,
       stderr: 'The `--candidate-limit` option currently supports at most one collection filter.',
+    });
+  });
+
+  test('rejects oversized candidate-limit on mixed technical plain queries', async () => {
+    const result = await handleQueryCommand(
+      createContext(['query', '--candidate-limit', '80', '지속 learning']),
+      {
+        runtimeDependencies: createRuntimeDependencies(createCollectionStore()),
+      },
+    );
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stderr:
+        'Mixed technical plain queries support `--candidate-limit` up to 50 to keep rerank cost bounded.',
+    });
+  });
+
+  test('accepts oversized candidate-limit on general english plain queries', async () => {
+    const run = vi.fn(async () => ({
+      rows: [],
+    }));
+
+    const result = await handleQueryCommand(
+      createContext(['query', '--json', '--candidate-limit', '80', "what's new"]),
+      {
+        run,
+      },
+    );
+
+    expect(run).toHaveBeenCalled();
+    expect(result).toEqual({
+      exitCode: 0,
+      stdout: '[]',
     });
   });
 });

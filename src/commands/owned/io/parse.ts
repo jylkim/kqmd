@@ -12,7 +12,7 @@ import type {
   StatusCommandInput,
   UpdateCommandInput,
 } from './types.js';
-import { parseStructuredQueryDocument } from './validate.js';
+import { parseStructuredQueryDocument, validatePlainQueryText } from './validate.js';
 
 type ParsedValues = Record<string, string | boolean | string[] | undefined>;
 
@@ -150,6 +150,13 @@ export function parseOwnedQueryInput(
   const structuredQuery = parseStructuredQueryDocument(query);
   if (isOwnedCommandError(structuredQuery)) {
     return structuredQuery;
+  }
+
+  if (structuredQuery === null) {
+    const plainQueryValidation = validatePlainQueryText(query);
+    if (plainQueryValidation) {
+      return plainQueryValidation;
+    }
   }
 
   const parsedIntent = typeof values.intent === 'string' ? values.intent : undefined;

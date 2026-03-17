@@ -197,6 +197,27 @@ describe('owned mcp server', () => {
       ],
     });
 
+    const plainQuery = await client.callTool({
+      name: 'query',
+      arguments: {
+        query: '지속 학습',
+      },
+    });
+    expect(plainQuery.structuredContent).toMatchObject({
+      query: {
+        mode: 'plain',
+        primaryQuery: '지속 학습',
+        queryClass: 'short-korean-phrase',
+      },
+      results: [
+        {
+          adaptive: {
+            queryClass: 'short-korean-phrase',
+          },
+        },
+      ],
+    });
+
     const status = await client.callTool({
       name: 'status',
       arguments: {},

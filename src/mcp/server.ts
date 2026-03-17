@@ -9,11 +9,18 @@ import {
   createStore,
   DEFAULT_MULTI_GET_MAX_BYTES,
   type ExpandedQuery,
-  extractSnippet,
   type QMDStore,
 } from '@tobilu/qmd';
 import { z } from 'zod';
+import { isOwnedCommandError, validationError } from '../commands/owned/io/errors.js';
+import { buildMcpQueryRows } from '../commands/owned/io/query_rows.js';
 import type { QueryCommandInput } from '../commands/owned/io/types.js';
+import {
+  parseStructuredQueryDocument,
+  validatePlainQueryText,
+  validateSingleLineQueryText,
+} from '../commands/owned/io/validate.js';
+import { classifyQuery } from '../commands/owned/query_classifier.js';
 import { executeQueryCore } from '../commands/owned/query_core.js';
 import { readStatusCore } from '../commands/owned/status_core.js';
 import { getDefaultDbPath } from '../config/qmd_paths.js';
@@ -37,17 +44,40 @@ export interface OwnedMcpServerOptions {
 
 const querySubSearchSchema = z.object({
   type: z.enum(['lex', 'vec', 'hyde']),
-  query: z.string().min(1),
+  query: z.string().min(1).max(500),
 });
 
-const queryRequestSchema = z.object({
-  searches: z.array(querySubSearchSchema).min(1).max(10),
-  limit: z.number().int().min(1).max(100).optional().default(10),
-  minScore: z.number().min(0).max(1).optional().default(0),
-  candidateLimit: z.number().int().min(1).max(100).optional(),
-  collections: z.array(z.string()).max(20).optional(),
-  intent: z.string().max(500).optional(),
-});
+const queryRequestSchema = z
+  .object({
+    query: z.string().min(1).max(6000).optional(),
+    searches: z.array(querySubSearchSchema).min(1).max(10).optional(),
+    limit: z.number().int().min(1).max(100).optional().default(10),
+    minScore: z.number().min(0).max(1).optional().default(0),
+    candidateLimit: z.number().int().min(1).max(100).optional(),
+    collections: z.array(z.string()).max(20).optional(),
+    intent: z.string().max(500).optional(),
+  })
+  .superRefine((value, ctx) => {
+    const hasQuery = typeof value.query === 'string' && value.query.length > 0;
+    const hasSearches = Array.isArray(value.searches) && value.searches.length > 0;
+
+    if (hasQuery === hasSearches) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Provide exactly one of `query` or `searches`.',
+        path: ['query'],
+      });
+    }
+  });
+
+const MAX_HTTP_BODY_BYTES = 64 * 1024;
+
+class InvalidJsonBodyError extends Error {
+  constructor() {
+    super('Malformed JSON request body.');
+    this.name = 'InvalidJsonBodyError';
+  }
+}
 
 function encodeQmdPath(path: string): string {
   return path
@@ -89,40 +119,6 @@ function formatSearchSummary(
   return lines.join('\n');
 }
 
-function buildStructuredQueryInput(
-  searches: Array<{ readonly type: 'lex' | 'vec' | 'hyde'; readonly query: string }>,
-  options: {
-    readonly limit: number;
-    readonly minScore: number;
-    readonly candidateLimit?: number;
-    readonly collections?: string[];
-    readonly intent?: string;
-  },
-): QueryCommandInput {
-  const primaryQuery =
-    searches.find((search) => search.type === 'lex')?.query ??
-    searches.find((search) => search.type === 'vec')?.query ??
-    searches[0]?.query ??
-    '';
-
-  return {
-    query: searches.map((search) => `${search.type}: ${search.query}`).join('\n'),
-    format: 'json',
-    limit: options.limit,
-    minScore: options.minScore,
-    all: false,
-    full: false,
-    lineNumbers: false,
-    collections: options.collections,
-    candidateLimit: options.candidateLimit,
-    explain: false,
-    intent: options.intent,
-    queryMode: 'structured',
-    queries: searches as ExpandedQuery[],
-    displayQuery: primaryQuery,
-  };
-}
-
 function resolvePrimaryQuery(
   searches: Array<{ readonly type: 'lex' | 'vec' | 'hyde'; readonly query: string }>,
 ): string {
@@ -143,24 +139,7 @@ function shapeQueryRows(
   primaryQuery: string,
   intent?: string,
 ) {
-  return rows.map((row) => {
-    const { line, snippet } = extractSnippet(
-      row.body,
-      primaryQuery,
-      300,
-      row.chunkPos,
-      undefined,
-      intent,
-    );
-    return {
-      docid: `#${row.docid}`,
-      file: row.displayPath,
-      title: row.title,
-      score: Math.round(row.score * 100) / 100,
-      context: row.context,
-      snippet: addLineNumbers(snippet, line),
-    };
-  });
+  return buildMcpQueryRows(rows, primaryQuery, intent);
 }
 
 function buildQueryResponse(
@@ -169,16 +148,20 @@ function buildQueryResponse(
       ? { readonly rows: QueryRows; readonly advisories: QueryAdvisories }
       : never
     : never,
-  searches: Array<{ readonly type: 'lex' | 'vec' | 'hyde'; readonly query: string }>,
-  intent?: string,
+  input: QueryCommandInput,
 ) {
-  const primaryQuery = resolvePrimaryQuery(searches);
-  const rows = shapeQueryRows(result.rows, primaryQuery, intent);
+  const rows = shapeQueryRows(result.rows, input.displayQuery, input.intent);
 
   return {
-    primaryQuery,
+    primaryQuery: input.displayQuery,
     rows,
     advisories: result.advisories,
+    query: {
+      mode: input.queryMode,
+      primaryQuery: input.displayQuery,
+      intent: input.intent,
+      queryClass: classifyQuery(input).queryClass,
+    },
     text: formatSearchSummary(
       rows.map((row) => ({
         docid: row.docid,
@@ -186,10 +169,167 @@ function buildQueryResponse(
         title: row.title,
         score: row.score,
       })),
-      primaryQuery,
+      input.displayQuery,
       result.advisories,
     ),
   };
+}
+
+function normalizeCollections(
+  collections?: string[],
+): string[] | undefined | ReturnType<typeof validationError> {
+  if (!collections) {
+    return collections;
+  }
+
+  for (const [index, collection] of collections.entries()) {
+    const validation = validateSingleLineQueryText(collection, `Collection ${index + 1}`);
+    if (validation) {
+      return validation;
+    }
+  }
+
+  return collections;
+}
+
+function buildStructuredQueryText(
+  searches: Array<{ readonly type: 'lex' | 'vec' | 'hyde'; readonly query: string }>,
+  intent?: string,
+) {
+  return [
+    ...searches.map((search) => `${search.type}: ${search.query}`),
+    ...(intent ? [`intent: ${intent}`] : []),
+  ].join('\n');
+}
+
+function normalizeStructuredSearches(
+  searches: Array<{ readonly type: 'lex' | 'vec' | 'hyde'; readonly query: string }>,
+  intent?: string,
+) {
+  const parsed = parseStructuredQueryDocument(buildStructuredQueryText(searches, intent));
+  if (isOwnedCommandError(parsed)) {
+    return parsed;
+  }
+
+  if (parsed === null) {
+    return validationError('Structured query payload must include at least one search.');
+  }
+
+  return {
+    searches: parsed.searches as ExpandedQuery[],
+    intent: parsed.intent,
+  };
+}
+
+function buildQueryInputFromRequest(
+  body: z.infer<typeof queryRequestSchema>,
+): { readonly input: QueryCommandInput } | ReturnType<typeof validationError> {
+  const collections = normalizeCollections(body.collections);
+  if (isOwnedCommandError(collections)) {
+    return collections;
+  }
+
+  if (body.searches) {
+    const normalized = normalizeStructuredSearches(body.searches, body.intent);
+    if (isOwnedCommandError(normalized)) {
+      return normalized;
+    }
+
+    const primaryQuery = resolvePrimaryQuery(normalized.searches);
+    return {
+      input: {
+        query: buildStructuredQueryText(normalized.searches, normalized.intent),
+        format: 'json',
+        limit: body.limit ?? 10,
+        minScore: body.minScore ?? 0,
+        all: false,
+        full: false,
+        lineNumbers: false,
+        collections,
+        candidateLimit: body.candidateLimit,
+        explain: false,
+        intent: normalized.intent,
+        queryMode: 'structured',
+        queries: normalized.searches,
+        displayQuery: primaryQuery,
+      },
+    };
+  }
+
+  const query = body.query ?? '';
+  const structuredQuery = parseStructuredQueryDocument(query);
+  if (isOwnedCommandError(structuredQuery)) {
+    return structuredQuery;
+  }
+
+  if (structuredQuery?.intent && body.intent) {
+    return validationError(
+      'Structured query documents with `intent:` cannot also provide a top-level `intent`.',
+    );
+  }
+
+  if (structuredQuery === null) {
+    const validation = validatePlainQueryText(query);
+    if (validation) {
+      return validation;
+    }
+
+    if (body.intent) {
+      const intentValidation = validateSingleLineQueryText(body.intent, 'Intent');
+      if (intentValidation) {
+        return intentValidation;
+      }
+    }
+
+    return {
+      input: {
+        query,
+        format: 'json',
+        limit: body.limit ?? 10,
+        minScore: body.minScore ?? 0,
+        all: false,
+        full: false,
+        lineNumbers: false,
+        collections,
+        candidateLimit: body.candidateLimit,
+        explain: false,
+        intent: body.intent,
+        queryMode: 'plain',
+        displayQuery: query,
+      },
+    };
+  }
+
+  return {
+    input: {
+      query,
+      format: 'json',
+      limit: body.limit ?? 10,
+      minScore: body.minScore ?? 0,
+      all: false,
+      full: false,
+      lineNumbers: false,
+      collections,
+      candidateLimit: body.candidateLimit,
+      explain: false,
+      intent: structuredQuery.intent,
+      queryMode: 'structured',
+      queries: structuredQuery.searches,
+      displayQuery: resolvePrimaryQuery(structuredQuery.searches),
+    },
+  };
+}
+
+function parseJsonBody(rawBody: string): unknown {
+  try {
+    return JSON.parse(rawBody);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new InvalidJsonBodyError();
+    }
+
+    throw error;
+  }
 }
 
 function getHeader(req: IncomingMessage, name: string): string | undefined {
@@ -216,10 +356,19 @@ function assertLocalOrigin(req: IncomingMessage): boolean {
   }
 }
 
-async function collectBody(req: IncomingMessage): Promise<string> {
+async function collectBody(req: IncomingMessage, maxBytes = MAX_HTTP_BODY_BYTES): Promise<string> {
   const chunks: Buffer[] = [];
+  let totalBytes = 0;
+
   for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.length;
+
+    if (totalBytes > maxBytes) {
+      throw new RangeError('Request body too large');
+    }
+
+    chunks.push(buffer);
   }
 
   return Buffer.concat(chunks).toString('utf8');
@@ -332,11 +481,12 @@ export async function createOwnedMcpServer(
     {
       title: 'Query',
       description:
-        'Search the knowledge base using structured lex/vec/hyde sub-queries. The result reflects K-QMD query policy.',
+        'Search the knowledge base using either a plain adaptive query or structured lex/vec/hyde sub-queries.',
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: queryRequestSchema as never,
     } as never,
     (async ({
+      query,
       searches,
       limit,
       minScore,
@@ -344,22 +494,33 @@ export async function createOwnedMcpServer(
       collections,
       intent,
     }: {
-      searches: Array<{ readonly type: 'lex' | 'vec' | 'hyde'; readonly query: string }>;
+      query?: string;
+      searches?: Array<{ readonly type: 'lex' | 'vec' | 'hyde'; readonly query: string }>;
       limit: number;
       minScore: number;
       candidateLimit?: number;
       collections?: string[];
       intent?: string;
     }) => {
+      const normalized = buildQueryInputFromRequest({
+        query,
+        searches,
+        limit,
+        minScore,
+        candidateLimit,
+        collections,
+        intent,
+      });
+      if (isOwnedCommandError(normalized)) {
+        return {
+          content: [{ type: 'text', text: normalized.stderr }],
+          isError: true,
+        };
+      }
+
       const result = await executeQueryCore(
         store,
-        buildStructuredQueryInput(searches, {
-          limit,
-          minScore,
-          candidateLimit,
-          collections,
-          intent,
-        }),
+        normalized.input,
         env,
         {},
         {
@@ -375,7 +536,7 @@ export async function createOwnedMcpServer(
         };
       }
 
-      const response = buildQueryResponse(result, searches, intent);
+      const response = buildQueryResponse(result, normalized.input);
 
       return {
         content: [
@@ -385,6 +546,7 @@ export async function createOwnedMcpServer(
           },
         ],
         structuredContent: {
+          query: response.query,
           results: response.rows,
           advisories: response.advisories,
         },
@@ -756,37 +918,30 @@ export async function startOwnedMcpHttpServer(
 
       if ((pathname === '/query' || pathname === '/search') && req.method === 'POST') {
         const rawBody = await collectBody(req);
-        const parsedBody = queryRequestSchema.safeParse(JSON.parse(rawBody));
+        const parsedBody = queryRequestSchema.safeParse(parseJsonBody(rawBody));
         if (!parsedBody.success) {
           writeJson(res, 400, { error: 'Invalid query request body.' });
           return;
         }
 
-        const body = parsedBody.data;
+        const normalized = buildQueryInputFromRequest(parsedBody.data);
+        if (isOwnedCommandError(normalized)) {
+          writeJson(res, 400, { error: normalized.stderr });
+          return;
+        }
 
         const queryMetadata = await readQueryMetadata();
-        const result = await executeQueryCore(
-          store,
-          buildStructuredQueryInput(body.searches, {
-            limit: body.limit ?? 10,
-            minScore: body.minScore ?? 0,
-            candidateLimit: body.candidateLimit,
-            collections: body.collections,
-            intent: body.intent,
-          }),
-          env,
-          {},
-          queryMetadata,
-        );
+        const result = await executeQueryCore(store, normalized.input, env, {}, queryMetadata);
 
         if ('kind' in result) {
           writeJson(res, 400, { error: result.stderr });
           return;
         }
 
-        const response = buildQueryResponse(result, body.searches, body.intent);
+        const response = buildQueryResponse(result, normalized.input);
 
         writeJson(res, 200, {
+          query: response.query,
           results: response.rows,
           advisories: response.advisories,
         });
@@ -798,7 +953,7 @@ export async function startOwnedMcpHttpServer(
 
         if (req.method === 'POST') {
           const rawBody = await collectBody(req);
-          const body = rawBody.length > 0 ? JSON.parse(rawBody) : undefined;
+          const body = rawBody.length > 0 ? parseJsonBody(rawBody) : undefined;
 
           if (sessionId) {
             const existing = sessions.get(sessionId);
@@ -859,6 +1014,22 @@ export async function startOwnedMcpHttpServer(
       writeJson(res, 404, { error: 'Not Found' });
     } catch (error) {
       log(`MCP HTTP error: ${error instanceof Error ? error.message : String(error)}`);
+      if (error instanceof RangeError && error.message === 'Request body too large') {
+        writeJson(res, 413, {
+          jsonrpc: '2.0',
+          error: { code: -32000, message: 'Payload Too Large' },
+          id: null,
+        });
+        return;
+      }
+      if (error instanceof InvalidJsonBodyError) {
+        writeJson(res, 400, {
+          jsonrpc: '2.0',
+          error: { code: -32700, message: error.message },
+          id: null,
+        });
+        return;
+      }
       writeJson(res, 500, {
         jsonrpc: '2.0',
         error: { code: -32603, message: 'Internal server error' },

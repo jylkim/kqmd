@@ -208,6 +208,36 @@ describe('owned mcp http server', () => {
       error: 'Invalid query request body.',
     });
 
+    const multilineStructuredSearch = await fetch(`${baseUrl}/query`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        searches: [{ type: 'lex', query: 'auth\nflow' }],
+      }),
+    });
+    expect(multilineStructuredSearch.status).toBe(400);
+    await expect(multilineStructuredSearch.json()).resolves.toMatchObject({
+      error:
+        'Line 2 is missing a lex:/vec:/hyde:/intent: prefix. Each line in a query document must start with one.',
+    });
+
+    const controlCharIntent = await fetch(`${baseUrl}/query`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: 'http mcp',
+        intent: 'doc\u0007s',
+      }),
+    });
+    expect(controlCharIntent.status).toBe(400);
+    await expect(controlCharIntent.json()).resolves.toMatchObject({
+      error: 'Intent contains unsupported control characters.',
+    });
+
     const outOfRangeAliasBody = await fetch(`${baseUrl}/query`, {
       method: 'POST',
       headers: {
@@ -223,17 +253,55 @@ describe('owned mcp http server', () => {
       error: 'Invalid query request body.',
     });
 
+    const oversizedBody = await fetch(`${baseUrl}/query`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        searches: [{ type: 'lex', query: 'x'.repeat(70_000) }],
+      }),
+    });
+    expect(oversizedBody.status).toBe(413);
+    await expect(oversizedBody.json()).resolves.toMatchObject({
+      error: {
+        message: 'Payload Too Large',
+      },
+    });
+
+    const malformedAliasBody = await fetch(`${baseUrl}/query`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: '{"query":"http mcp"',
+    });
+    expect(malformedAliasBody.status).toBe(400);
+    await expect(malformedAliasBody.json()).resolves.toMatchObject({
+      error: {
+        message: 'Malformed JSON request body.',
+      },
+    });
+
     const query = await client.callTool({
       name: 'query',
       arguments: {
-        searches: [{ type: 'lex', query: 'http mcp' }],
+        query: '지속 학습',
         intent: 'documentation',
       },
     });
     expect(query.structuredContent).toMatchObject({
+      query: {
+        mode: 'plain',
+        primaryQuery: '지속 학습',
+        queryClass: 'short-korean-phrase',
+      },
       results: [
         {
           file: 'docs/readme.md',
+          adaptive: {
+            queryClass: 'short-korean-phrase',
+          },
         },
       ],
     });
@@ -244,7 +312,7 @@ describe('owned mcp http server', () => {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        searches: [{ type: 'lex', query: 'http mcp' }],
+        query: '지속 학습',
         intent: 'documentation',
       }),
     });
@@ -257,6 +325,19 @@ describe('owned mcp http server', () => {
       (query.structuredContent as { results: Array<{ snippet: string }> }).results[0]?.snippet ??
         '',
     );
+    expect(aliasQueryBody).toMatchObject({
+      query: {
+        mode: 'plain',
+        queryClass: 'short-korean-phrase',
+      },
+      results: [
+        {
+          adaptive: {
+            queryClass: 'short-korean-phrase',
+          },
+        },
+      ],
+    });
 
     const status = await client.callTool({
       name: 'status',
@@ -287,10 +368,24 @@ describe('owned mcp http server', () => {
     const invalidTool = await client.callTool({
       name: 'query',
       arguments: {
-        searches: [],
+        query: 'auth\nflow',
       },
     });
     expect(invalidTool.isError).toBe(true);
+
+    const malformedMcpRequest = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{"jsonrpc":"2.0"',
+    });
+    expect(malformedMcpRequest.status).toBe(400);
+    await expect(malformedMcpRequest.json()).resolves.toMatchObject({
+      error: {
+        code: -32700,
+        message: 'Malformed JSON request body.',
+      },
+    });
+
     expect(store.listCollections).toHaveBeenCalledTimes(1);
     expect(store.getDefaultCollectionNames).toHaveBeenCalledTimes(1);
 

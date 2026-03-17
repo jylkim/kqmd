@@ -54,6 +54,14 @@ qmd mcp --http --daemon
 - shadow index가 없거나 현재 policy와 맞지 않으면 경고를 출력하고 legacy lexical path로 fallback 합니다.
 - quoted query나 negation처럼 보수적으로 다뤄야 하는 문법은 shadow path 대신 legacy path를 유지할 수 있습니다.
 
+### Adaptive query ranking for Korean and mixed technical queries
+
+- `query`는 plain query에서 질의 타입을 구분해 `short Korean phrase`, `mixed technical`, `structured compatibility` 경로를 다르게 다룹니다.
+- MCP tool `query`와 HTTP `/query`도 이제 plain `query` string 또는 structured `searches[]`를 모두 받아 같은 adaptive plain-query policy를 공유합니다.
+- 짧은 한국어 구와 quoted/path-like query는 lexical-first로 처리하고, snippet도 lexical anchor를 우선 반영합니다.
+- 한영 혼합 기술어 query는 hybrid retrieval을 유지하되 title/header/literal anchor 신호를 추가로 반영해 상위 결과를 더 설명 가능하게 만듭니다.
+- `--explain`과 JSON output은 upstream explain block 위에 local adaptive signals를 함께 드러냅니다.
+
 ### Drop-in compatibility where it matters
 
 - 실행 명령은 계속 `qmd`입니다.
@@ -66,10 +74,12 @@ qmd mcp --http --daemon
 - 직접 소유하는 명령: `search`, `query`, `update`, `embed`, `status`, `mcp`
 - upstream passthrough 명령: `collection`, `ls`, `get`, `multi-get`
 - `query`는 owned runtime에서 hybrid query를 실행하며 `--candidate-limit`, `--intent`, `--explain`를 지원합니다.
+- plain mixed-technical query에서 `--candidate-limit`는 rerank cost를 bounded 하도록 `<= 50`까지만 허용합니다.
 - `update`는 upstream 문서 스캔 뒤 Korean shadow index를 함께 동기화합니다.
 - `status`는 인덱스 상태와 함께 embedding mismatch, Korean search index health를 보여줍니다.
 - `embed`는 현재 effective model 기준으로 임베딩을 생성하며 `--force`를 지원합니다.
 - `mcp`는 stdio, HTTP, background daemon 모드를 지원합니다.
+- MCP/HTTP query 응답은 query mode/query class와 row-level `adaptive`/`explain` metadata를 함께 반환해 agent가 local ranking policy를 볼 수 있습니다.
 
 ### Safe defaults and explicit health signals
 
@@ -81,7 +91,7 @@ qmd mcp --http --daemon
 
 ### Current scope
 
-첫 릴리스 범위는 Korean-aware lexical recall과 owned command boundary를 안정적으로 제공하는 데 맞춰져 있습니다. 사용자 사전, 동의어 정책, 한글 전용 ranking 조정, `query` 경로의 장기적인 한국어 의미 검색 개선은 아직 범위 밖입니다.
+첫 릴리스 범위는 Korean-aware lexical recall, adaptive query ranking baseline, owned command boundary를 안정적으로 제공하는 데 맞춰져 있습니다. 사용자 사전, 동의어 정책, 대규모 domain-specific ranking policy, `query` 경로의 장기적인 한국어 semantic retrieval 재설계는 아직 범위 밖입니다.
 
 ## Development & Contribution
 

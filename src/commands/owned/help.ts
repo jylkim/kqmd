@@ -33,7 +33,7 @@ const HELP_TEXT: Record<OwnedCommand, string> = {
     ...COMMON_SEARCH_OPTIONS,
     '  --intent <text>             Domain intent hint',
     '  --explain                   Include explain traces',
-    '  -C, --candidate-limit <n>   Max candidates to rerank (default: 40, lower = faster)',
+    '  -C, --candidate-limit <n>   Max candidates to rerank (default: 40; mixed plain <= 50)',
     '  -h, --help                  Show this help',
   ].join('\n'),
   update: [
