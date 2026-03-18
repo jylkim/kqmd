@@ -2,6 +2,34 @@
 
 릴리스 후보를 검증하고 publish하는 절차를 정리한 문서입니다.
 
+## 버전 정책
+
+`{upstream_version}-kqmd.{rev}` 형식을 사용합니다.
+
+```
+2.0.1-kqmd.1   ← upstream 2.0.1 기반 첫 릴리즈
+2.0.1-kqmd.2   ← K-QMD 자체 버그 픽스
+2.1.0-kqmd.1   ← upstream 2.1.0으로 bump 시 rev 리셋
+```
+
+- 앞부분은 기반이 되는 `@tobilu/qmd` 버전을 그대로 반영합니다.
+- `-kqmd.N` 부분은 해당 upstream 버전 위에서의 K-QMD 자체 리비전입니다.
+- upstream 버전이 올라가면 rev를 1로 리셋합니다.
+- SemVer prerelease 식별자 문법을 따르므로 npm/bun 생태계와 호환됩니다.
+
+### Git tag
+
+`v` prefix를 붙여 `package.json` 버전과 1:1로 대응시킵니다.
+
+```
+v2.0.1-kqmd.1
+v2.0.1-kqmd.2
+v2.1.0-kqmd.1
+```
+
+- 태그는 릴리스 커밋에만 생성합니다.
+- annotated tag를 사용합니다: `git tag -a v2.0.1-kqmd.1 -m "v2.0.1-kqmd.1"`
+
 ## 릴리스 검증
 
 ### 전체 릴리스 게이트

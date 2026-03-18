@@ -1,6 +1,6 @@
 {
   "name": "kqmd",
-  "version": "0.1.0",
+  "version": "2.0.1-kqmd.1",
   "packageManager": "bun@1.3.10",
   "description": "qmd-compatible replacement distribution scaffold for Korean-focused search experiments",
   "type": "module",
