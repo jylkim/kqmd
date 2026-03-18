@@ -418,5 +418,6 @@ const { rows, aggregate } = await measureRecall();
 const markdown = toMarkdown(rows, aggregate);
 
 console.log(markdown);
-console.log('JSON');
+console.log('```json');
 console.log(JSON.stringify({ rows, aggregate }, null, 2));
+console.log('```');
