@@ -1,5 +1,5 @@
-import type { CommandExecutionResult, OwnedCommand } from '#src/types/command.js';
 import type { OwnedRuntimeFailure } from '#src/commands/owned/runtime.js';
+import type { CommandExecutionResult, OwnedCommand } from '#src/types/command.js';
 import type { OwnedCommandError } from './types.js';
 
 export function usageError(stderr: string): OwnedCommandError {

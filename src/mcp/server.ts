@@ -12,16 +12,12 @@ import { executeQueryCore } from '#src/commands/owned/query_core.js';
 import { readStatusCore } from '#src/commands/owned/status_core.js';
 import { getDefaultDbPath } from '#src/config/qmd_paths.js';
 import { readMcpDaemonState } from './daemon_state.js';
-import {
-  buildQueryInputFromRequest,
-  buildQueryResponse,
-  encodeQmdPath,
-} from './query.js';
+import { buildQueryInputFromRequest, buildQueryResponse, encodeQmdPath } from './query.js';
 import type { OwnedMcpServerOptions } from './types.js';
 import { queryRequestSchema } from './types.js';
 
-export type { OwnedMcpServerOptions } from './types.js';
 export { startOwnedMcpHttpServer } from './http.js';
+export type { OwnedMcpServerOptions } from './types.js';
 
 export async function buildInstructions(store: QMDStore, env: NodeJS.ProcessEnv): Promise<string> {
   const status = await readStatusCore(store, env);

@@ -21,7 +21,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
-import { createStore, type QMDStore } from '@tobilu/qmd';
+import { createStore } from '@tobilu/qmd';
 import { isOwnedCommandError } from '#src/commands/owned/io/errors.js';
 import { executeQueryCore } from '#src/commands/owned/query_core.js';
 import { getDefaultDbPath } from '#src/config/qmd_paths.js';

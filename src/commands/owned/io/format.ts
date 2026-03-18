@@ -1,6 +1,4 @@
 import type { EmbedResult, HybridQueryResult, SearchResult, UpdateResult } from '@tobilu/qmd';
-
-import type { CommandExecutionResult } from '#src/types/command.js';
 import {
   hasEmbeddingMismatch,
   preferredEmbedCommand,
@@ -11,6 +9,7 @@ import {
   preferredSearchRecoveryCommand,
   summarizeStoredSearchPolicy,
 } from '#src/commands/owned/search_index_health.js';
+import type { CommandExecutionResult } from '#src/types/command.js';
 import { buildRowSnippet } from './query_rows.js';
 import type {
   EmbedCommandInput,
@@ -288,7 +287,7 @@ export function formatSearchExecutionResult(
             effectiveIntent,
           );
           const snippetBody = (snippet.content ?? '').split('\n').slice(1).join('\n').toLowerCase();
-          const hasMatch = (effectiveQuery)
+          const hasMatch = effectiveQuery
             .toLowerCase()
             .split(/\s+/)
             .some((term) => term.length > 0 && snippetBody.includes(term));

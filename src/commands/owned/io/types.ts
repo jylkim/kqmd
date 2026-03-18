@@ -1,8 +1,8 @@
 import type { ExpandedQuery, HybridQueryExplain, IndexStatus } from '@tobilu/qmd';
-import type { EffectiveEmbedModel } from '#src/config/embedding_policy.js';
-import type { EffectiveSearchPolicy } from '#src/config/search_policy.js';
 import type { EmbeddingHealth } from '#src/commands/owned/embedding_health.js';
 import type { SearchIndexHealth } from '#src/commands/owned/search_index_health.js';
+import type { EffectiveEmbedModel } from '#src/config/embedding_policy.js';
+import type { EffectiveSearchPolicy } from '#src/config/search_policy.js';
 
 export type SearchOutputFormat = 'cli' | 'json' | 'csv' | 'md' | 'xml' | 'files';
 

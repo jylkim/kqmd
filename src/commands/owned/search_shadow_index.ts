@@ -20,10 +20,7 @@ import {
 } from '#src/config/search_policy.js';
 import type { MinimalDatabase } from '#src/types/database.js';
 import { buildShadowProjectionText, type KiwiTokenizerDependencies } from './kiwi_tokenizer.js';
-import type {
-  SearchCollectionSnapshotMap,
-  SearchSourceSnapshot,
-} from './search_index_health.js';
+import type { SearchCollectionSnapshotMap, SearchSourceSnapshot } from './search_index_health.js';
 
 type SearchStoreLike = {
   readonly db: MinimalDatabase;

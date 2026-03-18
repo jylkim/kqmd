@@ -22,7 +22,7 @@ import {
 } from '#src/mcp/daemon_state.js';
 import { startOwnedMcpHttpServer, startOwnedMcpServer } from '#src/mcp/server.js';
 import type { CommandExecutionContext, CommandExecutionResult } from '#src/types/command.js';
-import { parseOwnedArgs, type ParsedValues } from './io/parse.js';
+import { parseOwnedArgs } from './io/parse.js';
 import { resolveOwnedRuntimePlan } from './runtime.js';
 
 function usage(): CommandExecutionResult {
@@ -213,7 +213,6 @@ async function startDaemon(
     ].join('\n'),
   };
 }
-
 
 function resolveMcpStartupOptions(
   context: CommandExecutionContext,
