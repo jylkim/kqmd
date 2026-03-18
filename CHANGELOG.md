@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [2.0.1-kqmd.2] - 2026-03-18
+
 ### Added
 
 - upstream passthrough 명령 등록 누락분 보완 및 owned cleanup coverage contract 추가
@@ -48,5 +50,6 @@ upstream `@tobilu/qmd@2.0.1` 기반 K-QMD 최초 릴리스.
 - 중복 코드 통합 및 runtime path alias 수정
 - 빌드/워크플로를 bun 기반으로 전환
 
-[Unreleased]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.1...HEAD
+[Unreleased]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.2...HEAD
+[2.0.1-kqmd.2]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.1...v2.0.1-kqmd.2
 [2.0.1-kqmd.1]: https://github.com/jylkim/kqmd/releases/tag/v2.0.1-kqmd.1

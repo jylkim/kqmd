@@ -130,9 +130,11 @@ function readVersionString(): string {
 const UPSTREAM_HELP_HEADLINE = /^qmd\b.*$/m;
 
 function brandHelpOutput(upstream: string): string {
-  return upstream.replace(UPSTREAM_HELP_HEADLINE, 'kqmd — Drop-in QMD replacement with Korean-aware search');
+  return upstream.replace(
+    UPSTREAM_HELP_HEADLINE,
+    'kqmd — Drop-in QMD replacement with Korean-aware search',
+  );
 }
-
 
 export async function runCli(argv: string[], io: CliIO = process): Promise<number> {
   if (argv.includes('--version') || argv.includes('-v')) {

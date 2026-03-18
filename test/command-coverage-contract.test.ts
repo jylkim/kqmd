@@ -29,11 +29,11 @@ function extractUpstreamCommands(): string[] {
   const switchBlock = source.slice(switchIndex);
 
   // default: 이전까지의 top-level case만 추출 (8칸 들여쓰기)
-  const casePattern = /^        case "([^"]+)":/gm;
+  const casePattern = /^ {8}case "([^"]+)":/gm;
   const commands: string[] = [];
-  let match: RegExpExecArray | null;
+  let match: RegExpExecArray | null = casePattern.exec(switchBlock);
 
-  while ((match = casePattern.exec(switchBlock)) !== null) {
+  while (match !== null) {
     // default: 를 만나면 멈춘다
     const beforeMatch = switchBlock.slice(0, match.index);
     if (beforeMatch.includes('\n        default:')) {
@@ -41,6 +41,7 @@ function extractUpstreamCommands(): string[] {
     }
 
     commands.push(match[1]);
+    match = casePattern.exec(switchBlock);
   }
 
   if (commands.length === 0) {
@@ -56,7 +57,7 @@ const KNOWN_ALIASES = new Set(['vector-search', 'deep-search']);
 describe('command coverage contract', () => {
   const upstreamCommands = extractUpstreamCommands();
   const canonicalUpstream = upstreamCommands.filter((cmd) => !KNOWN_ALIASES.has(cmd));
-  const covered = new Set([...OWNED_COMMANDS, ...PASSTHROUGH_COMMANDS]);
+  const covered: Set<string> = new Set([...OWNED_COMMANDS, ...PASSTHROUGH_COMMANDS]);
 
   test('extracts a reasonable number of upstream commands', () => {
     // 삼중 안전장치: upstream이 너무 적게 추출되면 파서가 깨진 것

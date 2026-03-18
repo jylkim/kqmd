@@ -95,7 +95,10 @@ describe('owned cleanup command', () => {
     try {
       const result = await handleCleanupCommand(createContext(['cleanup']), {
         runtimeDependencies: createRuntimeDependencies(store, {
-          existingPaths: ['/home/tester/.cache/qmd/index.sqlite', '/home/tester/.config/qmd/index.yml'],
+          existingPaths: [
+            '/home/tester/.cache/qmd/index.sqlite',
+            '/home/tester/.config/qmd/index.yml',
+          ],
         }),
         searchIndexDependencies: {
           kiwiDependencies: {
@@ -121,7 +124,10 @@ describe('owned cleanup command', () => {
     try {
       const result = await handleCleanupCommand(createContext(['cleanup']), {
         runtimeDependencies: createRuntimeDependencies(store, {
-          existingPaths: ['/home/tester/.cache/qmd/index.sqlite', '/home/tester/.config/qmd/index.yml'],
+          existingPaths: [
+            '/home/tester/.cache/qmd/index.sqlite',
+            '/home/tester/.config/qmd/index.yml',
+          ],
         }),
         searchIndexDependencies: {
           kiwiDependencies: {
@@ -145,7 +151,10 @@ describe('owned cleanup command', () => {
 
     const result = await handleCleanupCommand(createContext(['cleanup']), {
       runtimeDependencies: createRuntimeDependencies(store, {
-        existingPaths: ['/home/tester/.cache/qmd/index.sqlite', '/home/tester/.config/qmd/index.yml'],
+        existingPaths: [
+          '/home/tester/.cache/qmd/index.sqlite',
+          '/home/tester/.config/qmd/index.yml',
+        ],
       }),
     });
 

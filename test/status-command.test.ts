@@ -166,7 +166,9 @@ describe('owned status command', () => {
 
   test('works in a zero-config environment', async () => {
     const result = await handleStatusCommand(createContext(['status']), {
-      runtimeDependencies: createRuntimeDependencies(createFakeStatusStore(), { existingPaths: [] }),
+      runtimeDependencies: createRuntimeDependencies(createFakeStatusStore(), {
+        existingPaths: [],
+      }),
     });
 
     expect(result.exitCode).toBe(0);

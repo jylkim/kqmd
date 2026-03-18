@@ -30,8 +30,9 @@ export async function delegatePassthroughPiped(
       windowsHide: true,
     });
 
-    const stdoutChunks = collectStream(child.stdout!);
-    const stderrChunks = collectStream(child.stderr!);
+    // stdio: ['inherit', 'pipe', 'pipe'] guarantees stdout/stderr exist
+    const stdoutChunks = collectStream(child.stdout as Readable);
+    const stderrChunks = collectStream(child.stderr as Readable);
     child.once('error', reject);
     child.once('close', (code) => {
       resolve({

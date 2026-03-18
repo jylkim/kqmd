@@ -84,7 +84,10 @@ describe('owned update command', () => {
     try {
       const result = await handleUpdateCommand(createContext(['update']), {
         runtimeDependencies: createRuntimeDependencies(createNoOpUpdateStore(runSpy), {
-          existingPaths: ['/home/tester/.cache/qmd/index.sqlite', '/home/tester/.config/qmd/index.yml'],
+          existingPaths: [
+            '/home/tester/.cache/qmd/index.sqlite',
+            '/home/tester/.config/qmd/index.yml',
+          ],
         }),
         searchIndexDependencies: {
           kiwiDependencies: {
