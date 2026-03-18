@@ -8,6 +8,7 @@ docs/brainstorms/
 docs/plans/
 docs/solutions/
 docs/benchmarks/
+!docs/benchmarks/2026-03-17-recall-comparison-metrics.md
 todos/
 compound-engineering.local.md
 .npmrc
