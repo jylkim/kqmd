@@ -1,8 +1,25 @@
 import type { CommandRoute, OwnedCommand } from '#src/types/command.js';
 
-export const OWNED_COMMANDS = ['search', 'query', 'update', 'embed', 'status', 'mcp'] as const;
+export const OWNED_COMMANDS = [
+  'search',
+  'query',
+  'update',
+  'embed',
+  'status',
+  'mcp',
+  'cleanup',
+] as const;
 
-export const PASSTHROUGH_COMMANDS = ['collection', 'ls', 'get', 'multi-get'] as const;
+export const PASSTHROUGH_COMMANDS = [
+  'collection',
+  'ls',
+  'get',
+  'multi-get',
+  'skill',
+  'context',
+  'vsearch',
+  'pull',
+] as const;
 
 type ManifestEntry = Extract<CommandRoute, { mode: 'owned' | 'passthrough' }>;
 
@@ -13,10 +30,15 @@ export const commandManifest = {
   embed: { mode: 'owned', command: 'embed' },
   status: { mode: 'owned', command: 'status' },
   mcp: { mode: 'owned', command: 'mcp' },
+  cleanup: { mode: 'owned', command: 'cleanup' },
   collection: { mode: 'passthrough', command: 'collection' },
   ls: { mode: 'passthrough', command: 'ls' },
   get: { mode: 'passthrough', command: 'get' },
   'multi-get': { mode: 'passthrough', command: 'multi-get' },
+  skill: { mode: 'passthrough', command: 'skill' },
+  context: { mode: 'passthrough', command: 'context' },
+  vsearch: { mode: 'passthrough', command: 'vsearch' },
+  pull: { mode: 'passthrough', command: 'pull' },
 } as const satisfies Record<string, ManifestEntry>;
 
 const HELP_ALIASES = new Set(['help']);

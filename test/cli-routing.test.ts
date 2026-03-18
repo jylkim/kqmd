@@ -20,6 +20,42 @@ describe('CLI routing', () => {
     expect(invocation.commandArgs).toEqual(['list']);
   });
 
+  test('routes skill as passthrough', () => {
+    const invocation = parseCliInvocation(['skill', 'show']);
+
+    expect(invocation.route).toEqual({ mode: 'passthrough', command: 'skill' });
+    expect(invocation.commandArgs).toEqual(['show']);
+  });
+
+  test('routes context as passthrough', () => {
+    const invocation = parseCliInvocation(['context', 'add', 'qmd://notes', 'desc']);
+
+    expect(invocation.route).toEqual({ mode: 'passthrough', command: 'context' });
+    expect(invocation.commandArgs).toEqual(['add', 'qmd://notes', 'desc']);
+  });
+
+  test('routes vsearch as passthrough', () => {
+    const invocation = parseCliInvocation(['vsearch', 'query text']);
+
+    expect(invocation.route).toEqual({ mode: 'passthrough', command: 'vsearch' });
+    expect(invocation.commandArgs).toEqual(['query text']);
+  });
+
+  test('routes pull as passthrough', () => {
+    const invocation = parseCliInvocation(['pull']);
+
+    expect(invocation.route).toEqual({ mode: 'passthrough', command: 'pull' });
+    expect(invocation.commandArgs).toEqual([]);
+  });
+
+  test('routes cleanup as owned', () => {
+    const invocation = parseCliInvocation(['cleanup']);
+
+    expect(invocation.route).toEqual({ mode: 'owned', command: 'cleanup' });
+    expect(OWNED_COMMANDS).toContain(invocation.command);
+    expect(invocation.commandArgs).toEqual([]);
+  });
+
   test('routes mcp through the owned manifest', () => {
     const invocation = parseCliInvocation(['mcp']);
 
@@ -85,8 +121,10 @@ describe('CLI routing', () => {
       mode: 'owned',
       command: 'query',
     });
+    // --version은 runCli에서 parseCliInvocation 전에 처리한다.
+    // parseCliInvocation에 도달하면 일반 routing을 따른다.
     expect(parseCliInvocation(['search', '--version']).route).toEqual({
-      mode: 'passthrough',
+      mode: 'owned',
       command: 'search',
     });
     expect(parseCliInvocation([]).route).toEqual({

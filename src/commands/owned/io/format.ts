@@ -12,6 +12,8 @@ import {
 import type { CommandExecutionResult } from '#src/types/command.js';
 import { buildRowSnippet } from './query_rows.js';
 import type {
+  CleanupCommandInput,
+  CleanupCommandOutput,
   EmbedCommandInput,
   QueryCommandInput,
   SearchCommandInput,
@@ -441,5 +443,28 @@ export function formatStatusExecutionResult(
     ]
       .filter((line): line is string => line !== undefined)
       .join('\n'),
+  };
+}
+
+export function formatCleanupExecutionResult(
+  result: CleanupCommandOutput,
+  _input: CleanupCommandInput,
+): CommandExecutionResult {
+  const colors = getColorPalette();
+
+  return {
+    exitCode: 0,
+    stdout: [
+      `${colors.bold}Cleanup${colors.reset}`,
+      '',
+      `  Cached responses cleared:   ${result.cachedResponsesCleared}`,
+      `  Orphaned embeddings removed: ${result.orphanedEmbeddingsRemoved}`,
+      `  Inactive documents removed: ${result.inactiveDocumentsRemoved}`,
+      `  Orphaned content removed:   ${result.orphanedContentRemoved}`,
+      `  Vacuumed:                   ${result.vacuumed ? 'yes' : 'no'}`,
+      result.shadowIndexRebuilt
+        ? `  Shadow index rebuilt:       ${result.shadowIndexDocuments ?? 0} documents`
+        : `  Shadow index rebuilt:       skipped`,
+    ].join('\n'),
   };
 }

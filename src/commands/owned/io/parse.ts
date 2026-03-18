@@ -4,6 +4,7 @@ import { CLI_OPTIONS } from '#src/cli_options.js';
 import type { CommandExecutionContext } from '#src/types/command.js';
 import { isOwnedCommandError, usageError, validationError } from './errors.js';
 import type {
+  CleanupCommandInput,
   EmbedCommandInput,
   ParseResult,
   QueryCommandInput,
@@ -248,6 +249,21 @@ export function parseOwnedStatusInput(
 
   if (positionals.length > 1) {
     return usageError('Usage: qmd status');
+  }
+
+  return {
+    kind: 'ok',
+    input: {},
+  };
+}
+
+export function parseOwnedCleanupInput(
+  context: CommandExecutionContext,
+): ParseResult<CleanupCommandInput> {
+  const { positionals } = parseOwnedArgs(context.argv);
+
+  if (positionals.length > 1) {
+    return usageError('Usage: qmd cleanup');
   }
 
   return {

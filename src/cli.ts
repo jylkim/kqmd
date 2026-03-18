@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -8,6 +9,7 @@ import {
   isOwnedCommand,
   resolveCommandRoute,
 } from './commands/manifest.js';
+import { handleCleanupCommand } from './commands/owned/cleanup.js';
 import { handleEmbedCommand } from './commands/owned/embed.js';
 import { formatOwnedCommandHelp, hasOwnedCommandHelpFlag } from './commands/owned/help.js';
 import { handleMcpCommand } from './commands/owned/mcp.js';
@@ -48,7 +50,7 @@ export function parseCliInvocation(argv: string[]): ParsedCliInvocation {
       helpCommand && isOwnedCommand(helpCommand)
         ? { mode: 'owned', command: helpCommand }
         : { mode: 'passthrough', command: helpCommand ?? 'help' };
-  } else if (values.version || values.skill) {
+  } else if (values.skill) {
     route = { mode: 'passthrough', command: positionals[0] ?? 'help' };
   } else if (positionals.length === 0) {
     route = { mode: 'passthrough', command: 'help' };
@@ -95,6 +97,8 @@ async function executeOwnedCommand(
       return handleStatusCommand(context);
     case 'mcp':
       return handleMcpCommand(context);
+    case 'cleanup':
+      return handleCleanupCommand(context);
   }
 
   throw new Error(`Unhandled owned command: ${invocation.route.command}`);
@@ -114,7 +118,28 @@ function writeResult(io: CliIO, result: CommandExecutionResult): void {
   }
 }
 
+function readVersionString(): string {
+  const require = createRequire(import.meta.url);
+  const pkg = require('../package.json') as {
+    version: string;
+    dependencies: Record<string, string>;
+  };
+  return `kqmd ${pkg.version} (qmd ${pkg.dependencies['@tobilu/qmd']})`;
+}
+
+const UPSTREAM_HELP_HEADLINE = /^qmd\b.*$/m;
+
+function brandHelpOutput(upstream: string): string {
+  return upstream.replace(UPSTREAM_HELP_HEADLINE, 'kqmd — Drop-in QMD replacement with Korean-aware search');
+}
+
+
 export async function runCli(argv: string[], io: CliIO = process): Promise<number> {
+  if (argv.includes('--version') || argv.includes('-v')) {
+    io.stdout.write(`${readVersionString()}\n`);
+    return 0;
+  }
+
   const invocation = parseCliInvocation(argv);
 
   if (invocation.route.mode === 'owned') {
@@ -128,6 +153,18 @@ export async function runCli(argv: string[], io: CliIO = process): Promise<numbe
   }
 
   if (invocation.route.mode === 'passthrough') {
+    if (invocation.route.command === 'help' && invocation.command !== 'help') {
+      const { delegatePassthroughPiped } = await import('./passthrough/delegate_piped.js');
+      const result = await delegatePassthroughPiped(argv);
+      if (result.stdout) {
+        io.stdout.write(brandHelpOutput(result.stdout));
+      }
+      if (result.stderr) {
+        io.stderr.write(brandHelpOutput(result.stderr));
+      }
+      return result.exitCode;
+    }
+
     const result = await delegatePassthrough(argv);
 
     if (result.signal) {

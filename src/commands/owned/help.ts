@@ -70,6 +70,15 @@ const HELP_TEXT: Record<OwnedCommand, string> = {
     '  --port <n>                  Custom HTTP port (default: 8181)',
     '  -h, --help                  Show this help',
   ].join('\n'),
+  cleanup: [
+    'Usage: qmd cleanup',
+    '',
+    'Remove cached responses, inactive documents, orphaned content/embeddings,',
+    'and vacuum the database. Rebuilds the Korean search shadow index if needed.',
+    '',
+    'Options:',
+    '  -h, --help                  Show this help',
+  ].join('\n'),
 };
 
 export function hasOwnedCommandHelpFlag(argv: string[]): boolean {

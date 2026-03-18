@@ -193,6 +193,24 @@ export function resolveOwnedRuntimePlan(
       }
 
       return { kind: 'db-only', command, indexName, dbPath };
+
+    case 'cleanup':
+      if (dbExists) {
+        return { kind: 'db-only', command, indexName, dbPath };
+      }
+
+      if (configExists) {
+        return { kind: 'config-file', command, indexName, dbPath, configPath };
+      }
+
+      return {
+        kind: 'config-missing',
+        command,
+        indexName,
+        dbPath,
+        configPath,
+        reason: 'no-config-or-db',
+      };
   }
 
   return assertNever(command);

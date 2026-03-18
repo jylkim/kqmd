@@ -8,7 +8,8 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 - `QMD_CONFIG_DIR` 기반 설정 경로 override
 - `INDEX_PATH` 기반 DB 경로 override
 - XDG 기반 config/cache fallback
-- 현재 passthrough CLI 명령 표면
+- 현재 passthrough CLI 명령 표면 (command surface coverage contract test로 검증)
+
 - `createStore({ dbPath, configPath? })` 기반 owned runtime bootstrap 계약
 - `search/query/update/embed`의 parse/validation/output parity baseline
 - `mcp`의 tool/resource names, route paths, PID/log path conventions
@@ -24,6 +25,7 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 ## drift 대응 원칙
 
 - 어떤 명령을 owned/passthrough로 둘지는 로컬 manifest에서 관리한다
+- contract test가 upstream `qmd.js` 소스에서 command를 직접 추출하여 manifest와의 drift를 방지한다
 - path compatibility 테스트는 설치된 upstream 패키지 동작과 비교한다
 - publish 검증에는 `bun pm pack --dry-run`과 actual tarball smoke를 포함해 `qmd` bin,
   `files` allowlist, build 산출 계약을 같이 확인한다

@@ -81,4 +81,16 @@ export interface OwnedCommandError {
   readonly exitCode: 1;
 }
 
+export type CleanupCommandInput = Record<string, never>;
+
+export interface CleanupCommandOutput {
+  readonly cachedResponsesCleared: number;
+  readonly inactiveDocumentsRemoved: number;
+  readonly orphanedContentRemoved: number;
+  readonly orphanedEmbeddingsRemoved: number;
+  readonly vacuumed: boolean;
+  readonly shadowIndexRebuilt: boolean;
+  readonly shadowIndexDocuments?: number;
+}
+
 export type ParseResult<T> = { readonly kind: 'ok'; readonly input: T } | OwnedCommandError;
