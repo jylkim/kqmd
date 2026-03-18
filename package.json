@@ -50,7 +50,16 @@
     "markdown",
     "search"
   ],
+  "author": "jylkim",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jylkim/kqmd.git"
+  },
+  "homepage": "https://github.com/jylkim/kqmd#readme",
+  "bugs": {
+    "url": "https://github.com/jylkim/kqmd/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.27.1",
     "@tobilu/qmd": "2.0.1",
