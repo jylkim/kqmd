@@ -97,6 +97,44 @@ qmd search "형태소 분석"
 
 코드 롤백만으로 shadow metadata mismatch가 해소되지 않으면, 해당 인덱스를 rebuild 기준으로 다시 검증합니다.
 
+## Changelog
+
+[CHANGELOG.md](../CHANGELOG.md)에 모든 릴리스 변경사항을 기록합니다.
+
+### 형식
+
+[Keep a Changelog](https://keepachangelog.com/ko/1.1.0/) 규약을 따릅니다.
+
+```markdown
+## [Unreleased]
+
+### Added
+- 새 기능
+
+### Fixed
+- 버그 수정
+
+### Changed
+- 기존 기능 변경
+
+### Refactored
+- 동작 변경 없는 코드 개선
+
+## [2.0.1-kqmd.2] - 2026-03-18
+
+### Added
+- ...
+```
+
+### 작성 규칙
+
+- 최상단에 `[Unreleased]` 섹션을 항상 유지합니다.
+- 릴리스 시 `[Unreleased]` 내용을 버전 섹션으로 옮기고 날짜를 기입합니다.
+- 카테고리: `Added`, `Fixed`, `Changed`, `Refactored`, `Removed`.
+- `chore`, `docs`(외부 문서 제외) 등 사용자에게 영향이 없는 항목은 생략합니다.
+- 각 항목은 사용자 관점에서 무엇이 달라졌는지 한 줄로 기술합니다.
+- 하단에 버전 비교 링크를 유지합니다.
+
 ## 측정 스크립트
 
 ### 성능 프로파일링
