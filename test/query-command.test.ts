@@ -2,25 +2,7 @@ import type { QMDStore } from '@tobilu/qmd';
 import { describe, expect, test, vi } from 'vitest';
 
 import { handleQueryCommand } from '../src/commands/owned/query.js';
-import type { OwnedRuntimeDependencies } from '../src/commands/owned/runtime.js';
-import type { CommandExecutionContext } from '../src/types/command.js';
-
-function createContext(argv: string[]): CommandExecutionContext {
-  return {
-    argv,
-    commandArgs: argv.slice(1),
-  };
-}
-
-function createRuntimeDependencies(store: QMDStore): OwnedRuntimeDependencies {
-  return {
-    env: {
-      HOME: '/home/tester',
-    },
-    existsSync: (path) => path === '/home/tester/.cache/qmd/index.sqlite',
-    createStore: vi.fn(async () => store),
-  };
-}
+import { createContext, createRuntimeDependencies } from './helpers.js';
 
 function createCollectionStore(): QMDStore {
   return {

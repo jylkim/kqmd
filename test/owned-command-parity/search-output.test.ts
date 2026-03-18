@@ -4,18 +4,7 @@ import type { QMDStore } from '@tobilu/qmd';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { SearchOutputRow } from '../../src/commands/owned/io/types.js';
 import { handleSearchCommand } from '../../src/commands/owned/search.js';
-import type { CommandExecutionContext } from '../../src/types/command.js';
-
-function createContext(argv: string[]): CommandExecutionContext {
-  return {
-    argv,
-    commandArgs: argv.slice(1),
-  };
-}
-
-function withTrailingNewline(stdout: string | undefined): string {
-  return stdout ? `${stdout}\n` : '';
-}
+import { createContext, withTrailingNewline } from '../helpers.js';
 
 function createFakeStore(close = vi.fn(async () => {})): QMDStore {
   return {

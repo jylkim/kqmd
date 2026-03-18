@@ -2,36 +2,9 @@ import { resolve } from 'node:path';
 
 import type { QMDStore } from '@tobilu/qmd';
 import { describe, expect, test, vi } from 'vitest';
-import type { OwnedRuntimeDependencies } from '../src/commands/owned/runtime.js';
 import { handleStatusCommand } from '../src/commands/owned/status.js';
 import { KQMD_DEFAULT_EMBED_MODEL_URI } from '../src/config/embedding_policy.js';
-import type { CommandExecutionContext } from '../src/types/command.js';
-
-function createContext(argv: string[]): CommandExecutionContext {
-  return {
-    argv,
-    commandArgs: argv.slice(1),
-  };
-}
-
-function withTrailingNewline(stdout: string | undefined): string {
-  return stdout ? `${stdout}\n` : '';
-}
-
-function createRuntimeDependencies(
-  store: QMDStore,
-  existingPaths: string[] = ['/home/tester/.cache/qmd/index.sqlite'],
-): OwnedRuntimeDependencies {
-  const paths = new Set(existingPaths);
-
-  return {
-    env: {
-      HOME: '/home/tester',
-    },
-    existsSync: (path) => paths.has(path),
-    createStore: vi.fn(async () => store),
-  };
-}
+import { createContext, createRuntimeDependencies, withTrailingNewline } from './helpers.js';
 
 function createFakeStatusStore(): QMDStore {
   const prepare = vi.fn((sql: string) => ({
@@ -193,7 +166,7 @@ describe('owned status command', () => {
 
   test('works in a zero-config environment', async () => {
     const result = await handleStatusCommand(createContext(['status']), {
-      runtimeDependencies: createRuntimeDependencies(createFakeStatusStore(), []),
+      runtimeDependencies: createRuntimeDependencies(createFakeStatusStore(), { existingPaths: [] }),
     });
 
     expect(result.exitCode).toBe(0);

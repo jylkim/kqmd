@@ -2,29 +2,11 @@ import { mkdirSync, mkdtempSync } from 'node:fs';
 import { createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { Writable } from 'node:stream';
 
 import { describe, expect, test, vi } from 'vitest';
 import { runCli } from '../src/cli.js';
 import { handleMcpCommand } from '../src/commands/owned/mcp.js';
-import type { CommandExecutionContext } from '../src/types/command.js';
-
-function createContext(argv: string[], indexName?: string): CommandExecutionContext {
-  return {
-    argv,
-    commandArgs: argv.slice(1),
-    indexName,
-  };
-}
-
-function memoryWriter(chunks: string[]) {
-  return new Writable({
-    write(chunk, _encoding, callback) {
-      chunks.push(String(chunk));
-      callback();
-    },
-  }) as NodeJS.WriteStream;
-}
+import { createContext, memoryWriter } from './helpers.js';
 
 describe('owned mcp command', () => {
   test('shows owned mcp help output', async () => {

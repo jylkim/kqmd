@@ -3,35 +3,9 @@ import { describe, expect, test, vi } from 'vitest';
 import { handleEmbedCommand } from '../src/commands/owned/embed.js';
 import { resetKiwiForTests } from '../src/commands/owned/kiwi_tokenizer.js';
 import { handleQueryCommand } from '../src/commands/owned/query.js';
-import type { OwnedRuntimeDependencies } from '../src/commands/owned/runtime.js';
 import { handleUpdateCommand } from '../src/commands/owned/update.js';
 import { KQMD_DEFAULT_EMBED_MODEL_URI } from '../src/config/embedding_policy.js';
-import type { CommandExecutionContext } from '../src/types/command.js';
-
-function createContext(argv: string[]): CommandExecutionContext {
-  return {
-    argv,
-    commandArgs: argv.slice(1),
-  };
-}
-
-function createRuntimeDependencies(
-  store: QMDStore,
-  options: {
-    existingPaths?: string[];
-    env?: NodeJS.ProcessEnv;
-  } = {},
-): OwnedRuntimeDependencies {
-  const existingPaths = new Set(options.existingPaths ?? ['/home/tester/.cache/qmd/index.sqlite']);
-
-  return {
-    env: options.env ?? {
-      HOME: '/home/tester',
-    },
-    existsSync: (path) => existingPaths.has(path),
-    createStore: vi.fn(async () => store),
-  };
-}
+import { createContext, createRuntimeDependencies } from './helpers.js';
 
 function createMismatchStore(overrides: Partial<QMDStore> = {}): QMDStore {
   const prepare = vi.fn((sql: string) => ({

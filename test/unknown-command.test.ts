@@ -1,19 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { Writable } from 'node:stream';
 
 import { describe, expect, test } from 'vitest';
 
 import { runCli } from '../src/cli.js';
-
-function memoryWriter(chunks: string[]) {
-  return new Writable({
-    write(chunk, _encoding, callback) {
-      chunks.push(String(chunk));
-      callback();
-    },
-  }) as NodeJS.WriteStream;
-}
+import { memoryWriter } from './helpers.js';
 
 describe('unknown command handling', () => {
   test('returns a deterministic error for unsupported commands', async () => {

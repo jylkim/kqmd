@@ -3,18 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import type { SearchOutputRow } from '../../src/commands/owned/io/types.js';
 import { handleQueryCommand } from '../../src/commands/owned/query.js';
-import type { CommandExecutionContext } from '../../src/types/command.js';
-
-function createContext(argv: string[]): CommandExecutionContext {
-  return {
-    argv,
-    commandArgs: argv.slice(1),
-  };
-}
-
-function withTrailingNewline(stdout: string | undefined): string {
-  return stdout ? `${stdout}\n` : '';
-}
+import { createContext, withTrailingNewline } from '../helpers.js';
 
 const queryRows: SearchOutputRow[] = [
   {

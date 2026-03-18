@@ -1,14 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import { parseOwnedQueryInput } from '../src/commands/owned/io/parse.js';
-import type { CommandExecutionContext } from '../src/types/command.js';
-
-function createContext(argv: string[]): CommandExecutionContext {
-  return {
-    argv,
-    commandArgs: argv.slice(1),
-  };
-}
+import { createContext } from './helpers.js';
 
 describe('query security bounds', () => {
   test('rejects overlong plain queries', () => {

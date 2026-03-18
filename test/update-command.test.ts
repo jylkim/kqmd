@@ -1,28 +1,8 @@
 import type { QMDStore, UpdateResult } from '@tobilu/qmd';
 import { describe, expect, test, vi } from 'vitest';
 import { resetKiwiForTests } from '../src/commands/owned/kiwi_tokenizer.js';
-import type { OwnedRuntimeDependencies } from '../src/commands/owned/runtime.js';
 import { handleUpdateCommand } from '../src/commands/owned/update.js';
-import type { CommandExecutionContext } from '../src/types/command.js';
-
-function createContext(argv: string[]): CommandExecutionContext {
-  return {
-    argv,
-    commandArgs: argv.slice(1),
-  };
-}
-
-function createRuntimeDependencies(store: QMDStore): OwnedRuntimeDependencies {
-  return {
-    env: {
-      HOME: '/home/tester',
-    },
-    existsSync: (path) =>
-      path === '/home/tester/.cache/qmd/index.sqlite' ||
-      path === '/home/tester/.config/qmd/index.yml',
-    createStore: vi.fn(async () => store),
-  };
-}
+import { createContext, createRuntimeDependencies } from './helpers.js';
 
 function createNoOpUpdateStore(runSpy: ReturnType<typeof vi.fn>): QMDStore {
   const prepare = vi.fn((sql: string) => ({
@@ -103,7 +83,9 @@ describe('owned update command', () => {
 
     try {
       const result = await handleUpdateCommand(createContext(['update']), {
-        runtimeDependencies: createRuntimeDependencies(createNoOpUpdateStore(runSpy)),
+        runtimeDependencies: createRuntimeDependencies(createNoOpUpdateStore(runSpy), {
+          existingPaths: ['/home/tester/.cache/qmd/index.sqlite', '/home/tester/.config/qmd/index.yml'],
+        }),
         searchIndexDependencies: {
           kiwiDependencies: {
             loadModelFiles: async () => ({}),

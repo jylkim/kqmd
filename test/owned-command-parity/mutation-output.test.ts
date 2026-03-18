@@ -4,18 +4,7 @@ import { describe, expect, test } from 'vitest';
 
 import { handleEmbedCommand } from '../../src/commands/owned/embed.js';
 import { handleUpdateCommand } from '../../src/commands/owned/update.js';
-import type { CommandExecutionContext } from '../../src/types/command.js';
-
-function createContext(argv: string[]): CommandExecutionContext {
-  return {
-    argv,
-    commandArgs: argv.slice(1),
-  };
-}
-
-function withTrailingNewline(stdout: string | undefined): string {
-  return stdout ? `${stdout}\n` : '';
-}
+import { createContext, withTrailingNewline } from '../helpers.js';
 
 describe('owned mutation parity output', () => {
   test('matches update success output snapshot', async () => {

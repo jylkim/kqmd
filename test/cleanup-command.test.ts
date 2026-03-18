@@ -2,31 +2,7 @@ import type { QMDStore } from '@tobilu/qmd';
 import { describe, expect, test, vi } from 'vitest';
 import { handleCleanupCommand } from '../src/commands/owned/cleanup.js';
 import { resetKiwiForTests } from '../src/commands/owned/kiwi_tokenizer.js';
-import type { OwnedRuntimeDependencies } from '../src/commands/owned/runtime.js';
-import type { CommandExecutionContext } from '../src/types/command.js';
-
-function createContext(argv: string[]): CommandExecutionContext {
-  return {
-    argv,
-    commandArgs: argv.slice(1),
-  };
-}
-
-function createRuntimeDependencies(
-  store: QMDStore,
-  overrides: { dbExists?: boolean; configExists?: boolean } = {},
-): OwnedRuntimeDependencies {
-  const { dbExists = true, configExists = true } = overrides;
-  return {
-    env: { HOME: '/home/tester' },
-    existsSync: (path) => {
-      if (path === '/home/tester/.cache/qmd/index.sqlite') return dbExists;
-      if (path === '/home/tester/.config/qmd/index.yml') return configExists;
-      return false;
-    },
-    createStore: vi.fn(async () => store),
-  };
-}
+import { createContext, createRuntimeDependencies } from './helpers.js';
 
 function createCleanupStore(options: {
   deleteLLMCache?: number;
@@ -118,7 +94,9 @@ describe('owned cleanup command', () => {
 
     try {
       const result = await handleCleanupCommand(createContext(['cleanup']), {
-        runtimeDependencies: createRuntimeDependencies(store),
+        runtimeDependencies: createRuntimeDependencies(store, {
+          existingPaths: ['/home/tester/.cache/qmd/index.sqlite', '/home/tester/.config/qmd/index.yml'],
+        }),
         searchIndexDependencies: {
           kiwiDependencies: {
             loadModelFiles: async () => ({}),
@@ -142,7 +120,9 @@ describe('owned cleanup command', () => {
 
     try {
       const result = await handleCleanupCommand(createContext(['cleanup']), {
-        runtimeDependencies: createRuntimeDependencies(store),
+        runtimeDependencies: createRuntimeDependencies(store, {
+          existingPaths: ['/home/tester/.cache/qmd/index.sqlite', '/home/tester/.config/qmd/index.yml'],
+        }),
         searchIndexDependencies: {
           kiwiDependencies: {
             loadModelFiles: async () => ({}),
@@ -164,7 +144,9 @@ describe('owned cleanup command', () => {
     const store = createCleanupStore({});
 
     const result = await handleCleanupCommand(createContext(['cleanup']), {
-      runtimeDependencies: createRuntimeDependencies(store),
+      runtimeDependencies: createRuntimeDependencies(store, {
+        existingPaths: ['/home/tester/.cache/qmd/index.sqlite', '/home/tester/.config/qmd/index.yml'],
+      }),
     });
 
     expect(result.exitCode).toBe(0);
@@ -183,8 +165,7 @@ describe('owned cleanup command', () => {
 
     const result = await handleCleanupCommand(createContext(['cleanup']), {
       runtimeDependencies: createRuntimeDependencies(store, {
-        dbExists: false,
-        configExists: false,
+        existingPaths: [],
       }),
     });
 

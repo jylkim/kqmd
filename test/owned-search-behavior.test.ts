@@ -1,25 +1,7 @@
 import type { QMDStore } from '@tobilu/qmd';
 import { describe, expect, test, vi } from 'vitest';
-import type { OwnedRuntimeDependencies } from '../src/commands/owned/runtime.js';
 import { handleSearchCommand } from '../src/commands/owned/search.js';
-import type { CommandExecutionContext } from '../src/types/command.js';
-
-function createContext(argv: string[]): CommandExecutionContext {
-  return {
-    argv,
-    commandArgs: argv.slice(1),
-  };
-}
-
-function createRuntimeDependencies(store: QMDStore): OwnedRuntimeDependencies {
-  return {
-    env: {
-      HOME: '/home/tester',
-    },
-    existsSync: (path) => path === '/home/tester/.config/qmd/index.yml',
-    createStore: vi.fn(async () => store),
-  };
-}
+import { createContext, createRuntimeDependencies } from './helpers.js';
 
 function createLegacyFallbackStore(): QMDStore {
   return {
@@ -331,7 +313,9 @@ function createCollectionScopedCleanStore(): QMDStore {
 describe('owned search Korean fallback behavior', () => {
   test('preserves json stdout while warning on stale Korean search policy', async () => {
     const result = await handleSearchCommand(createContext(['search', '--json', '형태소 분석']), {
-      runtimeDependencies: createRuntimeDependencies(createLegacyFallbackStore()),
+      runtimeDependencies: createRuntimeDependencies(createLegacyFallbackStore(), {
+        existingPaths: ['/home/tester/.config/qmd/index.yml'],
+      }),
     });
 
     expect(result.exitCode).toBe(0);
@@ -344,7 +328,9 @@ describe('owned search Korean fallback behavior', () => {
     const store = createCleanShadowStore();
 
     const result = await handleSearchCommand(createContext(['search', '--json', '형태소 분석']), {
-      runtimeDependencies: createRuntimeDependencies(store),
+      runtimeDependencies: createRuntimeDependencies(store, {
+        existingPaths: ['/home/tester/.config/qmd/index.yml'],
+      }),
     });
 
     expect(result.exitCode).toBe(0);
@@ -373,7 +359,9 @@ describe('owned search Korean fallback behavior', () => {
     ]);
 
     const result = await handleSearchCommand(createContext(['search', '"형태소 분석"']), {
-      runtimeDependencies: createRuntimeDependencies(store),
+      runtimeDependencies: createRuntimeDependencies(store, {
+        existingPaths: ['/home/tester/.config/qmd/index.yml'],
+      }),
     });
 
     expect(result.exitCode).toBe(0);
@@ -401,7 +389,9 @@ describe('owned search Korean fallback behavior', () => {
     ]);
 
     const result = await handleSearchCommand(createContext(['search', 'hangul']), {
-      runtimeDependencies: createRuntimeDependencies(store),
+      runtimeDependencies: createRuntimeDependencies(store, {
+        existingPaths: ['/home/tester/.config/qmd/index.yml'],
+      }),
     });
 
     expect(result.exitCode).toBe(0);
@@ -413,7 +403,9 @@ describe('owned search Korean fallback behavior', () => {
     const store = createSnapshotDriftStore();
 
     const result = await handleSearchCommand(createContext(['search', '--json', '형태소 분석']), {
-      runtimeDependencies: createRuntimeDependencies(store),
+      runtimeDependencies: createRuntimeDependencies(store, {
+        existingPaths: ['/home/tester/.config/qmd/index.yml'],
+      }),
     });
 
     expect(result.exitCode).toBe(0);
@@ -428,7 +420,9 @@ describe('owned search Korean fallback behavior', () => {
     const result = await handleSearchCommand(
       createContext(['search', '--json', '-c', 'docs', '형태소 분석']),
       {
-        runtimeDependencies: createRuntimeDependencies(store),
+        runtimeDependencies: createRuntimeDependencies(store, {
+          existingPaths: ['/home/tester/.config/qmd/index.yml'],
+        }),
       },
     );
 
