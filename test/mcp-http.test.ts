@@ -141,7 +141,7 @@ describe('owned mcp http server', () => {
       env: { HOME: '/home/tester' },
       quiet: true,
       store,
-      sessionTtlMs: 100,
+      sessionTtlMs: 1_000,
       metadataTtlMs: 5_000,
       daemonStateProvider: () => ({
         running: false,
@@ -422,7 +422,7 @@ describe('owned mcp http server', () => {
 
     const sessionId = transport.sessionId;
     expect(sessionId).toBeDefined();
-    await sleep(200);
+    await sleep(2_200);
     if (!sessionId) {
       throw new Error('Expected an MCP session ID after HTTP connect.');
     }
@@ -438,5 +438,90 @@ describe('owned mcp http server', () => {
     await transport.close();
     await client.close();
     await stop();
+  });
+
+  test('applies limit and minScore to /query responses', async () => {
+    const store = createFakeMcpStore();
+    vi.mocked(store.search).mockResolvedValueOnce([
+      {
+        displayPath: 'docs/high-score.md',
+        file: '/repo/docs/high-score.md',
+        title: 'High Score',
+        body: 'top ranked result',
+        bestChunk: 'top ranked result',
+        context: 'documentation',
+        score: 0.91,
+        docid: 'high',
+        bestChunkPos: 0,
+      },
+      {
+        displayPath: 'docs/limit-cutoff.md',
+        file: '/repo/docs/limit-cutoff.md',
+        title: 'Limit Cutoff',
+        body: 'would survive minScore but not limit',
+        bestChunk: 'would survive minScore but not limit',
+        context: 'documentation',
+        score: 0.83,
+        docid: 'limit',
+        bestChunkPos: 0,
+      },
+      {
+        displayPath: 'docs/min-score-cutoff.md',
+        file: '/repo/docs/min-score-cutoff.md',
+        title: 'Min Score Cutoff',
+        body: 'below the threshold',
+        bestChunk: 'below the threshold',
+        context: 'documentation',
+        score: 0.42,
+        docid: 'min-score',
+        bestChunkPos: 0,
+      },
+    ]);
+
+    const { httpServer, stop } = await startOwnedMcpHttpServer(0, {
+      env: { HOME: '/home/tester' },
+      quiet: true,
+      store,
+      sessionTtlMs: 100,
+      metadataTtlMs: 5_000,
+      daemonStateProvider: () => ({
+        running: false,
+        pidPath: '/home/tester/.cache/qmd/mcp.pid',
+        logPath: '/home/tester/.cache/qmd/mcp.log',
+      }),
+    });
+
+    try {
+      const address = httpServer.address();
+      const port = typeof address === 'object' && address ? address.port : 0;
+      const baseUrl = `http://127.0.0.1:${port}`;
+
+      const response = await fetch(`${baseUrl}/query`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          searches: [{ type: 'lex', query: 'http mcp' }],
+          limit: 1,
+          minScore: 0.5,
+        }),
+      });
+
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as {
+        results: Array<{ docid: string; file: string; title: string }>;
+      };
+      expect(body.results).toMatchObject([
+        {
+          docid: '#high',
+          file: 'docs/high-score.md',
+          title: 'High Score',
+        },
+      ]);
+      expect(body.results).toHaveLength(1);
+    } finally {
+      await stop();
+    }
   });
 });

@@ -1,0 +1,18 @@
+{
+  "query": {
+    "mode": "plain",
+    "primaryQuery": "auth flow",
+    "queryClass": "mixed-technical",
+    "normalization": {
+      "applied": false,
+      "reason": "not-eligible",
+      "addedCandidates": 0
+    },
+    "searchAssist": {
+      "applied": false,
+      "reason": "ineligible",
+      "addedCandidates": 0
+    }
+  },
+  "results": []
+}

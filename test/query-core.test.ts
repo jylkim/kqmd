@@ -2,6 +2,7 @@ import type { QMDStore } from '@tobilu/qmd';
 import { describe, expect, test, vi } from 'vitest';
 import type { QueryCommandInput } from '../src/commands/owned/io/types.js';
 import { executeQueryCore } from '../src/commands/owned/query_core.js';
+import { QUERY_NORMALIZATION_LATENCY_BUDGET_MS } from '../src/commands/owned/query_normalization.js';
 
 function createInput(overrides: Partial<QueryCommandInput> = {}): QueryCommandInput {
   return {
@@ -136,6 +137,41 @@ function createCleanAssistStore(
               };
             }
 
+            if (sql.includes('COUNT(*) AS count')) {
+              return { count: 1 };
+            }
+
+            return undefined;
+          }),
+        })),
+      },
+    },
+  } as unknown as QMDStore;
+}
+
+function createDynamicSearchStore(searchImpl: NonNullable<QMDStore['search']>): QMDStore {
+  return {
+    close: vi.fn(async () => {}),
+    listCollections: vi.fn(async () => [{ name: 'docs' }]),
+    getDefaultCollectionNames: vi.fn(async () => ['docs']),
+    search: vi.fn(searchImpl),
+    getStatus: vi.fn(async () => ({
+      totalDocuments: 1,
+      needsEmbedding: 0,
+      hasVectorIndex: true,
+      collections: [],
+    })),
+    internal: {
+      db: {
+        prepare: vi.fn((sql: string) => ({
+          all: vi.fn(() => {
+            if (sql.includes('content_vectors')) {
+              return [{ model: 'embeddinggemma', documents: 1 }];
+            }
+
+            return [];
+          }),
+          get: vi.fn(() => {
             if (sql.includes('COUNT(*) AS count')) {
               return { count: 1 };
             }
@@ -496,5 +532,210 @@ describe('query core', () => {
       reason: 'conservative-syntax',
       addedCandidates: 0,
     });
+  });
+
+  test('adds normalized supplement candidates for long Korean questions', async () => {
+    const originalQuery = '문서 업로드 파싱은 어떻게 동작해?';
+    const normalizedQuery = '문서 업로드 파싱';
+    const store = createDynamicSearchStore(async (args) => {
+      const query = 'query' in args ? args.query : '';
+      if (query === originalQuery) {
+        return [
+          {
+            file: 'docs/noise.md',
+            displayPath: 'docs/noise.md',
+            title: 'Generic docs',
+            body: 'generic note',
+            bestChunk: 'generic note',
+            context: 'documentation',
+            score: 0.55,
+            docid: 'noise-1',
+            bestChunkPos: 0,
+          },
+        ];
+      }
+
+      if (query === normalizedQuery) {
+        return [
+          {
+            file: 'docs/upload-parser.md',
+            displayPath: 'docs/upload-parser.md',
+            title: '문서 업로드 파서',
+            body: '문서 업로드 파싱 동작을 설명합니다.',
+            bestChunk: '문서 업로드 파싱 동작을 설명합니다.',
+            context: 'documentation',
+            score: 0.91,
+            docid: 'target-1',
+            bestChunkPos: 0,
+          },
+        ];
+      }
+
+      return [];
+    });
+
+    const result = await executeQueryCore(
+      store,
+      createInput({
+        query: originalQuery,
+        displayQuery: originalQuery,
+      }),
+      { HOME: '/home/tester' },
+    );
+
+    expect('kind' in result).toBe(false);
+    if ('kind' in result) {
+      return;
+    }
+
+    expect(result.query.normalization).toEqual({
+      applied: true,
+      reason: 'applied',
+      addedCandidates: 1,
+    });
+    const searchCalls = (
+      store.search as unknown as { mock: { calls: Array<[Record<string, unknown>]> } }
+    ).mock.calls;
+    expect(searchCalls[0]?.[0]).toMatchObject({
+      query: originalQuery,
+      collections: ['docs'],
+      limit: 20,
+    });
+    expect(searchCalls[1]?.[0]).toMatchObject({
+      query: normalizedQuery,
+      collections: ['docs'],
+      limit: 18,
+      rerank: false,
+    });
+    expect(result.rows.map((row) => row.displayPath)).toContain('docs/upload-parser.md');
+    expect(result.rows.some((row) => row.normalization?.supplemented)).toBe(true);
+  });
+
+  test('keeps normalization eligible when embedding health is slower than base retrieval', async () => {
+    const originalQuery = '문서 업로드 파싱은 어떻게 동작해?';
+    const normalizedQuery = '문서 업로드 파싱';
+    const store = createDynamicSearchStore(async (args) => {
+      const query = 'query' in args ? args.query : '';
+      if (query === originalQuery) {
+        return [
+          {
+            file: 'docs/noise.md',
+            displayPath: 'docs/noise.md',
+            title: 'Generic docs',
+            body: 'generic note',
+            bestChunk: 'generic note',
+            context: 'documentation',
+            score: 0.55,
+            docid: 'noise-1',
+            bestChunkPos: 0,
+          },
+        ];
+      }
+
+      if (query === normalizedQuery) {
+        return [
+          {
+            file: 'docs/upload-parser.md',
+            displayPath: 'docs/upload-parser.md',
+            title: '문서 업로드 파서',
+            body: '문서 업로드 파싱 동작을 설명합니다.',
+            bestChunk: '문서 업로드 파싱 동작을 설명합니다.',
+            context: 'documentation',
+            score: 0.91,
+            docid: 'target-1',
+            bestChunkPos: 0,
+          },
+        ];
+      }
+
+      return [];
+    });
+    store.getStatus = vi.fn(async () => {
+      await new Promise((resolve) =>
+        setTimeout(resolve, QUERY_NORMALIZATION_LATENCY_BUDGET_MS + 20),
+      );
+
+      return {
+        totalDocuments: 1,
+        needsEmbedding: 0,
+        hasVectorIndex: true,
+        collections: [],
+      };
+    });
+
+    const result = await executeQueryCore(
+      store,
+      createInput({
+        query: originalQuery,
+        displayQuery: originalQuery,
+      }),
+      { HOME: '/home/tester' },
+    );
+
+    expect('kind' in result).toBe(false);
+    if ('kind' in result) {
+      return;
+    }
+
+    expect(result.query.normalization).toEqual({
+      applied: true,
+      reason: 'applied',
+      addedCandidates: 1,
+    });
+    expect((store.search as unknown as { mock: { calls: unknown[][] } }).mock.calls).toHaveLength(
+      2,
+    );
+    expect(result.rows.map((row) => row.displayPath)).toContain('docs/upload-parser.md');
+  });
+
+  test('fails open when normalized supplement retrieval throws', async () => {
+    const originalQuery = '문서 업로드 파싱은 어떻게 동작해?';
+    const normalizedQuery = '문서 업로드 파싱';
+    const store = createDynamicSearchStore(async (args) => {
+      const query = 'query' in args ? args.query : '';
+      if (query === originalQuery) {
+        return [
+          {
+            file: 'docs/original.md',
+            displayPath: 'docs/original.md',
+            title: 'Original hit',
+            body: 'base result',
+            bestChunk: 'base result',
+            context: 'documentation',
+            score: 0.82,
+            docid: 'base-1',
+            bestChunkPos: 0,
+          },
+        ];
+      }
+
+      if (query === normalizedQuery) {
+        throw new Error('normalized retrieval failed');
+      }
+
+      return [];
+    });
+
+    const result = await executeQueryCore(
+      store,
+      createInput({
+        query: originalQuery,
+        displayQuery: originalQuery,
+      }),
+      { HOME: '/home/tester' },
+    );
+
+    expect('kind' in result).toBe(false);
+    if ('kind' in result) {
+      return;
+    }
+
+    expect(result.query.normalization).toEqual({
+      applied: false,
+      reason: 'failed-open',
+      addedCandidates: 0,
+    });
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]?.displayPath).toBe('docs/original.md');
   });
 });

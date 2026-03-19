@@ -11,6 +11,7 @@ import {
 } from '#src/commands/owned/io/validate.js';
 import { classifyQuery } from '#src/commands/owned/query_classifier.js';
 import type { QueryCoreSuccess } from '#src/commands/owned/query_core.js';
+import { filterRows } from '../commands/owned/io/format.js';
 import type { queryRequestSchema } from './types.js';
 
 export function encodeQmdPath(path: string): string {
@@ -54,19 +55,21 @@ export function formatSearchSummary(
 }
 
 export function buildQueryResponse(result: QueryCoreSuccess, input: QueryCommandInput) {
-  const rows = buildMcpQueryRows(result.rows, input.displayQuery, input.intent);
+  const filteredRows = filterRows(result.rows, input.limit, input.minScore);
+  const rows = buildMcpQueryRows(filteredRows, input.displayQuery, input.intent);
+  const query = result.query ?? {
+    mode: input.queryMode,
+    primaryQuery: input.displayQuery,
+    intent: input.intent,
+    queryClass: classifyQuery(input).queryClass,
+    ...(result.searchAssist ? { searchAssist: result.searchAssist } : {}),
+  };
 
   return {
     primaryQuery: input.displayQuery,
     rows,
     advisories: result.advisories,
-    query: {
-      mode: input.queryMode,
-      primaryQuery: input.displayQuery,
-      intent: input.intent,
-      queryClass: classifyQuery(input).queryClass,
-      ...(result.searchAssist ? { searchAssist: result.searchAssist } : {}),
-    },
+    query,
     text: formatSearchSummary(
       rows.map((row) => ({
         docid: row.docid,

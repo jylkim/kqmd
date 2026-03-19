@@ -119,4 +119,47 @@ describe('query output security', () => {
     expect(parsed[0]?.snippet).not.toContain('prefix filler 0');
     expect(parsed[0]?.snippet).not.toContain('suffix filler 2199');
   });
+
+  test('json explain output only exposes allowlisted normalization summary fields', () => {
+    const rows: SearchOutputRow[] = [
+      {
+        displayPath: 'docs/upload-parser.md',
+        title: '문서 업로드 파서',
+        body: '문서 업로드 파싱 동작을 설명합니다.',
+        context: 'docs',
+        score: 0.88,
+        docid: 'doc-2',
+      },
+    ];
+
+    const result = formatSearchExecutionResult(rows, createInput(), {
+      mode: 'plain',
+      primaryQuery: '문서 업로드 파싱은 어떻게 동작해?',
+      queryClass: 'general',
+      normalization: {
+        applied: true,
+        reason: 'applied',
+        addedCandidates: 1,
+      },
+      searchAssist: {
+        applied: false,
+        reason: 'ineligible',
+        addedCandidates: 0,
+      },
+    });
+    const parsed = JSON.parse(result.stdout ?? '{}') as {
+      query: Record<string, unknown>;
+    };
+
+    expect(parsed.query).toMatchObject({
+      normalization: {
+        applied: true,
+        reason: 'applied',
+        addedCandidates: 1,
+      },
+    });
+    expect(parsed.query).not.toHaveProperty('normalizedQuery');
+    expect(parsed.query).not.toHaveProperty('keptTerms');
+    expect(parsed.query).not.toHaveProperty('removedTerms');
+  });
 });

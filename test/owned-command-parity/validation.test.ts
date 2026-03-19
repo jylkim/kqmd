@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   parseStructuredQueryDocument,
   resolveSelectedCollections,
+  validatePlainQueryText,
 } from '../../src/commands/owned/io/validate.js';
 
 describe('owned command parity validation', () => {
@@ -33,5 +34,13 @@ describe('owned command parity validation', () => {
 
   test('uses default collections when no explicit collection filter exists', () => {
     expect(resolveSelectedCollections(undefined, ['docs', 'notes'], ['docs'])).toEqual(['docs']);
+  });
+
+  test('rejects oversized plain query token counts', () => {
+    expect(validatePlainQueryText(Array.from({ length: 65 }, () => 'token').join(' '))).toEqual({
+      kind: 'validation',
+      stderr: 'Query text must contain 64 searchable tokens or less for plain queries.',
+      exitCode: 1,
+    });
   });
 });

@@ -4,7 +4,7 @@ import { buildMcpQueryRows } from '../src/commands/owned/io/query_rows.js';
 import type { QueryCommandInput, SearchOutputRow } from '../src/commands/owned/io/types.js';
 import { buildQueryResponse } from '../src/mcp/query.js';
 
-function createInput(): QueryCommandInput {
+function createInput(overrides: Partial<QueryCommandInput> = {}): QueryCommandInput {
   return {
     query: '지속 학습',
     displayQuery: '지속 학습',
@@ -16,6 +16,7 @@ function createInput(): QueryCommandInput {
     lineNumbers: false,
     explain: false,
     queryMode: 'plain',
+    ...overrides,
   };
 }
 
@@ -43,6 +44,21 @@ describe('mcp query response', () => {
       {
         rows,
         advisories: [],
+        query: {
+          mode: 'plain',
+          primaryQuery: '지속 학습',
+          queryClass: 'short-korean-phrase',
+          normalization: {
+            applied: false,
+            reason: 'not-eligible',
+            addedCandidates: 0,
+          },
+          searchAssist: {
+            applied: true,
+            reason: 'strong-hit',
+            addedCandidates: 1,
+          },
+        },
         searchAssist: {
           applied: true,
           reason: 'strong-hit',
@@ -56,6 +72,11 @@ describe('mcp query response', () => {
       mode: 'plain',
       primaryQuery: '지속 학습',
       queryClass: 'short-korean-phrase',
+      normalization: {
+        applied: false,
+        reason: 'not-eligible',
+        addedCandidates: 0,
+      },
       searchAssist: {
         applied: true,
         reason: 'strong-hit',
@@ -95,5 +116,70 @@ describe('mcp query response', () => {
     });
     expect(shaped[0]).not.toHaveProperty('sourceBody');
     expect(shaped[0]).not.toHaveProperty('sourceChunkPos');
+  });
+
+  test('applies limit and minScore before shaping rows and summary text', () => {
+    const rows: SearchOutputRow[] = [
+      {
+        displayPath: 'docs/high-score.md',
+        title: 'High Score',
+        body: 'top ranked result',
+        context: 'documentation',
+        score: 0.91,
+        docid: 'high',
+      },
+      {
+        displayPath: 'docs/limit-cutoff.md',
+        title: 'Limit Cutoff',
+        body: 'would survive minScore but not limit',
+        context: 'documentation',
+        score: 0.83,
+        docid: 'limit',
+      },
+      {
+        displayPath: 'docs/min-score-cutoff.md',
+        title: 'Min Score Cutoff',
+        body: 'below the minimum score threshold',
+        context: 'documentation',
+        score: 0.42,
+        docid: 'min-score',
+      },
+    ];
+
+    const response = buildQueryResponse(
+      {
+        rows,
+        advisories: [],
+        query: {
+          mode: 'plain',
+          primaryQuery: '지속 학습',
+          queryClass: 'short-korean-phrase',
+          normalization: {
+            applied: false,
+            reason: 'not-eligible',
+            addedCandidates: 0,
+          },
+          searchAssist: {
+            applied: false,
+            reason: 'ineligible',
+            addedCandidates: 0,
+          },
+        },
+      },
+      createInput({ limit: 1, minScore: 0.5 }),
+    );
+
+    expect(response.rows).toMatchObject([
+      {
+        docid: '#high',
+        file: 'docs/high-score.md',
+        title: 'High Score',
+      },
+    ]);
+    expect(response.rows).toHaveLength(1);
+    expect(response.text).toContain('Found 1 result for "지속 학습":');
+    expect(response.text).toContain('#high 91% docs/high-score.md - High Score');
+    expect(response.text).not.toContain('Limit Cutoff');
+    expect(response.text).not.toContain('Min Score Cutoff');
   });
 });

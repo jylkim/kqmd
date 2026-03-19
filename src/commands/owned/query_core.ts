@@ -7,13 +7,26 @@ import {
   summarizeStoredEmbeddingModels,
 } from './embedding_health.js';
 import { normalizeHybridQueryResults } from './io/format.js';
-import type { OwnedCommandError, QueryCommandInput, SearchOutputRow } from './io/types.js';
+import type {
+  OwnedCommandError,
+  QueryCommandInput,
+  QueryExecutionSummary,
+  QueryNormalizationReason,
+  SearchAssistSummary,
+  SearchOutputRow,
+} from './io/types.js';
 import { resolveSelectedCollections } from './io/validate.js';
+import { mergeNormalizedCandidates } from './query_candidate_merge.js';
+import { classifyQuery, shouldDisableRerankForQuery } from './query_classifier.js';
 import {
-  classifyQuery,
-  resolveFetchLimitForQuery,
-  shouldDisableRerankForQuery,
-} from './query_classifier.js';
+  buildNormalizedSearchRequest,
+  buildPlainQuerySearchRequest,
+  buildQueryNormalizationPlan,
+  buildQueryNormalizationSummary,
+  hasStrongBaseNormalizationHit,
+  QUERY_NORMALIZATION_LATENCY_BUDGET_MS,
+  QUERY_NORMALIZATION_RESCUE_CAP,
+} from './query_normalization.js';
 import { rankQueryRows } from './query_ranking.js';
 import { executeOwnedQuerySearch, type QueryRuntimeDependencies } from './query_runtime.js';
 import {
@@ -32,6 +45,7 @@ import { readSearchIndexHealth } from './search_index_health.js';
 export interface QueryCoreSuccess {
   readonly rows: SearchOutputRow[];
   readonly advisories: readonly string[];
+  readonly query: QueryExecutionSummary;
   readonly searchAssist?: import('./io/types.js').SearchAssistSummary;
 }
 
@@ -47,6 +61,22 @@ function buildEmbeddingMismatchAdvisory(expectedModel: string, storedModels: str
     `Stored models: ${storedModels}`,
     "Run 'qmd embed --force' to rebuild embeddings for the current model.",
   ].join('\n');
+}
+
+function buildQueryExecutionSummary(args: {
+  readonly input: QueryCommandInput;
+  readonly queryClass: QueryExecutionSummary['queryClass'];
+  readonly normalization: QueryExecutionSummary['normalization'];
+  readonly searchAssist: SearchAssistSummary;
+}): QueryExecutionSummary {
+  return {
+    mode: args.input.queryMode,
+    primaryQuery: args.input.displayQuery,
+    intent: args.input.intent,
+    queryClass: args.queryClass,
+    normalization: args.normalization,
+    searchAssist: args.searchAssist,
+  };
 }
 
 export async function executeQueryCore(
@@ -90,11 +120,28 @@ export async function executeQueryCore(
   }
 
   const traits = classifyQuery(input);
+  const baseRequest =
+    input.queryMode === 'plain' ? buildPlainQuerySearchRequest(input, traits) : undefined;
+  const normalizationPlan: import('./io/types.js').QueryNormalizationPlan =
+    input.queryMode === 'plain'
+      ? buildQueryNormalizationPlan(input, traits)
+      : { kind: 'skip', reason: 'not-eligible' as const };
+  const searchRequest =
+    input.queryMode === 'plain'
+      ? baseRequest
+      : {
+          ...input,
+          disableRerank: shouldDisableRerankForQuery(traits),
+        };
+
+  if (!searchRequest) {
+    throw new Error('Plain query search request was not initialized.');
+  }
   if (
     input.candidateLimit !== undefined &&
     input.queryMode === 'plain' &&
     traits.queryClass === 'mixed-technical' &&
-    !shouldDisableRerankForQuery(traits) &&
+    !(baseRequest?.disableRerank ?? false) &&
     input.candidateLimit > 50
   ) {
     return {
@@ -121,27 +168,65 @@ export async function executeQueryCore(
     });
   }
 
-  const health = await readEmbeddingHealth(store, effectiveModel.uri, {
+  const healthPromise = readEmbeddingHealth(store, effectiveModel.uri, {
     collections: selectedCollections,
-  });
+  }).then(
+    (health) => ({ ok: true as const, health }),
+    (error) => ({ ok: false as const, error }),
+  );
+  const baseSearchStartedAt = Date.now();
   const results = await executeOwnedQuerySearch(
     store,
-    {
-      ...input,
-      disableRerank: shouldDisableRerankForQuery(traits),
-      fetchLimit: resolveFetchLimitForQuery(input.limit, traits, input.candidateLimit),
-    },
+    searchRequest,
     selectedCollections,
     runtimeDependencies,
   );
-  const normalized = normalizeHybridQueryResults(results);
-  let mergedRows = normalized;
+  const baseSearchDurationMs = Date.now() - baseSearchStartedAt;
+  const baseRows = normalizeHybridQueryResults(results);
+  let mergedRows = baseRows;
+  let normalizationReason: QueryNormalizationReason =
+    normalizationPlan.kind === 'skip' ? normalizationPlan.reason : 'applied';
+  let normalizationAddedCandidates = 0;
   let searchAssist: QueryCoreSuccess['searchAssist'] | undefined;
+
+  if (
+    normalizationPlan.kind === 'apply' &&
+    !hasStrongBaseNormalizationHit(baseRows, normalizationPlan) &&
+    baseSearchDurationMs <= QUERY_NORMALIZATION_LATENCY_BUDGET_MS
+  ) {
+    try {
+      if (!baseRequest) {
+        throw new Error('Normalized supplement requires a plain base request.');
+      }
+
+      const normalizedRequest = buildNormalizedSearchRequest(baseRequest, normalizationPlan);
+      const normalizedResults = await executeOwnedQuerySearch(
+        store,
+        normalizedRequest,
+        selectedCollections,
+        runtimeDependencies,
+      );
+      const normalizationMerge = mergeNormalizedCandidates(
+        baseRows,
+        normalizeHybridQueryResults(normalizedResults),
+        QUERY_NORMALIZATION_RESCUE_CAP,
+      );
+      mergedRows = normalizationMerge.rows;
+      normalizationAddedCandidates = normalizationMerge.addedCandidates;
+    } catch {
+      normalizationReason = 'failed-open';
+    }
+  } else if (normalizationPlan.kind === 'apply') {
+    normalizationReason =
+      baseSearchDurationMs > QUERY_NORMALIZATION_LATENCY_BUDGET_MS
+        ? 'latency-budget'
+        : 'skipped-guard';
+  }
 
   if (searchAssistPolicy.kind === 'eligible') {
     const assist = await resolveQuerySearchAssist(store, searchAssistPolicy, runtimeDependencies);
     const mergeResult = mergeRescueCandidates(
-      normalized,
+      mergedRows,
       assist.rows,
       searchAssistPolicy.rescueCap,
     );
@@ -159,11 +244,35 @@ export async function executeQueryCore(
     };
   }
 
+  const effectiveSearchAssist = searchAssist ?? {
+    applied: false,
+    reason: 'ineligible',
+    addedCandidates: 0,
+  };
+  const healthResult = await healthPromise;
+  if (!healthResult.ok) {
+    throw healthResult.error;
+  }
+
   return {
     rows: rankQueryRows(mergedRows, traits),
-    advisories: hasEmbeddingMismatch(health)
-      ? [buildEmbeddingMismatchAdvisory(effectiveModel.uri, summarizeStoredEmbeddingModels(health))]
+    advisories: hasEmbeddingMismatch(healthResult.health)
+      ? [
+          buildEmbeddingMismatchAdvisory(
+            effectiveModel.uri,
+            summarizeStoredEmbeddingModels(healthResult.health),
+          ),
+        ]
       : [],
-    searchAssist,
+    query: buildQueryExecutionSummary({
+      input,
+      queryClass: traits.queryClass,
+      normalization: buildQueryNormalizationSummary({
+        reason: normalizationReason,
+        addedCandidates: normalizationAddedCandidates,
+      }),
+      searchAssist: effectiveSearchAssist,
+    }),
+    searchAssist: effectiveSearchAssist,
   };
 }

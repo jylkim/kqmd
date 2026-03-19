@@ -277,4 +277,84 @@ describe('owned mcp server', () => {
     await client.close();
     await server.close();
   });
+
+  test('applies limit and minScore to query tool results', async () => {
+    const store = createFakeMcpStore();
+    vi.mocked(store.search).mockResolvedValueOnce([
+      {
+        displayPath: 'docs/high-score.md',
+        file: '/repo/docs/high-score.md',
+        title: 'High Score',
+        body: 'top ranked result',
+        bestChunk: 'top ranked result',
+        context: 'documentation',
+        score: 0.91,
+        docid: 'high',
+        bestChunkPos: 0,
+      },
+      {
+        displayPath: 'docs/limit-cutoff.md',
+        file: '/repo/docs/limit-cutoff.md',
+        title: 'Limit Cutoff',
+        body: 'would survive minScore but not limit',
+        bestChunk: 'would survive minScore but not limit',
+        context: 'documentation',
+        score: 0.83,
+        docid: 'limit',
+        bestChunkPos: 0,
+      },
+      {
+        displayPath: 'docs/min-score-cutoff.md',
+        file: '/repo/docs/min-score-cutoff.md',
+        title: 'Min Score Cutoff',
+        body: 'below the threshold',
+        bestChunk: 'below the threshold',
+        context: 'documentation',
+        score: 0.42,
+        docid: 'min-score',
+        bestChunkPos: 0,
+      },
+    ]);
+    const server = await createOwnedMcpServer(store, {
+      env: { HOME: '/home/tester' },
+      daemonStateProvider: () => ({
+        running: false,
+        pidPath: '/home/tester/.cache/qmd/mcp.pid',
+        logPath: '/home/tester/.cache/qmd/mcp.log',
+      }),
+    });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({
+      name: 'mcp-test-client',
+      version: '1.0.0',
+    });
+
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+
+    try {
+      const query = await client.callTool({
+        name: 'query',
+        arguments: {
+          searches: [{ type: 'lex', query: 'http mcp' }],
+          limit: 1,
+          minScore: 0.5,
+        },
+      });
+
+      expect(query.structuredContent).toMatchObject({
+        results: [
+          {
+            docid: '#high',
+            file: 'docs/high-score.md',
+            title: 'High Score',
+          },
+        ],
+      });
+      expect((query.structuredContent as { results: unknown[] }).results).toHaveLength(1);
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
 });

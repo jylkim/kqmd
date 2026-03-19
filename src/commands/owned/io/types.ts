@@ -30,6 +30,16 @@ export interface QueryCommandInput extends SearchCommandInput {
 
 export type QueryClass = 'short-korean-phrase' | 'mixed-technical' | 'general' | 'structured';
 
+export interface PlainQuerySearchRequest extends SearchCommandInput {
+  readonly candidateLimit?: number;
+  readonly disableRerank?: boolean;
+  readonly fetchLimit?: number;
+  readonly explain: boolean;
+  readonly intent?: string;
+  readonly queryMode: 'plain';
+  readonly displayQuery: string;
+}
+
 export type SearchAssistReason =
   | 'strong-hit'
   | 'ineligible'
@@ -53,10 +63,46 @@ export interface AdaptiveQueryExplain {
   readonly literalAnchor: number;
 }
 
+export type QueryNormalizationReason =
+  | 'not-eligible'
+  | 'applied'
+  | 'skipped-guard'
+  | 'skipped-same-or-empty'
+  | 'failed-open'
+  | 'latency-budget';
+
+export interface QueryNormalizationSkipPlan {
+  readonly kind: 'skip';
+  readonly reason: Exclude<QueryNormalizationReason, 'applied' | 'failed-open' | 'latency-budget'>;
+}
+
+export interface QueryNormalizationApplyPlan {
+  readonly kind: 'apply';
+  readonly normalizedQuery: string;
+  readonly keptTerms: readonly string[];
+}
+
+export type QueryNormalizationPlan = QueryNormalizationSkipPlan | QueryNormalizationApplyPlan;
+
+export interface QueryNormalizationSummary {
+  readonly applied: boolean;
+  readonly reason: QueryNormalizationReason;
+  readonly addedCandidates: number;
+}
+
 export interface SearchAssistSummary {
   readonly applied: boolean;
   readonly reason: SearchAssistReason;
   readonly addedCandidates: number;
+}
+
+export interface QueryExecutionSummary {
+  readonly mode: QueryCommandInput['queryMode'];
+  readonly primaryQuery: string;
+  readonly intent?: string;
+  readonly queryClass: QueryClass;
+  readonly normalization: QueryNormalizationSummary;
+  readonly searchAssist: SearchAssistSummary;
 }
 
 export interface SearchAssistMetadata {
@@ -86,6 +132,9 @@ export interface SearchOutputRow {
   readonly sourceChunkPos?: number;
   readonly explain?: HybridQueryExplain;
   readonly adaptive?: AdaptiveQueryExplain;
+  readonly normalization?: {
+    readonly supplemented: true;
+  };
   readonly searchAssist?: SearchAssistMetadata;
 }
 

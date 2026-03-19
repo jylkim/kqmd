@@ -10,7 +10,7 @@
 import { pathToFileURL } from 'node:url';
 import type { ExpandedQuery, QMDStore } from '@tobilu/qmd';
 import { findUpstreamPackageRoot } from '#src/passthrough/upstream_locator.js';
-import type { QueryCommandInput } from './io/types.js';
+import type { PlainQuerySearchRequest, QueryCommandInput } from './io/types.js';
 
 type QueryResults = Awaited<ReturnType<QMDStore['search']>>;
 
@@ -47,6 +47,8 @@ export interface QueryRuntimeDependencies {
   readonly structuredSearch?: StructuredSearchFn;
 }
 
+type QuerySearchRequest = QueryCommandInput | PlainQuerySearchRequest;
+
 let queryRuntimePromise:
   | Promise<Required<Pick<QueryRuntimeDependencies, 'hybridQuery' | 'structuredSearch'>>>
   | undefined;
@@ -65,7 +67,7 @@ async function loadQueryRuntimeHelpers(): Promise<
   return queryRuntimePromise;
 }
 
-function resolveQueryLimit(input: QueryCommandInput): number {
+function resolveQueryLimit(input: QuerySearchRequest): number {
   if (input.fetchLimit !== undefined) {
     return input.fetchLimit;
   }
@@ -75,13 +77,13 @@ function resolveQueryLimit(input: QueryCommandInput): number {
 
 export async function executeOwnedQuerySearch(
   store: QMDStore,
-  input: QueryCommandInput,
+  input: QuerySearchRequest,
   selectedCollections: string[],
   dependencies: QueryRuntimeDependencies = {},
 ): Promise<QueryResults> {
   const limit = resolveQueryLimit(input);
 
-  if (input.queryMode === 'structured' && input.queries) {
+  if (input.queryMode === 'structured' && 'queries' in input && input.queries) {
     if (input.candidateLimit === undefined) {
       return store.search({
         queries: input.queries,

@@ -23,6 +23,7 @@ import type { OwnedCommandError } from './types.js';
 
 export const MAX_QUERY_TEXT_LENGTH = 500;
 export const MAX_STRUCTURED_QUERY_LINES = 10;
+export const MAX_PLAIN_QUERY_SEARCH_TOKENS = 64;
 
 /**
  * 탭(9), LF(10), CR(13)을 제외한 제어 문자를 감지한다.
@@ -70,6 +71,10 @@ function validateTextValue(
   return null;
 }
 
+function countSearchableTokens(text: string): number {
+  return text.match(/[A-Za-z0-9_./:-]+|[가-힣]+/g)?.length ?? 0;
+}
+
 export function validatePlainQueryText(query: string): OwnedCommandError | null {
   const validation = validateTextValue(query, 'Query text', { allowNewlines: true });
   if (validation) {
@@ -80,6 +85,12 @@ export function validatePlainQueryText(query: string): OwnedCommandError | null 
     }
 
     return validation;
+  }
+
+  if (countSearchableTokens(query) > MAX_PLAIN_QUERY_SEARCH_TOKENS) {
+    return validationError(
+      `Query text must contain ${MAX_PLAIN_QUERY_SEARCH_TOKENS} searchable tokens or less for plain queries.`,
+    );
   }
 
   return null;

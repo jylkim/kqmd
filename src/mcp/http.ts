@@ -280,6 +280,7 @@ export async function startOwnedMcpHttpServer(
           const body = rawBody.length > 0 ? parseJsonBody(rawBody) : undefined;
 
           if (sessionId) {
+            await evictExpiredSessions();
             const existing = sessions.get(sessionId);
             if (!existing) {
               writeJson(res, 404, {
@@ -319,6 +320,7 @@ export async function startOwnedMcpHttpServer(
             return;
           }
 
+          await evictExpiredSessions();
           const existing = sessions.get(sessionId);
           if (!existing) {
             writeJson(res, 404, {

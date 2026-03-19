@@ -14,7 +14,7 @@ import type { QueryClass, QueryCommandInput } from './io/types.js';
 
 export interface QueryTraits {
   readonly original: string;
-  readonly normalized: string;
+  readonly normalizedWhitespace: string;
   readonly wholeForm: string;
   readonly terms: readonly string[];
   readonly hasHangul: boolean;
@@ -79,12 +79,12 @@ function containsPathLikeToken(text: string): boolean {
 
 export function classifyQuery(input: QueryCommandInput): QueryTraits {
   const original = input.displayQuery || input.query;
-  const normalized = normalizeWhitespace(original);
-  const wholeForm = stripOuterQuotes(normalized).toLowerCase();
+  const normalizedWhitespace = normalizeWhitespace(original);
+  const wholeForm = stripOuterQuotes(normalizedWhitespace).toLowerCase();
   const terms = extractTerms(wholeForm);
   const hasHangul = /[가-힣]/.test(wholeForm);
   const hasLatin = /[A-Za-z]/.test(wholeForm);
-  const hasExplicitPhrase = hasOuterQuotes(normalized);
+  const hasExplicitPhrase = hasOuterQuotes(normalizedWhitespace);
   const hasPathLikeToken = containsPathLikeToken(wholeForm);
 
   let queryClass: QueryClass;
@@ -100,7 +100,7 @@ export function classifyQuery(input: QueryCommandInput): QueryTraits {
 
   return {
     original,
-    normalized,
+    normalizedWhitespace,
     wholeForm,
     terms,
     hasHangul,

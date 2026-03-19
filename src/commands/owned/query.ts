@@ -9,7 +9,12 @@ import {
 } from './io/errors.js';
 import { formatSearchExecutionResult } from './io/format.js';
 import { parseOwnedQueryInput } from './io/parse.js';
-import type { OwnedCommandError, QueryCommandInput, SearchOutputRow } from './io/types.js';
+import type {
+  OwnedCommandError,
+  QueryCommandInput,
+  QueryExecutionSummary,
+  SearchOutputRow,
+} from './io/types.js';
 import { executeQueryCore } from './query_core.js';
 import type { OwnedRuntimeDependencies, OwnedRuntimeFailure } from './runtime.js';
 import { withOwnedStore } from './runtime.js';
@@ -25,6 +30,7 @@ export interface QueryCommandDependencies {
 
 type QueryCommandSuccess = {
   readonly rows: SearchOutputRow[];
+  readonly query?: QueryExecutionSummary;
   readonly stderr?: string;
 };
 
@@ -50,6 +56,7 @@ async function runQueryCommand(
 
       return {
         rows: result.rows,
+        query: result.query,
         stderr: result.advisories.length > 0 ? result.advisories.join('\n\n') : undefined,
       };
     },
@@ -81,7 +88,7 @@ export async function handleQueryCommand(
       return toExecutionResult(result);
     }
 
-    const execution = formatSearchExecutionResult(result.rows, parsed.input);
+    const execution = formatSearchExecutionResult(result.rows, parsed.input, result.query);
 
     return result.stderr ? { ...execution, stderr: result.stderr } : execution;
   } catch (error) {

@@ -16,6 +16,7 @@ import type {
   CleanupCommandOutput,
   EmbedCommandInput,
   QueryCommandInput,
+  QueryExecutionSummary,
   SearchCommandInput,
   SearchOutputFormat,
   SearchOutputRow,
@@ -88,8 +89,23 @@ function buildSnippet(
   return buildRowSnippet(row, query, full, lineNumbers, 500, intent);
 }
 
-function filterRows(rows: SearchOutputRow[], limit: number, minScore: number): SearchOutputRow[] {
+export function filterRows(
+  rows: readonly SearchOutputRow[],
+  limit: number,
+  minScore: number,
+): SearchOutputRow[] {
   return rows.filter((row) => row.score >= minScore).slice(0, limit);
+}
+
+function formatJsonExplainResult(
+  results: unknown[],
+  querySummary?: QueryExecutionSummary,
+): string | undefined {
+  if (!querySummary) {
+    return undefined;
+  }
+
+  return JSON.stringify({ query: querySummary, results }, null, 2);
 }
 
 export function formatEmptySearchResults(
@@ -143,11 +159,20 @@ export function normalizeHybridQueryResults(results: HybridQueryResult[]): Searc
 export function formatSearchExecutionResult(
   rows: SearchOutputRow[],
   input: SearchCommandInput | QueryCommandInput,
+  querySummary?: QueryExecutionSummary,
 ): CommandExecutionResult {
   const filteredRows = filterRows(rows, input.limit, input.minScore);
   const reason = rows.length > 0 && filteredRows.length === 0 ? 'min-score' : 'no-results';
 
   if (filteredRows.length === 0) {
+    const emptyExplainJson =
+      input.format === 'json' && 'explain' in input && input.explain
+        ? formatJsonExplainResult([], querySummary)
+        : undefined;
+    if (emptyExplainJson) {
+      return { exitCode: 0, stdout: emptyExplainJson };
+    }
+
     const empty = formatEmptySearchResults(input.format, reason);
     return empty ? { exitCode: 0, stdout: empty } : { exitCode: 0 };
   }
@@ -187,9 +212,14 @@ export function formatSearchExecutionResult(
         };
       });
 
+      const stdout =
+        ('explain' in input && input.explain
+          ? formatJsonExplainResult(output, querySummary)
+          : null) ?? JSON.stringify(output, null, 2);
+
       return {
         exitCode: 0,
-        stdout: JSON.stringify(output, null, 2),
+        stdout,
       };
     }
 
@@ -282,6 +312,14 @@ export function formatSearchExecutionResult(
 
     case 'cli': {
       const colors = getColorPalette();
+      const queryLines =
+        'explain' in input && input.explain && querySummary
+          ? [
+              `${colors.dim}Query: mode=${querySummary.mode} class=${querySummary.queryClass}${colors.reset}`,
+              `${colors.dim}  Normalization: applied=${querySummary.normalization.applied ? 'yes' : 'no'} reason=${querySummary.normalization.reason} added=${querySummary.normalization.addedCandidates}${colors.reset}`,
+              `${colors.dim}  SearchAssist summary: applied=${querySummary.searchAssist.applied ? 'yes' : 'no'} reason=${querySummary.searchAssist.reason} added=${querySummary.searchAssist.addedCandidates}${colors.reset}`,
+            ]
+          : [];
       const stdout = filteredRows
         .map((row) => {
           const snippet = buildSnippet(
@@ -347,7 +385,10 @@ export function formatSearchExecutionResult(
         })
         .join('\n\n');
 
-      return { exitCode: 0, stdout };
+      return {
+        exitCode: 0,
+        stdout: queryLines.length > 0 ? `${queryLines.join('\n')}\n\n${stdout}` : stdout,
+      };
     }
   }
 }

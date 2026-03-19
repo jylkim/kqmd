@@ -1,0 +1,70 @@
+{
+  "query": {
+    "mode": "plain",
+    "primaryQuery": "auth flow",
+    "queryClass": "mixed-technical",
+    "normalization": {
+      "applied": false,
+      "reason": "not-eligible",
+      "addedCandidates": 0
+    },
+    "searchAssist": {
+      "applied": false,
+      "reason": "ineligible",
+      "addedCandidates": 0
+    }
+  },
+  "results": [
+    {
+      "docid": "#def456",
+      "score": 0.87,
+      "file": "qmd://notes/plan.md",
+      "title": "Planning Notes",
+      "context": "Work",
+      "snippet": "@@ -1,1 @@ (0 before, 0 after)\nauth flow summary",
+      "explain": {
+        "ftsScores": [
+          0.7
+        ],
+        "vectorScores": [
+          0.61
+        ],
+        "rrf": {
+          "rank": 1,
+          "positionScore": 0.81,
+          "weight": 0.6,
+          "baseScore": 0.55,
+          "topRankBonus": 0.11,
+          "totalScore": 0.66,
+          "contributions": [
+            {
+              "listIndex": 0,
+              "source": "fts",
+              "queryType": "lex",
+              "query": "auth flow",
+              "rank": 1,
+              "weight": 2,
+              "backendScore": 0.7,
+              "rrfContribution": 0.44
+            }
+          ]
+        },
+        "rerankScore": 0.73,
+        "blendedScore": 0.77
+      },
+      "adaptive": {
+        "queryClass": "mixed-technical",
+        "candidateSource": "adaptive",
+        "vectorStrength": "strong",
+        "baseScore": 0.87,
+        "adjustedScore": 0.87,
+        "phrase": 0.12,
+        "title": 0.06,
+        "heading": 0,
+        "coverage": 0.04,
+        "proximity": 0.02,
+        "literalAnchor": 0.08
+      }
+    }
+  ]
+}
