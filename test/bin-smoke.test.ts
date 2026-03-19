@@ -22,15 +22,7 @@ describe('bin smoke test', () => {
       stdio: 'pipe',
     });
 
-    if (process.platform === 'win32') {
-      writeFileSync(wrapperPath, `@echo off\r\n"${nodeBinary}" "${fixturePath}" %*\r\n`, 'utf8');
-    } else {
-      writeFileSync(wrapperPath, `#!/bin/sh\nexec "${nodeBinary}" "${fixturePath}" "$@"\n`, 'utf8');
-      execFileSync('chmod', ['+x', wrapperPath], {
-        cwd: process.cwd(),
-        stdio: 'pipe',
-      });
-    }
+    writeUpstreamWrapper(fixturePath, wrapperPath, nodeBinary);
   });
 
   afterAll(() => {
@@ -50,7 +42,7 @@ describe('bin smoke test', () => {
 
     expect(result.status).toBe(17);
     expect(result.stdout).toContain('fixture argv: ["collection","list"]');
-  });
+  }, 60_000);
 
   test('keeps bare help as an upstream passthrough entrypoint', () => {
     const result = spawnSync(nodeBinary, [binPath, 'help'], {
@@ -65,7 +57,42 @@ describe('bin smoke test', () => {
 
     expect(result.status).toBe(19);
     expect(result.stdout).toContain('fixture argv: ["help"]');
-  });
+  }, 60_000);
+
+  test('flushes large piped passthrough output through the published bin', () => {
+    const largeFixturePath = resolve(tempDir, 'large-upstream-fixture.mjs');
+    const largeWrapperPath = resolve(
+      tempDir,
+      process.platform === 'win32' ? 'large-upstream-fixture.cmd' : 'large-upstream-fixture',
+    );
+
+    writeFileSync(
+      largeFixturePath,
+      `#!/usr/bin/env node
+process.stdout.write(\`fixture argv: \${JSON.stringify(process.argv.slice(2))}\\n\`);
+process.stdout.write('x'.repeat(256 * 1024));
+process.stdout.write('\\nfixture complete\\n');
+process.exitCode = Number(process.env.TEST_UPSTREAM_EXIT_CODE ?? '0');
+`,
+      'utf8',
+    );
+    writeUpstreamWrapper(largeFixturePath, largeWrapperPath, nodeBinary);
+
+    const result = spawnSync(nodeBinary, [binPath, 'collection', 'list'], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        KQMD_UPSTREAM_BIN: largeWrapperPath,
+        TEST_UPSTREAM_EXIT_CODE: '23',
+      },
+      encoding: 'utf8',
+    });
+
+    expect(result.status).toBe(23);
+    expect(result.stdout).toContain('fixture argv: ["collection","list"]');
+    expect(result.stdout).toContain('fixture complete');
+    expect(result.stdout.length).toBeGreaterThan(256 * 1024);
+  }, 60_000);
 });
 
 function resolveRuntimeBinary(command: 'bun' | 'node', override?: string): string {
@@ -93,4 +120,17 @@ function resolveRuntimeBinary(command: 'bun' | 'node', override?: string): strin
   }
 
   return resolvedPath;
+}
+
+function writeUpstreamWrapper(scriptPath: string, wrapperPath: string, nodeBinary: string): void {
+  if (process.platform === 'win32') {
+    writeFileSync(wrapperPath, `@echo off\r\n"${nodeBinary}" "${scriptPath}" %*\r\n`, 'utf8');
+    return;
+  }
+
+  writeFileSync(wrapperPath, `#!/bin/sh\nexec "${nodeBinary}" "${scriptPath}" "$@"\n`, 'utf8');
+  execFileSync('chmod', ['+x', wrapperPath], {
+    cwd: process.cwd(),
+    stdio: 'pipe',
+  });
 }

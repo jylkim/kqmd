@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 import { locateUpstreamBinary, type UpstreamBinary } from './upstream_locator.js';
 
@@ -10,6 +10,7 @@ export interface DelegateResult {
 
 interface SpawnedProcessLike {
   once(event: 'error', listener: (error: Error) => void): this;
+  once(event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void): this;
   once(
     event: 'close',
     listener: (code: number | null, signal: NodeJS.Signals | null) => void,
@@ -31,6 +32,27 @@ export async function delegatePassthrough(
   options: DelegateOptions = {},
 ): Promise<DelegateResult> {
   const upstreamBinary = options.upstreamBinary ?? locateUpstreamBinary(options.env);
+
+  if (!options.spawnImpl) {
+    const child = spawnSync(upstreamBinary.path, [...argv], {
+      cwd: options.cwd ?? process.cwd(),
+      env: { ...process.env, ...options.env },
+      shell: false,
+      stdio: options.stdio ?? 'inherit',
+      windowsHide: true,
+    });
+
+    if (child.error) {
+      throw child.error;
+    }
+
+    return {
+      binaryPath: upstreamBinary.path,
+      exitCode: child.status ?? 1,
+      signal: child.signal,
+    };
+  }
+
   const spawnImpl = options.spawnImpl ?? spawn;
 
   return new Promise((resolve, reject) => {
@@ -42,13 +64,22 @@ export async function delegatePassthrough(
       windowsHide: true,
     }) as SpawnedProcessLike;
 
-    child.once('error', reject);
-    child.once('close', (code, signal) => {
+    let settled = false;
+    const settle = (code: number | null, signal: NodeJS.Signals | null) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
       resolve({
         binaryPath: upstreamBinary.path,
         exitCode: code ?? 1,
         signal,
       });
-    });
+    };
+
+    child.once('error', reject);
+    child.once('exit', settle);
+    child.once('close', settle);
   });
 }

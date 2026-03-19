@@ -3,15 +3,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 
-import { createStore } from '@tobilu/qmd';
+import { createStore, type HybridQueryResult } from '@tobilu/qmd';
 
+import { rebuildSearchShadowIndex } from '../src/commands/owned/search_shadow_index.js';
 import { executeQueryCore } from '../src/commands/owned/query_core.js';
 import { formatSearchExecutionResult, normalizeHybridQueryResults } from '../src/commands/owned/io/format.js';
 import type { QueryCommandInput } from '../src/commands/owned/io/types.js';
 import { executeOwnedQuerySearch } from '../src/commands/owned/query_runtime.js';
+import { resolveSelectedCollections } from '../src/commands/owned/io/validate.js';
+import { describeEffectiveSearchPolicy } from '../src/config/search_policy.js';
 
 type ScenarioMetric = {
   readonly scenario: string;
+  readonly assistApplied?: boolean;
+  readonly assistReason?: string;
+  readonly addedCandidates?: number;
   readonly p50Ms: number;
   readonly p95Ms: number;
   readonly heapDeltaKb: number;
@@ -39,15 +45,18 @@ function round(value: number): number {
 function createFixtureWorkspace() {
   const root = mkdtempSync(join(tmpdir(), 'kqmd-query-e2e-'));
   const docsDir = join(root, 'docs');
+  const notesDir = join(root, 'notes');
   mkdirSync(docsDir, { recursive: true });
+  mkdirSync(notesDir, { recursive: true });
   return {
     root,
     docsDir,
+    notesDir,
     dbPath: join(root, 'index.sqlite'),
   };
 }
 
-function writeFixtureDocs(docsDir: string): void {
+function writeFixtureDocs(docsDir: string, notesDir: string): void {
   const docs = [
     {
       name: 'adaptive-korean-ranking.md',
@@ -92,9 +101,25 @@ function writeFixtureDocs(docsDir: string): void {
       'utf8',
     );
   }
+
+  writeFileSync(
+    join(notesDir, 'team-notes.md'),
+    ['# Team Notes', '', 'what is new this week', 'release checklist and general updates'].join(
+      '\n',
+    ),
+    'utf8',
+  );
 }
 
-function createInput(query: string, explain = false): QueryCommandInput {
+function createInput(
+  query: string,
+  options: {
+    readonly explain?: boolean;
+    readonly candidateLimit?: number;
+    readonly collections?: string[];
+    readonly full?: boolean;
+  } = {},
+): QueryCommandInput {
   return {
     query,
     displayQuery: query,
@@ -102,11 +127,12 @@ function createInput(query: string, explain = false): QueryCommandInput {
     limit: 5,
     minScore: 0,
     all: false,
-    full: false,
+    full: options.full ?? false,
     lineNumbers: false,
-    collections: ['docs'],
-    explain,
+    collections: options.collections,
+    explain: options.explain ?? false,
     queryMode: 'plain',
+    candidateLimit: options.candidateLimit,
   };
 }
 
@@ -199,17 +225,44 @@ function createVectorSignaledHybridDeps(
   };
 }
 
+function createControlledHybridDeps(
+  rowsByQuery: Record<string, HybridQueryResult[]>,
+): Required<Pick<QueryRuntimeDeps, 'hybridQuery'>> {
+  return {
+    hybridQuery: async (_internal, query, options) =>
+      (rowsByQuery[query] ?? []).slice(0, options?.limit ?? rowsByQuery[query]?.length ?? 0),
+  };
+}
+
+function createIrrelevantHybridRow(): HybridQueryResult {
+  return {
+    file: 'docs/noise-000.md',
+    displayPath: 'docs/noise-000.md',
+    title: 'General Note 0',
+    body: '이 문서는 일반적인 개발 메모입니다.',
+    bestChunk: '이 문서는 일반적인 개발 메모입니다.',
+    bestChunkPos: 0,
+    context: 'docs',
+    score: 0.51,
+    docid: 'noise-0',
+  };
+}
+
 async function measureAdaptive(
   store: Awaited<ReturnType<typeof createStore>>,
   input: QueryCommandInput,
   iterations: number,
   runtimeDependencies: QueryRuntimeDeps = {},
+  scenarioLabel?: string,
 ): Promise<ScenarioMetric> {
   const durations: number[] = [];
   const heapBefore = process.memoryUsage().heapUsed;
   const rssBefore = process.memoryUsage().rss;
   let peakHeap = heapBefore;
   let peakRss = rssBefore;
+  let assistApplied = false;
+  let assistReason: string | undefined;
+  let addedCandidates = 0;
 
   await executeQueryCore(store, input, { HOME: '/tmp' }, runtimeDependencies);
 
@@ -219,6 +272,9 @@ async function measureAdaptive(
     if ('kind' in result) {
       throw new Error(result.stderr);
     }
+    assistApplied = result.searchAssist?.applied ?? false;
+    assistReason = result.searchAssist?.reason;
+    addedCandidates = result.searchAssist?.addedCandidates ?? 0;
     formatSearchExecutionResult(result.rows, input);
     durations.push(performance.now() - startedAt);
     const memory = process.memoryUsage();
@@ -230,7 +286,12 @@ async function measureAdaptive(
   const rssAfter = process.memoryUsage().rss;
 
   return {
-    scenario: input.explain ? `${input.query} (adaptive explain)` : `${input.query} (adaptive)`,
+    scenario:
+      scenarioLabel ??
+      (input.explain ? `${input.query} (adaptive explain)` : `${input.query} (adaptive)`),
+    assistApplied,
+    assistReason,
+    addedCandidates,
     p50Ms: round(percentile(durations, 0.5)),
     p95Ms: round(percentile(durations, 0.95)),
     heapDeltaKb: round((heapAfter - heapBefore) / 1024),
@@ -245,9 +306,23 @@ async function measureBaseline(
   input: QueryCommandInput,
   iterations: number,
   runtimeDependencies: QueryRuntimeDeps = {},
+  scenarioLabel?: string,
 ): Promise<ScenarioMetric> {
   const durations: number[] = [];
-  const selectedCollections = ['docs'];
+  const [availableCollections, defaultCollections] = await Promise.all([
+    store.listCollections().then((collections) => collections.map((collection) => collection.name)),
+    store.getDefaultCollectionNames(),
+  ]);
+  const selectedCollections = resolveSelectedCollections(
+    input.collections,
+    availableCollections,
+    defaultCollections,
+  );
+
+  if ('kind' in selectedCollections) {
+    throw new Error(selectedCollections.stderr);
+  }
+
   const heapBefore = process.memoryUsage().heapUsed;
   const rssBefore = process.memoryUsage().rss;
   let peakHeap = heapBefore;
@@ -275,7 +350,7 @@ async function measureBaseline(
   const rssAfter = process.memoryUsage().rss;
 
   return {
-    scenario: `${input.query} (baseline)`,
+    scenario: scenarioLabel ?? `${input.query} (baseline)`,
     p50Ms: round(percentile(durations, 0.5)),
     p95Ms: round(percentile(durations, 0.95)),
     heapDeltaKb: round((heapAfter - heapBefore) / 1024),
@@ -287,6 +362,8 @@ async function measureBaseline(
 
 function toMarkdown(
   metrics: readonly ScenarioMetric[],
+  assistEligibleDeltaMs: number,
+  assistTimeoutRegressionPct: number,
   regressionPct: number,
   explainOverheadPct: number,
   vectorRegressionPct: number,
@@ -300,15 +377,16 @@ function toMarkdown(
     '',
     '이 문서는 temp fixture store에서 `createStore() + update()` 이후 warm-cache query를 재는 end-to-end benchmark다.',
     'vectors absent fixture와 deterministic vector-signaled hybrid fixture를 같이 측정한다.',
+    '이번 업데이트부터는 query search-assist rescue 시나리오도 함께 측정한다.',
     'vector-signaled 케이스는 sqlite-vec availability와 무관하게 deterministic helper/LLM stub로 비용 축을 고정한다.',
     '',
-    '| Scenario | p50 (ms) | p95 (ms) | Heap delta (KB) | RSS delta (KB) | Peak heap (KB) | Peak RSS (KB) |',
-    '|---|---:|---:|---:|---:|---:|---:|',
+    '| Scenario | Assist | Reason | Added | p50 (ms) | p95 (ms) | Heap delta (KB) | RSS delta (KB) | Peak heap (KB) | Peak RSS (KB) |',
+    '|---|---|---|---:|---:|---:|---:|---:|---:|---:|',
   ];
 
   for (const item of metrics) {
     lines.push(
-      `| ${item.scenario} | ${item.p50Ms} | ${item.p95Ms} | ${item.heapDeltaKb} | ${item.rssDeltaKb} | ${item.peakHeapKb} | ${item.peakRssKb} |`,
+      `| ${item.scenario} | ${item.assistApplied === undefined ? 'n/a' : item.assistApplied ? 'yes' : 'no'} | ${item.assistReason ?? 'n/a'} | ${item.addedCandidates ?? 0} | ${item.p50Ms} | ${item.p95Ms} | ${item.heapDeltaKb} | ${item.rssDeltaKb} | ${item.peakHeapKb} | ${item.peakRssKb} |`,
     );
   }
 
@@ -316,6 +394,8 @@ function toMarkdown(
     '',
     '## Derived Signals',
     '',
+    `- eligible assist p95 delta vs conservative-syntax skip control: ${assistEligibleDeltaMs}ms`,
+    `- assist timeout p95 regression vs eligible assist: ${assistTimeoutRegressionPct}%`,
     `- mixed-technical adaptive p95 regression vs baseline: ${regressionPct}%`,
     `- mixed-technical explain p95 overhead vs adaptive: ${explainOverheadPct}%`,
     `- vector+candidate40 adaptive p95 regression vs baseline: ${vectorRegressionPct}%`,
@@ -326,8 +406,8 @@ function toMarkdown(
 }
 
 const iterations = 100;
-const { root, docsDir, dbPath } = createFixtureWorkspace();
-writeFixtureDocs(docsDir);
+const { root, docsDir, notesDir, dbPath } = createFixtureWorkspace();
+writeFixtureDocs(docsDir, notesDir);
 
 try {
   const store = await createStore({
@@ -338,34 +418,106 @@ try {
           path: docsDir,
           pattern: '**/*.md',
         },
+        notes: {
+          path: notesDir,
+          pattern: '**/*.md',
+        },
       },
     },
   });
 
   try {
     await store.update();
+    await rebuildSearchShadowIndex(store.internal.db, describeEffectiveSearchPolicy(), {
+      tokenize: async (text) => text,
+    });
     installDeterministicLlmStub(store);
 
-    const shortKorean = await measureAdaptive(store, createInput('지속 학습'), iterations);
-    const mixedBaseline = await measureBaseline(store, createInput('agent orchestration'), iterations);
-    const mixedAdaptive = await measureAdaptive(store, createInput('agent orchestration'), iterations);
+    const assistHybridDeps = createControlledHybridDeps({
+      '지속 학습': [createIrrelevantHybridRow()],
+      '문서 업로드 파싱': [],
+      '"지속 학습"': [createIrrelevantHybridRow()],
+    });
+
+    const shortKorean = await measureAdaptive(
+      store,
+      createInput('지속 학습', { candidateLimit: 20, collections: ['docs'] }),
+      iterations,
+      assistHybridDeps,
+      '지속 학습 (assist eligible, filtered docs, candidate20)',
+    );
+    const rescueOnly = await measureAdaptive(
+      store,
+      createInput('문서 업로드 파싱', { candidateLimit: 20, collections: ['docs'] }),
+      iterations,
+      assistHybridDeps,
+      '문서 업로드 파싱 (assist rescue-only, filtered docs, candidate20)',
+    );
+    const skipQuoted = await measureAdaptive(
+      store,
+      createInput('"지속 학습"', { candidateLimit: 20, collections: ['docs'] }),
+      iterations,
+      assistHybridDeps,
+      '"지속 학습" (assist skipped, conservative syntax)',
+    );
+    const timeoutAssist = await measureAdaptive(
+      store,
+      createInput('지속 학습', { candidateLimit: 20, collections: ['docs'] }),
+      iterations,
+      {
+        ...assistHybridDeps,
+        resolveSearchAssistRows: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          return [];
+        },
+      },
+      '지속 학습 (assist injected-timeout, filtered docs, candidate20)',
+    );
+    const ineligibleGeneral = await measureAdaptive(
+      store,
+      createInput("what's new"),
+      iterations,
+      {},
+      "what's new (assist ineligible, unfiltered)",
+    );
+    const mixedBaseline = await measureBaseline(
+      store,
+      createInput('agent orchestration'),
+      iterations,
+      {},
+      'agent orchestration (baseline, unfiltered)',
+    );
+    const mixedAdaptive = await measureAdaptive(
+      store,
+      createInput('agent orchestration'),
+      iterations,
+      {},
+      'agent orchestration (adaptive, unfiltered)',
+    );
     const mixedExplain = await measureAdaptive(
       store,
-      createInput('agent orchestration', true),
+      createInput('agent orchestration', { explain: true }),
       iterations,
+      {},
+      'agent orchestration (adaptive explain, unfiltered)',
     );
 
     const vectorRuntimeDeps = createVectorSignaledHybridDeps(store);
 
     const vectorCandidate40Input = {
-      ...createInput('agent orchestration'),
-      explain: true,
-      candidateLimit: 40,
+      ...createInput('agent orchestration', {
+        explain: true,
+        candidateLimit: 40,
+        collections: ['docs'],
+      }),
     };
     const vectorCandidate50ExplainInput = {
-      ...createInput('agent orchestration', true),
-      candidateLimit: 50,
-      full: true,
+      ...createInput('agent orchestration', {
+        explain: true,
+        candidateLimit: 50,
+        full: true,
+        collections: ['docs'],
+      }),
     };
 
     const vectorBaseline = await measureBaseline(
@@ -391,6 +543,11 @@ try {
       mixedBaseline.p95Ms > 0
         ? round(((mixedAdaptive.p95Ms - mixedBaseline.p95Ms) / mixedBaseline.p95Ms) * 100)
         : 0;
+    const assistEligibleDeltaMs = round(shortKorean.p95Ms - skipQuoted.p95Ms);
+    const assistTimeoutRegressionPct =
+      shortKorean.p95Ms > 0
+        ? round(((timeoutAssist.p95Ms - shortKorean.p95Ms) / shortKorean.p95Ms) * 100)
+        : 0;
     const explainOverheadPct =
       mixedAdaptive.p95Ms > 0
         ? round(((mixedExplain.p95Ms - mixedAdaptive.p95Ms) / mixedAdaptive.p95Ms) * 100)
@@ -408,6 +565,10 @@ try {
       toMarkdown(
         [
           shortKorean,
+          rescueOnly,
+          skipQuoted,
+          timeoutAssist,
+          ineligibleGeneral,
           mixedBaseline,
           mixedAdaptive,
           mixedExplain,
@@ -424,6 +585,8 @@ try {
             scenario: 'agent orchestration (adaptive explain+full, vectors present, candidate50)',
           },
         ],
+        assistEligibleDeltaMs,
+        assistTimeoutRegressionPct,
         regressionPct,
         explainOverheadPct,
         vectorRegressionPct,

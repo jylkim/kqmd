@@ -65,6 +65,89 @@ function createStore(): QMDStore {
   } as unknown as QMDStore;
 }
 
+function getPreparedSqls(store: QMDStore): string[] {
+  const prepare = store.internal.db.prepare as unknown as {
+    mock: { calls: Array<[string]> };
+  };
+
+  return prepare.mock.calls.map(([sql]) => sql);
+}
+
+function createCleanAssistStore(
+  baseSearchResults: Awaited<ReturnType<QMDStore['search']>>,
+): QMDStore {
+  return {
+    close: vi.fn(async () => {}),
+    listCollections: vi.fn(async () => [{ name: 'docs' }]),
+    getDefaultCollectionNames: vi.fn(async () => ['docs']),
+    search: vi.fn(async () => baseSearchResults),
+    getStatus: vi.fn(async () => ({
+      totalDocuments: 1,
+      needsEmbedding: 0,
+      hasVectorIndex: true,
+      collections: [],
+    })),
+    internal: {
+      db: {
+        prepare: vi.fn((sql: string) => ({
+          all: vi.fn(() => {
+            if (sql.includes('content_vectors')) {
+              return [{ model: 'embeddinggemma', documents: 1 }];
+            }
+
+            return [];
+          }),
+          get: vi.fn((...params: (string | number)[]) => {
+            if (sql.includes('store_config')) {
+              if (params[0] === 'kqmd_search_source_snapshot') {
+                return {
+                  value: JSON.stringify({
+                    totalDocuments: 1,
+                    latestModifiedAt: '2026-03-19T00:00:00.000Z',
+                    maxDocumentId: 1,
+                  }),
+                };
+              }
+
+              if (params[0] === 'kqmd_search_collection_snapshots') {
+                return {
+                  value: JSON.stringify({
+                    docs: {
+                      totalDocuments: 1,
+                      latestModifiedAt: '2026-03-19T00:00:00.000Z',
+                      maxDocumentId: 1,
+                    },
+                  }),
+                };
+              }
+
+              return { value: 'kiwi-cong-shadow-v1' };
+            }
+
+            if (sql.includes('sqlite_master')) {
+              return { name: 'kqmd_documents_fts' };
+            }
+
+            if (sql.includes('MAX(d.modified_at)')) {
+              return {
+                count: 1,
+                latest_modified_at: '2026-03-19T00:00:00.000Z',
+                max_document_id: 1,
+              };
+            }
+
+            if (sql.includes('COUNT(*) AS count')) {
+              return { count: 1 };
+            }
+
+            return undefined;
+          }),
+        })),
+      },
+    },
+  } as unknown as QMDStore;
+}
+
 describe('query core', () => {
   test('rejects candidate-limit with multiple collections on plain queries', async () => {
     const result = await executeQueryCore(
@@ -127,6 +210,40 @@ describe('query core', () => {
       intent: undefined,
       skipRerank: false,
     });
+  });
+
+  test('skips search health reads for ineligible general english queries', async () => {
+    const store = createStore();
+
+    const result = await executeQueryCore(
+      store,
+      createInput({
+        query: "what's new",
+        displayQuery: "what's new",
+      }),
+      { HOME: '/home/tester' },
+    );
+
+    expect('kind' in result).toBe(false);
+    if ('kind' in result) {
+      return;
+    }
+
+    expect(result.searchAssist).toEqual({
+      applied: false,
+      reason: 'ineligible',
+      addedCandidates: 0,
+    });
+
+    const preparedSqls = getPreparedSqls(store);
+    expect(
+      preparedSqls.some(
+        (sql) =>
+          sql.includes('sqlite_master') ||
+          sql.includes('kqmd_search_') ||
+          sql.includes('MAX(d.modified_at)'),
+      ),
+    ).toBe(false);
   });
 
   test('allows structured compatibility queries to keep rerank enabled', async () => {
@@ -264,5 +381,120 @@ describe('query core', () => {
         skipRerank: true,
       },
     );
+  });
+
+  test('rescues eligible korean query misses with search assist candidates', async () => {
+    const store = createCleanAssistStore([
+      {
+        file: 'docs/overview.md',
+        displayPath: 'docs/overview.md',
+        title: 'Overview',
+        body: 'generic note',
+        bestChunk: 'generic note',
+        context: 'documentation',
+        score: 0.52,
+        docid: 'doc-1',
+        bestChunkPos: 0,
+      },
+    ]);
+    const resolveSearchAssistRows = vi.fn(async () => [
+      {
+        displayPath: 'docs/korean-search.md',
+        title: '지속 학습 메모',
+        body: '지속 학습은 문서 업로드 파싱과 연결됩니다.',
+        sourceBody: '지속 학습은 문서 업로드 파싱과 연결됩니다.',
+        context: 'documentation',
+        score: 0.91,
+        docid: 'doc-2',
+      },
+    ]);
+
+    const result = await executeQueryCore(
+      store,
+      createInput({
+        query: '지속 학습',
+        displayQuery: '지속 학습',
+      }),
+      { HOME: '/home/tester' },
+      { resolveSearchAssistRows },
+    );
+
+    expect('kind' in result).toBe(false);
+    if ('kind' in result) {
+      return;
+    }
+
+    expect(resolveSearchAssistRows).toHaveBeenCalledTimes(1);
+    expect(result.searchAssist).toEqual({
+      applied: true,
+      reason: 'strong-hit',
+      addedCandidates: 1,
+    });
+    expect(result.rows.some((row) => row.searchAssist?.rescued)).toBe(true);
+  });
+
+  test('returns rescue-only results when base query is empty but assist finds a strong hit', async () => {
+    const store = createCleanAssistStore([]);
+
+    const result = await executeQueryCore(
+      store,
+      createInput({
+        query: '지속 학습',
+        displayQuery: '지속 학습',
+      }),
+      { HOME: '/home/tester' },
+      {
+        resolveSearchAssistRows: async () => [
+          {
+            displayPath: 'docs/korean-search.md',
+            title: '지속 학습 메모',
+            body: '지속 학습은 문서 업로드 파싱과 연결됩니다.',
+            sourceBody: '지속 학습은 문서 업로드 파싱과 연결됩니다.',
+            context: 'documentation',
+            score: 0.95,
+            docid: 'doc-2',
+          },
+        ],
+      },
+    );
+
+    expect('kind' in result).toBe(false);
+    if ('kind' in result) {
+      return;
+    }
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]?.searchAssist?.rescued).toBe(true);
+    expect(result.searchAssist).toEqual({
+      applied: true,
+      reason: 'strong-hit',
+      addedCandidates: 1,
+    });
+  });
+
+  test('skips search assist for quoted hangul queries', async () => {
+    const resolveSearchAssistRows = vi.fn(async () => []);
+
+    const result = await executeQueryCore(
+      createCleanAssistStore([]),
+      createInput({
+        query: '"지속 학습"',
+        displayQuery: '"지속 학습"',
+      }),
+      { HOME: '/home/tester' },
+      { resolveSearchAssistRows },
+    );
+
+    expect('kind' in result).toBe(false);
+    if ('kind' in result) {
+      return;
+    }
+
+    expect(resolveSearchAssistRows).not.toHaveBeenCalled();
+    expect(result.searchAssist).toEqual({
+      applied: false,
+      reason: 'conservative-syntax',
+      addedCandidates: 0,
+    });
   });
 });

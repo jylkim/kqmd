@@ -197,6 +197,7 @@ export function buildMcpQueryRows(
       snippet: addLineNumbers(snippet.content ?? '', snippet.line),
       explain: row.explain,
       adaptive: row.adaptive,
+      ...(row.searchAssist ? { searchAssist: row.searchAssist } : {}),
     };
   });
 }

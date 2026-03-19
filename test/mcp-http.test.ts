@@ -10,15 +10,29 @@ function createFakeMcpStore(): QMDStore {
   const prepare = vi.fn((sql: string) => ({
     get: vi.fn((...params: (string | number)[]) => {
       if (sql.includes('store_config')) {
-        return params[0] === 'kqmd_search_source_snapshot'
-          ? {
-              value: JSON.stringify({
+        if (params[0] === 'kqmd_search_source_snapshot') {
+          return {
+            value: JSON.stringify({
+              totalDocuments: 1,
+              latestModifiedAt: '2026-03-16T00:00:00.000Z',
+              maxDocumentId: 1,
+            }),
+          };
+        }
+
+        if (params[0] === 'kqmd_search_collection_snapshots') {
+          return {
+            value: JSON.stringify({
+              docs: {
                 totalDocuments: 1,
                 latestModifiedAt: '2026-03-16T00:00:00.000Z',
                 maxDocumentId: 1,
-              }),
-            }
-          : { value: 'kiwi-cong-shadow-v1' };
+              },
+            }),
+          };
+        }
+
+        return { value: 'kiwi-cong-shadow-v1' };
       }
 
       if (sql.includes('sqlite_master')) {
@@ -42,6 +56,21 @@ function createFakeMcpStore(): QMDStore {
     all: vi.fn(() => {
       if (sql.includes('content_vectors')) {
         return [{ model: 'embeddinggemma', documents: 1 }];
+      }
+
+      if (sql.includes('FROM kqmd_documents_fts')) {
+        return [
+          {
+            filepath: 'qmd://docs/korean-search.md',
+            display_path: 'docs/korean-search.md',
+            title: '지속 학습 메모',
+            body: '지속 학습은 문서 업로드 파싱과 연결됩니다.',
+            hash: 'assist123hash',
+            modified_at: '2026-03-16T00:00:00.000Z',
+            collection: 'docs',
+            bm25_score: -12,
+          },
+        ];
       }
 
       return [];
@@ -96,6 +125,7 @@ function createFakeMcpStore(): QMDStore {
       db: {
         prepare,
       },
+      getContextForFile: vi.fn(() => 'documentation'),
     },
   } as unknown as QMDStore;
 }
@@ -111,7 +141,7 @@ describe('owned mcp http server', () => {
       env: { HOME: '/home/tester' },
       quiet: true,
       store,
-      sessionTtlMs: 20,
+      sessionTtlMs: 100,
       metadataTtlMs: 5_000,
       daemonStateProvider: () => ({
         running: false,
@@ -290,21 +320,21 @@ describe('owned mcp http server', () => {
         intent: 'documentation',
       },
     });
-    expect(query.structuredContent).toMatchObject({
-      query: {
-        mode: 'plain',
-        primaryQuery: '지속 학습',
-        queryClass: 'short-korean-phrase',
-      },
-      results: [
-        {
-          file: 'docs/readme.md',
-          adaptive: {
-            queryClass: 'short-korean-phrase',
-          },
-        },
-      ],
+    expect((query.structuredContent as { query: unknown }).query).toMatchObject({
+      mode: 'plain',
+      primaryQuery: '지속 학습',
+      queryClass: 'short-korean-phrase',
     });
+    expect((query.structuredContent as { results: unknown[] }).results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          file: 'docs/readme.md',
+          adaptive: expect.objectContaining({
+            queryClass: 'short-korean-phrase',
+          }),
+        }),
+      ]),
+    );
 
     const aliasQuery = await fetch(`${baseUrl}/query`, {
       method: 'POST',
@@ -318,6 +348,7 @@ describe('owned mcp http server', () => {
     });
     expect(aliasQuery.status).toBe(200);
     const aliasQueryBody = (await aliasQuery.json()) as {
+      query: Record<string, unknown>;
       results: Array<{ snippet: string }>;
       advisories: string[];
     };
@@ -325,19 +356,19 @@ describe('owned mcp http server', () => {
       (query.structuredContent as { results: Array<{ snippet: string }> }).results[0]?.snippet ??
         '',
     );
-    expect(aliasQueryBody).toMatchObject({
-      query: {
-        mode: 'plain',
-        queryClass: 'short-korean-phrase',
-      },
-      results: [
-        {
-          adaptive: {
-            queryClass: 'short-korean-phrase',
-          },
-        },
-      ],
+    expect(aliasQueryBody.query).toMatchObject({
+      mode: 'plain',
+      queryClass: 'short-korean-phrase',
     });
+    expect(aliasQueryBody.results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          adaptive: expect.objectContaining({
+            queryClass: 'short-korean-phrase',
+          }),
+        }),
+      ]),
+    );
 
     const status = await client.callTool({
       name: 'status',
@@ -391,7 +422,7 @@ describe('owned mcp http server', () => {
 
     const sessionId = transport.sessionId;
     expect(sessionId).toBeDefined();
-    await sleep(50);
+    await sleep(200);
     if (!sessionId) {
       throw new Error('Expected an MCP session ID after HTTP connect.');
     }

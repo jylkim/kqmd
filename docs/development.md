@@ -72,6 +72,7 @@ bun run check
 | owned CLI 출력/파싱/도움말 | `bun run test:parity` |
 | MCP 동작 | `bun run test -- mcp-command mcp-server mcp-http mcp-stdio mcp-runtime mcp-daemon-state` |
 | 한국어 검색 정책/shadow index | `bun run test -- search-policy search-index-health kiwi-tokenizer search-shadow-index owned-search-behavior status-command` |
+| query search-assist / MCP parity | `bun run test -- query-core query-output-security query-output mcp-query mcp-server mcp-http` |
 | 임베딩 정책/mismatch | `bun run test -- embedding-policy embedding-health owned-embedding-behavior status-command` |
 
 ### 수동 검증

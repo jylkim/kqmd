@@ -11,6 +11,7 @@ import { parseOwnedSearchInput } from './io/parse.js';
 import type { OwnedCommandError, SearchCommandInput, SearchOutputRow } from './io/types.js';
 import { resolveSelectedCollections } from './io/validate.js';
 import { containsHangul } from './kiwi_tokenizer.js';
+import { hasConservativeLexSyntax } from './query_search_assist_policy.js';
 import type { OwnedRuntimeDependencies, OwnedRuntimeFailure } from './runtime.js';
 import { withOwnedStore } from './runtime.js';
 import {
@@ -34,10 +35,6 @@ type SearchCommandSuccess = {
   readonly rows: SearchOutputRow[];
   readonly stderr?: string;
 };
-
-function hasConservativeLexSyntax(query: string): boolean {
-  return query.includes('"') || /(?:^|\s)-(?:"|[^\s"])/.test(query);
-}
 
 function buildSearchPolicyWarning(
   expectedPolicyId: string,

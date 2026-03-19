@@ -181,6 +181,9 @@ export function formatSearchExecutionResult(
           ...('explain' in input && input.explain && row.adaptive
             ? { adaptive: row.adaptive }
             : {}),
+          ...('explain' in input && input.explain && row.searchAssist
+            ? { searchAssist: row.searchAssist }
+            : {}),
         };
       });
 
@@ -327,6 +330,9 @@ export function formatSearchExecutionResult(
                     `${colors.dim}  Blend: ${Math.round(explain.rrf.weight * 100)}%*${formatExplainNumber(explain.rrf.positionScore)} + ${Math.round((1 - explain.rrf.weight) * 100)}%*${formatExplainNumber(explain.rerankScore)} = ${formatExplainNumber(explain.blendedScore)}${colors.reset}`,
                     row.adaptive
                       ? `${colors.dim}  Adaptive: class=${row.adaptive.queryClass} phrase=${formatExplainNumber(row.adaptive.phrase)} title=${formatExplainNumber(row.adaptive.title)} heading=${formatExplainNumber(row.adaptive.heading)} coverage=${formatExplainNumber(row.adaptive.coverage)} proximity=${formatExplainNumber(row.adaptive.proximity)} literal=${formatExplainNumber(row.adaptive.literalAnchor)} vector=${row.adaptive.vectorStrength}${colors.reset}`
+                      : undefined,
+                    row.searchAssist
+                      ? `${colors.dim}  SearchAssist: rescued=${row.searchAssist.rescued ? 'yes' : 'no'} source=${row.searchAssist.source} reason=${row.searchAssist.reason} added=${row.searchAssist.addedCandidates}${colors.reset}`
                       : undefined,
                     contributionSummary.length > 0
                       ? `${colors.dim}  Top RRF contributions: ${contributionSummary}${colors.reset}`

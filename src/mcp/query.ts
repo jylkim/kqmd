@@ -65,6 +65,7 @@ export function buildQueryResponse(result: QueryCoreSuccess, input: QueryCommand
       primaryQuery: input.displayQuery,
       intent: input.intent,
       queryClass: classifyQuery(input).queryClass,
+      ...(result.searchAssist ? { searchAssist: result.searchAssist } : {}),
     },
     text: formatSearchSummary(
       rows.map((row) => ({

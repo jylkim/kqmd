@@ -1,6 +1,6 @@
 import type { QMDStore } from '@tobilu/qmd';
-
 import { describeEffectiveEmbedModel } from '#src/config/embedding_policy.js';
+import { describeEffectiveSearchPolicy } from '#src/config/search_policy.js';
 import {
   hasEmbeddingMismatch,
   readEmbeddingHealth,
@@ -16,10 +16,23 @@ import {
 } from './query_classifier.js';
 import { rankQueryRows } from './query_ranking.js';
 import { executeOwnedQuerySearch, type QueryRuntimeDependencies } from './query_runtime.js';
+import {
+  type QuerySearchAssistDependencies,
+  resolveQuerySearchAssist,
+} from './query_search_assist.js';
+import {
+  evaluateQuerySearchAssistPolicy,
+  hasConservativeLexSyntax,
+  mergeRescueCandidates,
+  type QuerySearchAssistPolicy,
+  shouldConsiderQuerySearchAssist,
+} from './query_search_assist_policy.js';
+import { readSearchIndexHealth } from './search_index_health.js';
 
 export interface QueryCoreSuccess {
   readonly rows: SearchOutputRow[];
   readonly advisories: readonly string[];
+  readonly searchAssist?: import('./io/types.js').SearchAssistSummary;
 }
 
 export interface QueryCoreOptions {
@@ -40,7 +53,7 @@ export async function executeQueryCore(
   store: QMDStore,
   input: QueryCommandInput,
   env: NodeJS.ProcessEnv = process.env,
-  runtimeDependencies: QueryRuntimeDependencies = {},
+  runtimeDependencies: QueryRuntimeDependencies & QuerySearchAssistDependencies = {},
   options: QueryCoreOptions = {},
 ): Promise<QueryCoreSuccess | OwnedCommandError> {
   const effectiveModel = describeEffectiveEmbedModel(env);
@@ -92,6 +105,22 @@ export async function executeQueryCore(
     };
   }
 
+  let searchAssistPolicy: QuerySearchAssistPolicy;
+  if (!shouldConsiderQuerySearchAssist(input, traits) || !traits.hasHangul) {
+    searchAssistPolicy = { kind: 'skip', reason: 'ineligible' };
+  } else if (hasConservativeLexSyntax(input.query)) {
+    searchAssistPolicy = { kind: 'skip', reason: 'conservative-syntax' };
+  } else {
+    searchAssistPolicy = evaluateQuerySearchAssistPolicy({
+      input,
+      traits,
+      searchHealth: readSearchIndexHealth(store.internal.db, describeEffectiveSearchPolicy(), {
+        collections: selectedCollections,
+      }),
+      selectedCollections,
+    });
+  }
+
   const health = await readEmbeddingHealth(store, effectiveModel.uri, {
     collections: selectedCollections,
   });
@@ -106,11 +135,35 @@ export async function executeQueryCore(
     runtimeDependencies,
   );
   const normalized = normalizeHybridQueryResults(results);
+  let mergedRows = normalized;
+  let searchAssist: QueryCoreSuccess['searchAssist'] | undefined;
+
+  if (searchAssistPolicy.kind === 'eligible') {
+    const assist = await resolveQuerySearchAssist(store, searchAssistPolicy, runtimeDependencies);
+    const mergeResult = mergeRescueCandidates(
+      normalized,
+      assist.rows,
+      searchAssistPolicy.rescueCap,
+    );
+    mergedRows = mergeResult.rows;
+    searchAssist = {
+      applied: mergeResult.addedCandidates > 0,
+      reason: assist.reason,
+      addedCandidates: mergeResult.addedCandidates,
+    };
+  } else {
+    searchAssist = {
+      applied: false,
+      reason: searchAssistPolicy.reason,
+      addedCandidates: 0,
+    };
+  }
 
   return {
-    rows: rankQueryRows(normalized, traits),
+    rows: rankQueryRows(mergedRows, traits),
     advisories: hasEmbeddingMismatch(health)
       ? [buildEmbeddingMismatchAdvisory(effectiveModel.uri, summarizeStoredEmbeddingModels(health))]
       : [],
+    searchAssist,
   };
 }

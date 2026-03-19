@@ -100,4 +100,40 @@ describe('owned query parity output', () => {
       }
     }
   });
+
+  test('matches cli explain output snapshot with search assist details', async () => {
+    const previous = process.env.NO_COLOR;
+    process.env.NO_COLOR = '1';
+
+    try {
+      const result = await handleQueryCommand(createContext(['query', '--explain', 'auth flow']), {
+        run: async () => ({
+          rows: [
+            {
+              ...queryRows[0],
+              searchAssist: {
+                rescued: true,
+                reason: 'strong-hit',
+                addedCandidates: 1,
+                source: 'shadow',
+              },
+            },
+          ],
+        }),
+      });
+
+      await expect(withTrailingNewline(result.stdout)).toMatchFileSnapshot(
+        resolve(
+          process.cwd(),
+          'test/fixtures/owned-command-parity/query/query-explain-search-assist.output.cli',
+        ),
+      );
+    } finally {
+      if (previous === undefined) {
+        delete process.env.NO_COLOR;
+      } else {
+        process.env.NO_COLOR = previous;
+      }
+    }
+  });
 });

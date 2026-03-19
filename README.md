@@ -44,6 +44,10 @@ npm install -g kqmd
 
 짧은 한국어 구, 한영 혼합 기술 용어 등 쿼리 유형에 따라 ranking 전략을 다르게 적용합니다. `--explain`으로 ranking 근거를 확인할 수 있습니다.
 
+### Search-assist query rescue
+
+owned `query`는 짧은 한글 구와 한영 혼합 plain query에서 clean Korean shadow index를 보조 신호로 사용해, hybrid query가 놓친 한국어 문서를 소수 rescue candidate로 보강합니다. quoted/negated Hangul query나 stale search health에서는 보수적으로 skip 하여 기존 semantics를 유지합니다.
+
 ### QMD SDK 기반
 
 QMD를 SDK로 사용합니다. 한국어 검색 품질에 영향을 주는 명령(`search`, `query`, `update`, `embed`, `status`, `mcp`)만 확장하고, 나머지는 QMD에 그대로 위임합니다.

@@ -44,6 +44,12 @@ describe('query output security', () => {
           proximity: 0.02,
           literalAnchor: 0.08,
         },
+        searchAssist: {
+          rescued: true,
+          reason: 'strong-hit',
+          addedCandidates: 1,
+          source: 'shadow',
+        },
       },
     ];
 
@@ -54,6 +60,12 @@ describe('query output security', () => {
       file: 'qmd://docs/agent-orchestration.md',
       adaptive: {
         queryClass: 'mixed-technical',
+      },
+      searchAssist: {
+        rescued: true,
+        reason: 'strong-hit',
+        addedCandidates: 1,
+        source: 'shadow',
       },
     });
     expect(parsed[0]).not.toHaveProperty('sourceBody');

@@ -30,6 +30,15 @@ export interface QueryCommandInput extends SearchCommandInput {
 
 export type QueryClass = 'short-korean-phrase' | 'mixed-technical' | 'general' | 'structured';
 
+export type SearchAssistReason =
+  | 'strong-hit'
+  | 'ineligible'
+  | 'dirty-health'
+  | 'conservative-syntax'
+  | 'weak-hit'
+  | 'timeout'
+  | 'error';
+
 export interface AdaptiveQueryExplain {
   readonly queryClass: QueryClass;
   readonly candidateSource: 'adaptive' | 'structured-compatibility';
@@ -42,6 +51,19 @@ export interface AdaptiveQueryExplain {
   readonly coverage: number;
   readonly proximity: number;
   readonly literalAnchor: number;
+}
+
+export interface SearchAssistSummary {
+  readonly applied: boolean;
+  readonly reason: SearchAssistReason;
+  readonly addedCandidates: number;
+}
+
+export interface SearchAssistMetadata {
+  readonly rescued: true;
+  readonly reason: Extract<SearchAssistReason, 'strong-hit'>;
+  readonly addedCandidates: number;
+  readonly source: 'shadow';
 }
 
 export type UpdateCommandInput = Record<string, never>;
@@ -64,6 +86,7 @@ export interface SearchOutputRow {
   readonly sourceChunkPos?: number;
   readonly explain?: HybridQueryExplain;
   readonly adaptive?: AdaptiveQueryExplain;
+  readonly searchAssist?: SearchAssistMetadata;
 }
 
 export interface StatusCommandOutput {
