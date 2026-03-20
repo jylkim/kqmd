@@ -5,6 +5,18 @@
 
 ## [Unreleased]
 
+## [2.0.1-kqmd.3] - 2026-03-20
+
+### Added
+
+- 한국어 search-assist rescue: 검색 결과가 부족할 때 형태소 기반 보조 검색으로 recall 보완
+- 긴 한국어 쿼리 정규화(long-query normalization) 지원
+- query recall 벤치마크 및 fixture safety 검증 추가
+
+### Fixed
+
+- MCP query 응답에서 search-assist 메타데이터가 fallback 경로에 누락되던 문제 수정
+
 ## [2.0.1-kqmd.2] - 2026-03-18
 
 ### Added
@@ -50,6 +62,7 @@ upstream `@tobilu/qmd@2.0.1` 기반 K-QMD 최초 릴리스.
 - 중복 코드 통합 및 runtime path alias 수정
 - 빌드/워크플로를 bun 기반으로 전환
 
-[Unreleased]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.2...HEAD
+[Unreleased]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.3...HEAD
+[2.0.1-kqmd.3]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.2...v2.0.1-kqmd.3
 [2.0.1-kqmd.2]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.1...v2.0.1-kqmd.2
 [2.0.1-kqmd.1]: https://github.com/jylkim/kqmd/releases/tag/v2.0.1-kqmd.1
