@@ -18,7 +18,7 @@ QMD가 사용하는 토크나이저는 한글 검색률이 떨어집니다. "형
 | 컨테이너 | Docker**컨테이너** | miss | **hit** |
 
 > **Search recall: QMD 43% → K-QMD 100%** — 30개 search benchmark ([상세 결과](docs/benchmarks/2026-03-17-recall-comparison-metrics.md))
-> **Query recall: base 33% → current K-QMD 100%** — synthetic fixture query benchmark ([상세 결과](docs/benchmarks/2026-03-19-query-recall-metrics.md))
+> **Query recall: base 33% → current K-QMD 100%** — synthetic fixture query benchmark ([상세 결과](docs/benchmarks/2026-03-20-query-recall-metrics.md))
 
 K-QMD는 QMD에 [Kiwi](https://github.com/bab2min/Kiwi) 형태소 분석을 결합해 이 문제를 해결합니다.
 

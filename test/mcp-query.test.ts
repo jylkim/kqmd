@@ -182,4 +182,67 @@ describe('mcp query response', () => {
     expect(response.text).not.toContain('Limit Cutoff');
     expect(response.text).not.toContain('Min Score Cutoff');
   });
+
+  test('builds a complete fallback query summary when core query metadata is absent', () => {
+    const response = buildQueryResponse(
+      {
+        rows: [],
+        advisories: [],
+      } as never,
+      createInput({
+        query: '문서 업로드 파싱은 어떻게 동작해?',
+        displayQuery: '문서 업로드 파싱은 어떻게 동작해?',
+      }),
+    );
+
+    expect(response.query).toEqual({
+      mode: 'plain',
+      primaryQuery: '문서 업로드 파싱은 어떻게 동작해?',
+      queryClass: 'general',
+      normalization: {
+        applied: false,
+        reason: 'not-eligible',
+        addedCandidates: 0,
+      },
+      searchAssist: {
+        applied: false,
+        reason: 'ineligible',
+        addedCandidates: 0,
+      },
+    });
+  });
+
+  test('preserves searchAssist metadata in fallback query summary', () => {
+    const response = buildQueryResponse(
+      {
+        rows: [],
+        advisories: [],
+        searchAssist: {
+          applied: true,
+          reason: 'strong-hit',
+          addedCandidates: 2,
+        },
+      } as never,
+      createInput({
+        query: '문서 업로드 파싱은 어떻게 동작해?',
+        displayQuery: '문서 업로드 파싱은 어떻게 동작해?',
+      }),
+    );
+
+    expect(response.query).toMatchObject({
+      mode: 'plain',
+      primaryQuery: '문서 업로드 파싱은 어떻게 동작해?',
+      queryClass: 'general',
+      normalization: {
+        applied: false,
+        reason: 'not-eligible',
+        addedCandidates: 0,
+      },
+      searchAssist: {
+        applied: true,
+        reason: 'strong-hit',
+        addedCandidates: 2,
+      },
+    });
+  });
 });

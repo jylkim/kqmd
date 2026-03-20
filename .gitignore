@@ -7,8 +7,10 @@ coverage/
 docs/brainstorms/
 docs/plans/
 docs/solutions/
-docs/benchmarks/
+docs/benchmarks/*
 !docs/benchmarks/2026-03-17-recall-comparison-metrics.md
+!docs/benchmarks/*query-recall-metrics.md
+!docs/benchmarks/2026-03-20-query-recall-metrics.md
 todos/
 compound-engineering.local.md
 .npmrc

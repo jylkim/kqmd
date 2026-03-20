@@ -688,6 +688,121 @@ describe('query core', () => {
     expect(result.rows.map((row) => row.displayPath)).toContain('docs/upload-parser.md');
   });
 
+  test('skips normalized supplement when base search already has a strong long-query hit', async () => {
+    const originalQuery = '문서 업로드 파싱은 어떻게 동작해?';
+    const store = createDynamicSearchStore(async (args) => {
+      const query = 'query' in args ? args.query : '';
+      if (query === originalQuery) {
+        return [
+          {
+            file: 'docs/upload-parser.md',
+            displayPath: 'docs/upload-parser.md',
+            title: '문서 업로드 파서',
+            body: '문서 업로드 파싱 동작을 자세히 설명합니다.',
+            bestChunk: '문서 업로드 파싱 동작을 자세히 설명합니다.',
+            context: 'documentation',
+            score: 0.91,
+            docid: 'target-strong',
+            bestChunkPos: 0,
+          },
+        ];
+      }
+
+      return [];
+    });
+
+    const result = await executeQueryCore(
+      store,
+      createInput({
+        query: originalQuery,
+        displayQuery: originalQuery,
+      }),
+      { HOME: '/home/tester' },
+    );
+
+    expect('kind' in result).toBe(false);
+    if ('kind' in result) {
+      return;
+    }
+
+    expect(result.query.normalization).toEqual({
+      applied: false,
+      reason: 'skipped-guard',
+      addedCandidates: 0,
+    });
+    expect((store.search as unknown as { mock: { calls: unknown[][] } }).mock.calls).toHaveLength(
+      1,
+    );
+  });
+
+  test('skips normalized supplement when deterministic timing seam exceeds the latency budget', async () => {
+    const originalQuery = '문서 업로드 파싱은 어떻게 동작해?';
+    const normalizedQuery = '문서 업로드 파싱';
+    const store = createDynamicSearchStore(async (args) => {
+      const query = 'query' in args ? args.query : '';
+      if (query === originalQuery) {
+        return [
+          {
+            file: 'docs/noise.md',
+            displayPath: 'docs/noise.md',
+            title: 'Generic docs',
+            body: 'generic note',
+            bestChunk: 'generic note',
+            context: 'documentation',
+            score: 0.55,
+            docid: 'noise-1',
+            bestChunkPos: 0,
+          },
+        ];
+      }
+
+      if (query === normalizedQuery) {
+        return [
+          {
+            file: 'docs/upload-parser.md',
+            displayPath: 'docs/upload-parser.md',
+            title: '문서 업로드 파서',
+            body: '문서 업로드 파싱 동작을 설명합니다.',
+            bestChunk: '문서 업로드 파싱 동작을 설명합니다.',
+            context: 'documentation',
+            score: 0.91,
+            docid: 'target-1',
+            bestChunkPos: 0,
+          },
+        ];
+      }
+
+      return [];
+    });
+    const nowValues = [0, QUERY_NORMALIZATION_LATENCY_BUDGET_MS + 10];
+
+    const result = await executeQueryCore(
+      store,
+      createInput({
+        query: originalQuery,
+        displayQuery: originalQuery,
+      }),
+      { HOME: '/home/tester' },
+      {
+        now: () => nowValues.shift() ?? QUERY_NORMALIZATION_LATENCY_BUDGET_MS + 10,
+      },
+    );
+
+    expect('kind' in result).toBe(false);
+    if ('kind' in result) {
+      return;
+    }
+
+    expect(result.query.normalization).toEqual({
+      applied: false,
+      reason: 'latency-budget',
+      addedCandidates: 0,
+    });
+    expect((store.search as unknown as { mock: { calls: unknown[][] } }).mock.calls).toHaveLength(
+      1,
+    );
+  });
+
   test('fails open when normalized supplement retrieval throws', async () => {
     const originalQuery = '문서 업로드 파싱은 어떻게 동작해?';
     const normalizedQuery = '문서 업로드 파싱';

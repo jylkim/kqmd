@@ -10,16 +10,16 @@ import {
 function createSampleRow(overrides: Partial<QueryRecallRow> = {}): QueryRecallRow {
   return {
     caseId: 'spacing-adaptive',
+    syntheticLabel: 'spacing-adaptive',
     category: 'spacing',
+    aggregateScope: 'core',
     expectedOutcome: 'hit',
-    query: '지속 학습',
     targetDocs: ['docs/spacing-adaptive-target.md'],
     acceptableTargets: ['docs/spacing-adaptive-target.md'],
     selectedCollections: ['docs'],
     queryClass: 'short-korean-phrase',
     fetchLimit: 20,
     runtimeMode: 'native',
-    includedInCoreAggregate: true,
     normalizationApplied: false,
     normalizationReason: 'not-eligible',
     normalizationAddedCandidates: 0,
@@ -86,17 +86,19 @@ describe('query recall benchmark helpers', () => {
     const report = createReport([
       createSampleRow({
         caseId: 'control-quoted',
+        syntheticLabel: 'control-quoted',
         category: 'control',
+        aggregateScope: 'excluded',
         expectedOutcome: 'hit',
-        includedInCoreAggregate: false,
       }),
       createSampleRow({
         caseId: 'control-weak-hit',
+        syntheticLabel: 'control-weak-hit',
         category: 'control',
+        aggregateScope: 'excluded',
         expectedOutcome: 'miss',
         targetDocs: [],
         acceptableTargets: [],
-        includedInCoreAggregate: false,
         base: missWithNoise,
         adaptive: missWithNoise,
         current: missWithNoise,
@@ -113,16 +115,16 @@ describe('query recall benchmark helpers', () => {
       createSampleRow(),
       createSampleRow({
         caseId: 'control-quoted',
+        syntheticLabel: 'control-quoted',
         category: 'control',
+        aggregateScope: 'excluded',
         expectedOutcome: 'hit',
-        query: '"지속 학습"',
-        includedInCoreAggregate: false,
       }),
       createSampleRow({
-        caseId: 'question-upload',
-        category: 'question',
-        query: '문서 업로드 파싱은 어떻게 동작해?',
-        includedInCoreAggregate: false,
+        caseId: 'long-query-question-upload',
+        syntheticLabel: 'long-query-question-upload',
+        category: 'long-query',
+        aggregateScope: 'core',
       }),
     ]);
 
@@ -130,8 +132,8 @@ describe('query recall benchmark helpers', () => {
       "# Korean Query Recall Metrics
       Date: <date>
       Command: \`bun run measure:query-recall\`
-      이 문서는 upstream-compatible base query 대비 current kqmd query의 한국어 recall 비교 벤치마크다.
-      synthetic fixture에서 띄어쓰기 변형, 복합어 분해, 한영 혼합 세 가지 query 패턴의 hit/miss를 비교하고, control/exploratory case는 별도 표로 분리한다.
+      이 문서는 upstream-compatible base query 대비 current kqmd query의 한국어 recall correctness 비교 벤치마크다.
+      synthetic fixture에서 띄어쓰기 변형, 복합어 분해, 한영 혼합 기술어, 긴 한국어 plain query를 비교하고, control/diagnostic case는 별도 표로 분리한다.
       ## Method
       - 비교 레이어:
         - \`base\`: upstream-compatible base query
@@ -141,27 +143,34 @@ describe('query recall benchmark helpers', () => {
         - \`spacing\`: 띄어쓰기 변형
         - \`compound\`: 복합어 분해
         - \`mixed\`: 한영 혼합 기술어
+        - \`long-query\`: native long Korean plain query guardrail
       - control 카테고리:
         - \`conservative-syntax\`, \`weak-hit\`, \`ineligible\`, \`collection-isolation\`, \`no-target miss\`
-      - aggregate 범위: core 카테고리만 포함
+      - aggregate 범위: core 카테고리에는 native \`long-query\`가 포함되며, diagnostic injected case와 control은 제외한다
+      - persisted surface: benchmark markdown/raw JSON은 synthetic label만 남기고 raw query와 intent는 남기지 않는다
       - hit 정의: target 문서의 displayPath가 top-<n> 결과에 존재
       - miss 정의: target 문서가 top-<n>에 없으면 통과하며, empty top-<n> purity는 별도 signal로 본다
-      - fixture/runtime: deterministic synthetic fixture, temp HOME/XDG/INDEX isolation, deterministic LLM stub, single-pass serial execution
+      - fixture/runtime: deterministic synthetic fixture, temp HOME/XDG/INDEX isolation, deterministic LLM stub, deterministic timing seam, single-pass serial execution
       ## Results
-      | Category | Query | Target | base | adaptive | current | Delta |
+      | Category | Case | Target | base | adaptive | current | Delta |
       |---|---|---|---|---|---|---|
       ## Controls
-      | Query | Expected | base | current | Assist | Reason |
+      | Case | Expected | base | current | Assist | Reason |
       |---|---|---|---|---|---|
-      ## Exploratory
-      | Query | Expected | current | Note |
-      |---|---|---|---|
+      ## Long Query
+      | Case | Target | base | current | In Core |
+      |---|---|---|---|---|
+      ## Diagnostics
+      | Case | Current | Mode |
+      |---|---|---|
       ## Aggregate
       | Scope | Side | Hits | Total | Recall |
       |---|---|---:|---:|---:|
       ## Derived Signals
       - core current recall uplift vs upstream-compatible base: <n>%
-      - question current recall uplift vs upstream-compatible base: <n>%
+      - long-query current recall uplift vs upstream-compatible base: <n>%
+      - native long-query count: <n>
+      - diagnostic long-query count: <n>
       - adaptive-only gain count: <n>
       - assist-rescue gain count: <n>
       - normalization applied count: <n>
@@ -170,10 +179,11 @@ describe('query recall benchmark helpers', () => {
       - unresolved core miss count: <n>
       ## Notes
       - upstream baseline은 실제 upstream CLI subprocess가 아니라 upstream-compatible seam이다.
-      - aggregate는 core 카테고리만 포함하고 control/exploratory case는 제외한다.
+      - core aggregate는 native \`long-query\`를 포함하고 control/diagnostic case는 제외한다.
+      - benchmark markdown/raw JSON은 synthetic label만 persisted surface로 사용한다.
       - assist score normalization은 raw base score-domain과 동치가 아니다.
       - rescue dedupe는 \`docid || displayPath\`, rescue cap은 downstream policy 계약을 따른다.
-      - 이 리포트는 recall correctness만 다루며, wall-clock latency/overhead 주장은 의도적으로 제외한다.
+      - 이 리포트는 recall correctness만 다루며, wall-clock latency/overhead나 production representativeness 주장은 하지 않는다.
       - negative control pass rate는 \`expected=miss\` control만 포함하며, noise-only 반환은 empty-top<n> rate로 따로 본다.
       - deterministic fixture를 사용하므로 real vault 일반화에는 제한이 있다.
       - raw JSON below is the source-of-truth; markdown tables are derived views.
@@ -201,10 +211,12 @@ describe('query recall benchmark helpers', () => {
         "derivedSignals.adaptiveOnlyGainCount",
         "derivedSignals.assistRescueGainCount",
         "derivedSignals.coreRecallUpliftPct",
+        "derivedSignals.diagnosticLongQueryCount",
+        "derivedSignals.longQueryRecallUpliftPct",
+        "derivedSignals.nativeLongQueryCount",
         "derivedSignals.negativeControlEmptyTop5Rate",
         "derivedSignals.negativeControlPassRate",
         "derivedSignals.normalizationAppliedCount",
-        "derivedSignals.questionRecallUpliftPct",
         "derivedSignals.unresolvedCoreMissCount",
         "fixtureVersion",
         "rows",
@@ -217,6 +229,7 @@ describe('query recall benchmark helpers', () => {
         "rows[].adaptive.top5Paths",
         "rows[].adaptive.unexpectedTop5Count",
         "rows[].addedCandidates",
+        "rows[].aggregateScope",
         "rows[].assistApplied",
         "rows[].assistReason",
         "rows[].base",
@@ -237,18 +250,35 @@ describe('query recall benchmark helpers', () => {
         "rows[].current.unexpectedTop5Count",
         "rows[].expectedOutcome",
         "rows[].fetchLimit",
-        "rows[].includedInCoreAggregate",
         "rows[].normalizationAddedCandidates",
         "rows[].normalizationApplied",
         "rows[].normalizationReason",
-        "rows[].query",
         "rows[].queryClass",
         "rows[].runtimeMode",
         "rows[].selectedCollections",
+        "rows[].syntheticLabel",
         "rows[].targetDocs",
         "rows[].winningLayer",
         "schemaVersion",
       ]
     `);
+  });
+
+  test('rejects unsafe persisted synthetic labels and paths', () => {
+    expect(() =>
+      createReport([
+        createSampleRow({
+          syntheticLabel: '문서 업로드 파싱은 어떻게 동작해?',
+        }),
+      ]),
+    ).toThrow(/Unsafe synthetic label detected/);
+
+    expect(() =>
+      createReport([
+        createSampleRow({
+          targetDocs: ['/Users/jylkim/private.md'],
+        }),
+      ]),
+    ).toThrow(/Unsafe synthetic fixture content detected|Unsafe synthetic path detected/);
   });
 });

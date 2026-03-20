@@ -54,16 +54,32 @@ export function formatSearchSummary(
   return lines.join('\n');
 }
 
-export function buildQueryResponse(result: QueryCoreSuccess, input: QueryCommandInput) {
-  const filteredRows = filterRows(result.rows, input.limit, input.minScore);
-  const rows = buildMcpQueryRows(filteredRows, input.displayQuery, input.intent);
-  const query = result.query ?? {
+function buildFallbackQuerySummary(
+  input: QueryCommandInput,
+  searchAssist?: QueryCoreSuccess['searchAssist'],
+): QueryCoreSuccess['query'] {
+  return {
     mode: input.queryMode,
     primaryQuery: input.displayQuery,
     intent: input.intent,
     queryClass: classifyQuery(input).queryClass,
-    ...(result.searchAssist ? { searchAssist: result.searchAssist } : {}),
+    normalization: {
+      applied: false,
+      reason: 'not-eligible',
+      addedCandidates: 0,
+    },
+    searchAssist: searchAssist ?? {
+      applied: false,
+      reason: 'ineligible',
+      addedCandidates: 0,
+    },
   };
+}
+
+export function buildQueryResponse(result: QueryCoreSuccess, input: QueryCommandInput) {
+  const filteredRows = filterRows(result.rows, input.limit, input.minScore);
+  const rows = buildMcpQueryRows(filteredRows, input.displayQuery, input.intent);
+  const query = result.query ?? buildFallbackQuerySummary(input, result.searchAssist);
 
   return {
     primaryQuery: input.displayQuery,

@@ -16,10 +16,16 @@ import {
   collectJsonKeyPaths,
   createReport,
   determineWinningLayer,
+  type QueryRecallAggregateScope,
   type QueryRecallCase,
   summarizeLayer,
   toMarkdown,
 } from './query_recall_benchmark_lib.js';
+import {
+  assertSafeSyntheticLabel,
+  assertSafeSyntheticPath,
+  assertSafeSyntheticTexts,
+} from './query_recall_fixture_safety.js';
 
 type QueryBenchmarkDependencies = Parameters<typeof executeQueryCore>[3];
 type CollectionSnapshots = {
@@ -86,8 +92,20 @@ const TARGET_DOCS: Record<string, string> = {
   'question-upload.md': [
     '# 문서 업로드 FAQ',
     '',
-    '문서 업로드 파싱은 어떻게 동작해? 라는 질문에 답합니다.',
-    '문서 업로드 파싱은 parser와 indexing 단계로 나뉩니다.',
+    '문서 업로드 파싱 단계와 indexing 흐름을 설명합니다.',
+    'parser와 indexing 단계로 나뉘며 업로드 처리 순서를 정리합니다.',
+  ].join('\n'),
+  'long-query-upload-overview.md': [
+    '# 문서 업로드 개요',
+    '',
+    '문서 업로드 파싱 동작 단계를 정리한 개요 문서입니다.',
+    '문서 업로드 파싱 동작 단계와 구조를 차례대로 설명합니다.',
+  ].join('\n'),
+  'long-query-normalized-upload.md': [
+    '# 문서 업로드 파싱 단계',
+    '',
+    '문서 업로드 파싱 단계와 parser 흐름을 설명합니다.',
+    '업로드 파이프라인의 indexing 단계와 parsing 단계를 정리합니다.',
   ].join('\n'),
 };
 
@@ -106,6 +124,11 @@ const DOC_NOISE: readonly string[] = [
   ['# 플랫폼 개요', '', '오케스트레이터와 스케줄러를 소개합니다.', '오케스트레이션이라는 완전한 단어는 쓰지 않습니다.'].join('\n'),
   ['# API Guide', '', 'API schema checklist와 migration timeline을 정리합니다.', '마이그레이션은 영어 문맥으로만 설명합니다.'].join('\n'),
   ['# Security Notes', '', '인증 토큰 회전과 세션 정책을 설명합니다.', 'flow 라는 단어는 쓰지 않습니다.'].join('\n'),
+  ['# 문서 업로드 설명 1', '', '문서 업로드는 어떻게 설명해줘야 하는지 정리합니다.', '업로드 설명 문서입니다.'].join('\n'),
+  ['# 문서 업로드 설명 2', '', '문서 업로드는 어떻게 설명해줘야 하는지 다시 적습니다.', '질문형 설명 문서입니다.'].join('\n'),
+  ['# 업로드 동작 설명', '', '업로드 동작은 어떻게 설명해줘야 하는지 적습니다.', '파싱이라는 단어는 쓰지 않습니다.'].join('\n'),
+  ['# 문서 업로드 질문', '', '문서 업로드 질문과 설명해줘 패턴을 모읍니다.', '질문 대응 메모입니다.'].join('\n'),
+  ['# 업로드 안내', '', '문서 업로드는 어떻게 동작하는지 설명해줘 안내합니다.', '설명 안내 메모입니다.'].join('\n'),
 ];
 
 const NOTES_DOCS: Record<string, string> = {
@@ -126,6 +149,7 @@ const DECOMPOSITION_MAP: ReadonlyMap<string, string> = new Map([
 const CORE_CASES: readonly BenchmarkCaseRuntime[] = [
   createCase({
     caseId: 'spacing-adaptive',
+    syntheticLabel: 'spacing-adaptive',
     category: 'spacing',
     expectedOutcome: 'hit',
     query: '지속 학습',
@@ -134,6 +158,7 @@ const CORE_CASES: readonly BenchmarkCaseRuntime[] = [
   }),
   createCase({
     caseId: 'spacing-rescue-upload',
+    syntheticLabel: 'spacing-rescue-upload',
     category: 'spacing',
     expectedOutcome: 'hit',
     query: '문서 업로드 파싱',
@@ -142,6 +167,7 @@ const CORE_CASES: readonly BenchmarkCaseRuntime[] = [
   }),
   createCase({
     caseId: 'compound-orchestration',
+    syntheticLabel: 'compound-orchestration',
     category: 'compound',
     expectedOutcome: 'hit',
     query: '오케스트레이션',
@@ -150,6 +176,7 @@ const CORE_CASES: readonly BenchmarkCaseRuntime[] = [
   }),
   createCase({
     caseId: 'compound-analysis',
+    syntheticLabel: 'compound-analysis',
     category: 'compound',
     expectedOutcome: 'hit',
     query: '분석',
@@ -158,6 +185,7 @@ const CORE_CASES: readonly BenchmarkCaseRuntime[] = [
   }),
   createCase({
     caseId: 'mixed-schema',
+    syntheticLabel: 'mixed-schema',
     category: 'mixed',
     expectedOutcome: 'hit',
     query: 'schema 마이그레이션',
@@ -166,6 +194,7 @@ const CORE_CASES: readonly BenchmarkCaseRuntime[] = [
   }),
   createCase({
     caseId: 'mixed-auth',
+    syntheticLabel: 'mixed-auth',
     category: 'mixed',
     expectedOutcome: 'hit',
     query: 'oauth 인증',
@@ -177,6 +206,7 @@ const CORE_CASES: readonly BenchmarkCaseRuntime[] = [
 const CONTROL_CASES: readonly BenchmarkCaseRuntime[] = [
   createCase({
     caseId: 'control-quoted',
+    syntheticLabel: 'control-quoted',
     category: 'control',
     expectedOutcome: 'hit',
     query: '"지속 학습"',
@@ -185,6 +215,7 @@ const CONTROL_CASES: readonly BenchmarkCaseRuntime[] = [
   }),
   createCase({
     caseId: 'control-negated',
+    syntheticLabel: 'control-negated',
     category: 'control',
     expectedOutcome: 'hit',
     query: '지속 학습 -파이프라인',
@@ -193,6 +224,7 @@ const CONTROL_CASES: readonly BenchmarkCaseRuntime[] = [
   }),
   createCase({
     caseId: 'control-ineligible',
+    syntheticLabel: 'control-ineligible',
     category: 'control',
     expectedOutcome: 'hit',
     query: "what's new",
@@ -201,6 +233,7 @@ const CONTROL_CASES: readonly BenchmarkCaseRuntime[] = [
   }),
   createCase({
     caseId: 'control-collection-isolation',
+    syntheticLabel: 'control-collection-isolation',
     category: 'control',
     expectedOutcome: 'miss',
     query: '오케스트레이션',
@@ -209,6 +242,7 @@ const CONTROL_CASES: readonly BenchmarkCaseRuntime[] = [
   }),
   createCase({
     caseId: 'control-no-target',
+    syntheticLabel: 'control-no-target',
     category: 'control',
     expectedOutcome: 'miss',
     query: '양자 방화벽',
@@ -217,6 +251,7 @@ const CONTROL_CASES: readonly BenchmarkCaseRuntime[] = [
   }),
   createInjectedControlCase({
     caseId: 'control-weak-hit',
+    syntheticLabel: 'control-weak-hit',
     category: 'control',
     expectedOutcome: 'miss',
     query: '분산 추론',
@@ -236,18 +271,38 @@ const CONTROL_CASES: readonly BenchmarkCaseRuntime[] = [
   }),
 ];
 
-const QUESTION_CASES: readonly BenchmarkCaseRuntime[] = [
+const LONG_QUERY_CASES: readonly BenchmarkCaseRuntime[] = [
   createCase({
-    caseId: 'question-upload',
-    category: 'question',
+    caseId: 'long-query-question-upload',
+    syntheticLabel: 'long-query-question-upload',
+    category: 'long-query',
     expectedOutcome: 'hit',
     query: '문서 업로드 파싱은 어떻게 동작해?',
     targetDocs: ['docs/question-upload.md'],
     collections: ['docs'],
   }),
+  createCase({
+    caseId: 'long-query-descriptive-upload',
+    syntheticLabel: 'long-query-descriptive-upload',
+    category: 'long-query',
+    expectedOutcome: 'hit',
+    query: '문서 업로드 파싱 동작 단계를 정리한 문서',
+    targetDocs: ['docs/long-query-upload-overview.md'],
+    collections: ['docs'],
+  }),
+  createCase({
+    caseId: 'long-query-normalization-rescue',
+    syntheticLabel: 'long-query-normalization-rescue',
+    category: 'long-query',
+    expectedOutcome: 'hit',
+    query: '문서 업로드 파싱은 어떻게 설명해줘?',
+    targetDocs: ['docs/long-query-normalized-upload.md'],
+    collections: ['docs'],
+  }),
   createInjectedQuestionCase({
-    caseId: 'question-adaptive-showcase',
-    category: 'question',
+    caseId: 'diagnostic-long-query-adaptive-showcase',
+    syntheticLabel: 'diagnostic-long-query-adaptive-showcase',
+    category: 'long-query',
     expectedOutcome: 'hit',
     query: '지속 학습 질문',
     targetDocs: ['docs/spacing-adaptive-target.md'],
@@ -283,6 +338,7 @@ function createCase(caseDefinition: QueryRecallCase): BenchmarkCaseRuntime {
 
 function createInjectedControlCase(args: {
   readonly caseId: string;
+  readonly syntheticLabel: string;
   readonly category: 'control';
   readonly expectedOutcome: 'miss';
   readonly query: string;
@@ -294,6 +350,7 @@ function createInjectedControlCase(args: {
   return {
     caseDefinition: {
       caseId: args.caseId,
+      syntheticLabel: args.syntheticLabel,
       category: args.category,
       expectedOutcome: args.expectedOutcome,
       query: args.query,
@@ -311,7 +368,8 @@ function createInjectedControlCase(args: {
 
 function createInjectedQuestionCase(args: {
   readonly caseId: string;
-  readonly category: 'question';
+  readonly syntheticLabel: string;
+  readonly category: 'long-query';
   readonly expectedOutcome: 'hit';
   readonly query: string;
   readonly targetDocs: readonly string[];
@@ -321,6 +379,7 @@ function createInjectedQuestionCase(args: {
   return {
     caseDefinition: {
       caseId: args.caseId,
+      syntheticLabel: args.syntheticLabel,
       category: args.category,
       expectedOutcome: args.expectedOutcome,
       query: args.query,
@@ -355,6 +414,87 @@ function createInput(
     queryMode: 'plain',
     candidateLimit,
   };
+}
+
+function resolveAggregateScope(runtime: BenchmarkCaseRuntime): QueryRecallAggregateScope {
+  if (runtime.caseDefinition.category === 'control') {
+    return 'excluded';
+  }
+
+  if (runtime.runtimeMode === 'injected-control') {
+    return 'excluded';
+  }
+
+  return runtime.caseDefinition.category === 'long-query' ? 'core' : 'core';
+}
+
+function assertSafeFixtureCorpus(): void {
+  for (const runtime of [...CORE_CASES, ...CONTROL_CASES, ...LONG_QUERY_CASES]) {
+    assertSafeSyntheticLabel(runtime.caseDefinition.syntheticLabel);
+    for (const targetDoc of runtime.caseDefinition.targetDocs) {
+      assertSafeSyntheticPath(targetDoc);
+    }
+    for (const acceptableTarget of runtime.caseDefinition.acceptableTargets ?? []) {
+      assertSafeSyntheticPath(acceptableTarget);
+    }
+  }
+
+  const entries = [
+    ...Object.entries(TARGET_DOCS).map(([filename, text]) => ({
+      label: `target-doc:${filename}`,
+      text,
+    })),
+    ...Object.keys(TARGET_DOCS).map((filename) => ({
+      label: `target-doc-path:${filename}`,
+      text: `docs/${filename}`,
+    })),
+    ...DOC_NOISE.map((text, index) => ({
+      label: `doc-noise:${index}`,
+      text,
+    })),
+    ...DOC_NOISE.map((_, index) => ({
+      label: `doc-noise-path:${index}`,
+      text: `docs/noise-${index.toString().padStart(3, '0')}.md`,
+    })),
+    ...Object.entries(NOTES_DOCS).map(([filename, text]) => ({
+      label: `notes-doc:${filename}`,
+      text,
+    })),
+    ...Object.keys(NOTES_DOCS).map((filename) => ({
+      label: `notes-doc-path:${filename}`,
+      text: `notes/${filename}`,
+    })),
+    ...[...CORE_CASES, ...CONTROL_CASES, ...LONG_QUERY_CASES].map((runtime) => ({
+      label: `case:${runtime.caseDefinition.syntheticLabel}`,
+      text: runtime.caseDefinition.query,
+    })),
+    ...CONTROL_CASES.flatMap((runtime) =>
+      runtime.dependencies?.resolveSearchAssistRows
+        ? [
+            {
+              label: `injected-resolve-path:${runtime.caseDefinition.syntheticLabel}`,
+              text: 'docs/noise-weak-hit.md',
+            },
+          ]
+        : [],
+    ),
+    ...LONG_QUERY_CASES.flatMap((runtime) =>
+      runtime.dependencies?.hybridQuery
+        ? [
+            {
+              label: `injected-hybrid-path:${runtime.caseDefinition.syntheticLabel}`,
+              text: 'docs/noise-000.md',
+            },
+            {
+              label: `injected-hybrid-path-target:${runtime.caseDefinition.syntheticLabel}`,
+              text: 'docs/spacing-adaptive-target.md',
+            },
+          ]
+        : [],
+    ),
+  ];
+
+  assertSafeSyntheticTexts(entries);
 }
 
 function createHybridRow(args: {
@@ -644,19 +784,16 @@ async function evaluateCase(
 
   return {
     caseId: runtime.caseDefinition.caseId,
+    syntheticLabel: runtime.caseDefinition.syntheticLabel,
     category: runtime.caseDefinition.category,
+    aggregateScope: resolveAggregateScope(runtime),
     expectedOutcome: runtime.caseDefinition.expectedOutcome,
-    query: runtime.caseDefinition.query,
     targetDocs: [...runtime.caseDefinition.targetDocs],
     acceptableTargets: [...acceptableTargets],
     selectedCollections: [...context.selectedCollections],
     queryClass: context.traits.queryClass,
     fetchLimit: context.effectiveBaseInput.fetchLimit ?? context.effectiveBaseInput.limit,
     runtimeMode: context.runtimeMode,
-    includedInCoreAggregate:
-      runtime.caseDefinition.category !== 'control' &&
-      runtime.caseDefinition.category !== 'question' &&
-      context.runtimeMode === 'native',
     normalizationApplied: currentResult.query.normalization.applied,
     normalizationReason: currentResult.query.normalization.reason,
     normalizationAddedCandidates: currentResult.query.normalization.addedCandidates,
@@ -676,6 +813,7 @@ async function evaluateCase(
 }
 
 async function main() {
+  assertSafeFixtureCorpus();
   const { root, docsDir, notesDir, dbPath } = createFixtureWorkspace();
   writeFixtureDocs(docsDir, notesDir);
   const env = createBenchmarkEnv(root, dbPath);
@@ -704,7 +842,7 @@ async function main() {
     });
 
     const snapshots = await resolveCollectionSnapshots(store);
-    const runtimeCases = [...CORE_CASES, ...CONTROL_CASES, ...QUESTION_CASES];
+    const runtimeCases = [...CORE_CASES, ...CONTROL_CASES, ...LONG_QUERY_CASES];
     const rows = [];
 
     for (const runtime of runtimeCases) {
@@ -726,10 +864,12 @@ async function main() {
       'derivedSignals.adaptiveOnlyGainCount',
       'derivedSignals.assistRescueGainCount',
       'derivedSignals.coreRecallUpliftPct',
+      'derivedSignals.diagnosticLongQueryCount',
+      'derivedSignals.longQueryRecallUpliftPct',
+      'derivedSignals.nativeLongQueryCount',
       'derivedSignals.negativeControlEmptyTop5Rate',
-      'derivedSignals.normalizationAppliedCount',
       'derivedSignals.negativeControlPassRate',
-      'derivedSignals.questionRecallUpliftPct',
+      'derivedSignals.normalizationAppliedCount',
       'derivedSignals.unresolvedCoreMissCount',
       'fixtureVersion',
       'rows',
@@ -742,6 +882,7 @@ async function main() {
       'rows[].adaptive.targetPresentAnyRank',
       'rows[].adaptive.top5Paths',
       'rows[].adaptive.unexpectedTop5Count',
+      'rows[].aggregateScope',
       'rows[].assistApplied',
       'rows[].assistReason',
       'rows[].base',
@@ -762,14 +903,13 @@ async function main() {
       'rows[].current.unexpectedTop5Count',
       'rows[].expectedOutcome',
       'rows[].fetchLimit',
-      'rows[].includedInCoreAggregate',
       'rows[].normalizationAddedCandidates',
       'rows[].normalizationApplied',
       'rows[].normalizationReason',
-      'rows[].query',
       'rows[].queryClass',
       'rows[].runtimeMode',
       'rows[].selectedCollections',
+      'rows[].syntheticLabel',
       'rows[].targetDocs',
       'rows[].winningLayer',
       'schemaVersion',

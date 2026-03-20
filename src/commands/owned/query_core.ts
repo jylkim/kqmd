@@ -54,6 +54,12 @@ export interface QueryCoreOptions {
   readonly defaultCollectionNames?: readonly string[];
 }
 
+export interface QueryCoreDependencies
+  extends QueryRuntimeDependencies,
+    QuerySearchAssistDependencies {
+  readonly now?: () => number;
+}
+
 function buildEmbeddingMismatchAdvisory(expectedModel: string, storedModels: string): string {
   return [
     'Embedding model mismatch detected.',
@@ -83,7 +89,7 @@ export async function executeQueryCore(
   store: QMDStore,
   input: QueryCommandInput,
   env: NodeJS.ProcessEnv = process.env,
-  runtimeDependencies: QueryRuntimeDependencies & QuerySearchAssistDependencies = {},
+  runtimeDependencies: QueryCoreDependencies = {},
   options: QueryCoreOptions = {},
 ): Promise<QueryCoreSuccess | OwnedCommandError> {
   const effectiveModel = describeEffectiveEmbedModel(env);
@@ -168,20 +174,21 @@ export async function executeQueryCore(
     });
   }
 
+  const now = runtimeDependencies.now ?? Date.now;
   const healthPromise = readEmbeddingHealth(store, effectiveModel.uri, {
     collections: selectedCollections,
   }).then(
     (health) => ({ ok: true as const, health }),
     (error) => ({ ok: false as const, error }),
   );
-  const baseSearchStartedAt = Date.now();
+  const baseSearchStartedAt = now();
   const results = await executeOwnedQuerySearch(
     store,
     searchRequest,
     selectedCollections,
     runtimeDependencies,
   );
-  const baseSearchDurationMs = Date.now() - baseSearchStartedAt;
+  const baseSearchDurationMs = now() - baseSearchStartedAt;
   const baseRows = normalizeHybridQueryResults(results);
   let mergedRows = baseRows;
   let normalizationReason: QueryNormalizationReason =

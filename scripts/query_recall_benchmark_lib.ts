@@ -4,20 +4,26 @@ import type {
   SearchAssistReason,
   SearchOutputRow,
 } from '../src/commands/owned/io/types.js';
+import {
+  assertSafeSyntheticLabel,
+  assertSafeSyntheticPath,
+} from './query_recall_fixture_safety.js';
 
-export const QUERY_RECALL_BENCHMARK_DATE = '2026-03-19';
-export const QUERY_RECALL_SCHEMA_VERSION = '2';
-export const QUERY_RECALL_FIXTURE_VERSION = '1';
-export const QUERY_RECALL_DATASET_ID = 'kqmd-query-recall-v1';
+export const QUERY_RECALL_BENCHMARK_DATE = '2026-03-20';
+export const QUERY_RECALL_SCHEMA_VERSION = '3';
+export const QUERY_RECALL_FIXTURE_VERSION = '2';
+export const QUERY_RECALL_DATASET_ID = 'kqmd-query-recall-v2';
 export const TOP_K = 5;
 
-export type QueryRecallCategory = 'spacing' | 'compound' | 'mixed' | 'control' | 'question';
+export type QueryRecallCategory = 'spacing' | 'compound' | 'mixed' | 'long-query' | 'control';
 export type QueryRecallExpectedOutcome = 'hit' | 'miss';
 export type QueryRecallRuntimeMode = 'native' | 'injected-control';
 export type QueryRecallSide = 'upstream-compatible-base' | 'current-kqmd';
+export type QueryRecallAggregateScope = 'core' | 'long-query' | 'excluded';
 
 export interface QueryRecallCase {
   readonly caseId: string;
+  readonly syntheticLabel: string;
   readonly category: QueryRecallCategory;
   readonly expectedOutcome: QueryRecallExpectedOutcome;
   readonly query: string;
@@ -45,16 +51,16 @@ export type WinningLayer =
 
 export interface QueryRecallRow {
   readonly caseId: string;
+  readonly syntheticLabel: string;
   readonly category: QueryRecallCategory;
+  readonly aggregateScope: QueryRecallAggregateScope;
   readonly expectedOutcome: QueryRecallExpectedOutcome;
-  readonly query: string;
   readonly targetDocs: readonly string[];
   readonly acceptableTargets: readonly string[];
   readonly selectedCollections: readonly string[];
   readonly queryClass: QueryClass;
   readonly fetchLimit: number;
   readonly runtimeMode: QueryRecallRuntimeMode;
-  readonly includedInCoreAggregate: boolean;
   readonly normalizationApplied: boolean;
   readonly normalizationReason: QueryNormalizationReason;
   readonly normalizationAddedCandidates: number;
@@ -68,7 +74,7 @@ export interface QueryRecallRow {
 }
 
 export interface QueryRecallAggregateRow {
-  readonly scope: 'core' | 'question';
+  readonly scope: 'core' | 'long-query';
   readonly side: QueryRecallSide;
   readonly hits: number;
   readonly total: number;
@@ -77,7 +83,9 @@ export interface QueryRecallAggregateRow {
 
 export interface QueryRecallDerivedSignals {
   readonly coreRecallUpliftPct: number;
-  readonly questionRecallUpliftPct: number;
+  readonly longQueryRecallUpliftPct: number;
+  readonly nativeLongQueryCount: number;
+  readonly diagnosticLongQueryCount: number;
   readonly adaptiveOnlyGainCount: number;
   readonly assistRescueGainCount: number;
   readonly normalizationAppliedCount: number;
@@ -93,6 +101,27 @@ export interface QueryRecallReport {
   readonly rows: readonly QueryRecallRow[];
   readonly aggregate: readonly QueryRecallAggregateRow[];
   readonly derivedSignals: QueryRecallDerivedSignals;
+}
+
+function assertSafePersistedRows(rows: readonly QueryRecallRow[]): void {
+  for (const row of rows) {
+    assertSafeSyntheticLabel(row.syntheticLabel);
+    for (const targetDoc of row.targetDocs) {
+      assertSafeSyntheticPath(targetDoc);
+    }
+    for (const acceptableTarget of row.acceptableTargets) {
+      assertSafeSyntheticPath(acceptableTarget);
+    }
+    for (const displayPath of row.base.top5Paths) {
+      assertSafeSyntheticPath(displayPath);
+    }
+    for (const displayPath of row.adaptive.top5Paths) {
+      assertSafeSyntheticPath(displayPath);
+    }
+    for (const displayPath of row.current.top5Paths) {
+      assertSafeSyntheticPath(displayPath);
+    }
+  }
 }
 
 function round(value: number): number {
@@ -181,9 +210,13 @@ export function determineWinningLayer(args: {
 }
 
 export function createReport(rows: readonly QueryRecallRow[]): QueryRecallReport {
-  const coreRows = rows.filter((row) => row.includedInCoreAggregate);
-  const questionRows = rows.filter(
-    (row) => row.category === 'question' && row.runtimeMode === 'native',
+  assertSafePersistedRows(rows);
+  const coreRows = rows.filter((row) => row.aggregateScope === 'core');
+  const longQueryRows = rows.filter(
+    (row) => row.category === 'long-query' && row.runtimeMode === 'native',
+  );
+  const diagnosticLongQueryRows = rows.filter(
+    (row) => row.category === 'long-query' && row.runtimeMode === 'injected-control',
   );
   const negativeControlRows = rows.filter(
     (row) => row.category === 'control' && row.expectedOutcome === 'miss',
@@ -222,34 +255,34 @@ export function createReport(rows: readonly QueryRecallRow[]): QueryRecallReport
             ),
     },
     {
-      scope: 'question',
+      scope: 'long-query',
       side: 'upstream-compatible-base',
-      hits: questionRows.filter((row) => didMeetExpectedOutcome(row.base, row.expectedOutcome))
+      hits: longQueryRows.filter((row) => didMeetExpectedOutcome(row.base, row.expectedOutcome))
         .length,
-      total: questionRows.length,
+      total: longQueryRows.length,
       recall:
-        questionRows.length === 0
+        longQueryRows.length === 0
           ? 0
           : round(
-              (questionRows.filter((row) => didMeetExpectedOutcome(row.base, row.expectedOutcome))
+              (longQueryRows.filter((row) => didMeetExpectedOutcome(row.base, row.expectedOutcome))
                 .length /
-                questionRows.length) *
+                longQueryRows.length) *
                 100,
             ),
     },
     {
-      scope: 'question',
+      scope: 'long-query',
       side: 'current-kqmd',
-      hits: questionRows.filter((row) => didMeetExpectedOutcome(row.current, row.expectedOutcome))
+      hits: longQueryRows.filter((row) => didMeetExpectedOutcome(row.current, row.expectedOutcome))
         .length,
-      total: questionRows.length,
+      total: longQueryRows.length,
       recall:
-        questionRows.length === 0
+        longQueryRows.length === 0
           ? 0
           : round(
-              (questionRows.filter((row) => didMeetExpectedOutcome(row.current, row.expectedOutcome))
+              (longQueryRows.filter((row) => didMeetExpectedOutcome(row.current, row.expectedOutcome))
                 .length /
-                questionRows.length) *
+                longQueryRows.length) *
                 100,
             ),
     },
@@ -272,14 +305,13 @@ export function createReport(rows: readonly QueryRecallRow[]): QueryRecallReport
     derivedSignals: {
       coreRecallUpliftPct:
         aggregate[0] && aggregate[1] ? round((aggregate[1].recall ?? 0) - (aggregate[0].recall ?? 0)) : 0,
-      questionRecallUpliftPct:
-        aggregate[2] && aggregate[3]
-          ? round((aggregate[3].recall ?? 0) - (aggregate[2].recall ?? 0))
-          : 0,
-      adaptiveOnlyGainCount: rows.filter((row) => row.winningLayer === 'adaptive-rank-only')
-        .length,
-      assistRescueGainCount: rows.filter((row) => row.winningLayer === 'assist-rescue').length,
-      normalizationAppliedCount: rows.filter((row) => row.normalizationApplied).length,
+      longQueryRecallUpliftPct:
+        aggregate[2] && aggregate[3] ? round((aggregate[3].recall ?? 0) - (aggregate[2].recall ?? 0)) : 0,
+      nativeLongQueryCount: longQueryRows.length,
+      diagnosticLongQueryCount: diagnosticLongQueryRows.length,
+      adaptiveOnlyGainCount: coreRows.filter((row) => row.winningLayer === 'adaptive-rank-only').length,
+      assistRescueGainCount: coreRows.filter((row) => row.winningLayer === 'assist-rescue').length,
+      normalizationAppliedCount: coreRows.filter((row) => row.normalizationApplied).length,
       negativeControlPassRate:
         negativeControlRows.length === 0
           ? 0
@@ -309,17 +341,22 @@ function formatDelta(base: LayerSummary, current: LayerSummary): string {
 }
 
 export function toMarkdown(report: QueryRecallReport): string {
-  const coreRows = report.rows.filter((item) => item.includedInCoreAggregate);
+  const coreRows = report.rows.filter((item) => item.aggregateScope === 'core');
   const controlRows = report.rows.filter((item) => item.category === 'control');
-  const exploratoryRows = report.rows.filter((item) => item.category === 'question');
+  const longQueryRows = report.rows.filter(
+    (item) => item.category === 'long-query' && item.runtimeMode === 'native',
+  );
+  const diagnosticRows = report.rows.filter(
+    (item) => item.category === 'long-query' && item.runtimeMode === 'injected-control',
+  );
   const lines: string[] = [
     '# Korean Query Recall Metrics',
     '',
     `Date: ${QUERY_RECALL_BENCHMARK_DATE}`,
     'Command: `bun run measure:query-recall`',
     '',
-    '이 문서는 upstream-compatible base query 대비 current kqmd query의 한국어 recall 비교 벤치마크다.',
-    'synthetic fixture에서 띄어쓰기 변형, 복합어 분해, 한영 혼합 세 가지 query 패턴의 hit/miss를 비교하고, control/exploratory case는 별도 표로 분리한다.',
+    '이 문서는 upstream-compatible base query 대비 current kqmd query의 한국어 recall correctness 비교 벤치마크다.',
+    'synthetic fixture에서 띄어쓰기 변형, 복합어 분해, 한영 혼합 기술어, 긴 한국어 plain query를 비교하고, control/diagnostic case는 별도 표로 분리한다.',
     '',
     '## Method',
     '',
@@ -331,22 +368,24 @@ export function toMarkdown(report: QueryRecallReport): string {
     '  - `spacing`: 띄어쓰기 변형',
     '  - `compound`: 복합어 분해',
     '  - `mixed`: 한영 혼합 기술어',
+    '  - `long-query`: native long Korean plain query guardrail',
     '- control 카테고리:',
     '  - `conservative-syntax`, `weak-hit`, `ineligible`, `collection-isolation`, `no-target miss`',
-    '- aggregate 범위: core 카테고리만 포함',
+    '- aggregate 범위: core 카테고리에는 native `long-query`가 포함되며, diagnostic injected case와 control은 제외한다',
+    '- persisted surface: benchmark markdown/raw JSON은 synthetic label만 남기고 raw query와 intent는 남기지 않는다',
     '- hit 정의: target 문서의 displayPath가 top-5 결과에 존재',
     '- miss 정의: target 문서가 top-5에 없으면 통과하며, empty top-5 purity는 별도 signal로 본다',
-    '- fixture/runtime: deterministic synthetic fixture, temp HOME/XDG/INDEX isolation, deterministic LLM stub, single-pass serial execution',
+    '- fixture/runtime: deterministic synthetic fixture, temp HOME/XDG/INDEX isolation, deterministic LLM stub, deterministic timing seam, single-pass serial execution',
     '',
     '## Results',
     '',
-    '| Category | Query | Target | base | adaptive | current | Delta |',
+    '| Category | Case | Target | base | adaptive | current | Delta |',
     '|---|---|---|---|---|---|---|',
   ];
 
   for (const row of coreRows) {
     lines.push(
-      `| ${row.category} | ${row.query} | ${row.targetDocs.join(', ')} | ${formatLayer(row.base)} | ${formatLayer(row.adaptive)} | ${formatLayer(row.current)} | ${formatDelta(row.base, row.current)} |`,
+      `| ${row.category} | ${row.syntheticLabel} | ${row.targetDocs.join(', ')} | ${formatLayer(row.base)} | ${formatLayer(row.adaptive)} | ${formatLayer(row.current)} | ${formatDelta(row.base, row.current)} |`,
     );
   }
 
@@ -354,26 +393,40 @@ export function toMarkdown(report: QueryRecallReport): string {
     '',
     '## Controls',
     '',
-    '| Query | Expected | base | current | Assist | Reason |',
+    '| Case | Expected | base | current | Assist | Reason |',
     '|---|---|---|---|---|---|',
   );
 
   for (const row of controlRows) {
     lines.push(
-      `| ${row.query} | ${row.expectedOutcome} | ${formatLayer(row.base)} | ${formatLayer(row.current)} | ${row.assistApplied ? 'yes' : 'no'} | ${row.assistReason} |`,
+      `| ${row.syntheticLabel} | ${row.expectedOutcome} | ${formatLayer(row.base)} | ${formatLayer(row.current)} | ${row.assistApplied ? 'yes' : 'no'} | ${row.assistReason} |`,
     );
   }
 
   lines.push(
     '',
-    '## Exploratory',
+    '## Long Query',
     '',
-    '| Query | Expected | current | Note |',
-    '|---|---|---|---|',
+    '| Case | Target | base | current | In Core |',
+    '|---|---|---|---|---|',
   );
 
-  for (const row of exploratoryRows) {
-    lines.push(`| ${row.query} | ${row.expectedOutcome} | ${formatLayer(row.current)} | exploratory |`);
+  for (const row of longQueryRows) {
+    lines.push(
+      `| ${row.syntheticLabel} | ${row.targetDocs.join(', ')} | ${formatLayer(row.base)} | ${formatLayer(row.current)} | ${row.aggregateScope === 'core' ? 'yes' : 'no'} |`,
+    );
+  }
+
+  lines.push(
+    '',
+    '## Diagnostics',
+    '',
+    '| Case | Current | Mode |',
+    '|---|---|---|',
+  );
+
+  for (const row of diagnosticRows) {
+    lines.push(`| ${row.syntheticLabel} | ${formatLayer(row.current)} | ${row.runtimeMode} |`);
   }
 
   lines.push(
@@ -393,7 +446,9 @@ export function toMarkdown(report: QueryRecallReport): string {
     '## Derived Signals',
     '',
     `- core current recall uplift vs upstream-compatible base: ${formatPercent(report.derivedSignals.coreRecallUpliftPct)}`,
-    `- question current recall uplift vs upstream-compatible base: ${formatPercent(report.derivedSignals.questionRecallUpliftPct)}`,
+    `- long-query current recall uplift vs upstream-compatible base: ${formatPercent(report.derivedSignals.longQueryRecallUpliftPct)}`,
+    `- native long-query count: ${report.derivedSignals.nativeLongQueryCount}`,
+    `- diagnostic long-query count: ${report.derivedSignals.diagnosticLongQueryCount}`,
     `- adaptive-only gain count: ${report.derivedSignals.adaptiveOnlyGainCount}`,
     `- assist-rescue gain count: ${report.derivedSignals.assistRescueGainCount}`,
     `- normalization applied count: ${report.derivedSignals.normalizationAppliedCount}`,
@@ -404,10 +459,11 @@ export function toMarkdown(report: QueryRecallReport): string {
     '## Notes',
     '',
     '- upstream baseline은 실제 upstream CLI subprocess가 아니라 upstream-compatible seam이다.',
-    '- aggregate는 core 카테고리만 포함하고 control/exploratory case는 제외한다.',
+    '- core aggregate는 native `long-query`를 포함하고 control/diagnostic case는 제외한다.',
+    '- benchmark markdown/raw JSON은 synthetic label만 persisted surface로 사용한다.',
     '- assist score normalization은 raw base score-domain과 동치가 아니다.',
     '- rescue dedupe는 `docid || displayPath`, rescue cap은 downstream policy 계약을 따른다.',
-    '- 이 리포트는 recall correctness만 다루며, wall-clock latency/overhead 주장은 의도적으로 제외한다.',
+    '- 이 리포트는 recall correctness만 다루며, wall-clock latency/overhead나 production representativeness 주장은 하지 않는다.',
     '- negative control pass rate는 `expected=miss` control만 포함하며, noise-only 반환은 empty-top5 rate로 따로 본다.',
     '- deterministic fixture를 사용하므로 real vault 일반화에는 제한이 있다.',
     '- raw JSON below is the source-of-truth; markdown tables are derived views.',
@@ -443,7 +499,7 @@ export function toMarkdownSkeleton(markdown: string): string {
     if (
       line.startsWith('| Category |') ||
       line.startsWith('| Scope |') ||
-      line.startsWith('| Query |') ||
+      line.startsWith('| Case |') ||
       line.startsWith('|---')
     ) {
       skeleton.push(line);
