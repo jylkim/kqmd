@@ -5,6 +5,16 @@
 
 ## [Unreleased]
 
+## [2.0.1-kqmd.4] - 2026-03-23
+
+### Changed
+
+- README에 시스템 prerequisites(필수 의존성) 정보 추가
+
+### Refactored
+
+- 벤치마크 네이밍 통일 및 사용자 대면 출력 개선
+
 ## [2.0.1-kqmd.3] - 2026-03-20
 
 ### Added
@@ -62,7 +72,8 @@ upstream `@tobilu/qmd@2.0.1` 기반 K-QMD 최초 릴리스.
 - 중복 코드 통합 및 runtime path alias 수정
 - 빌드/워크플로를 bun 기반으로 전환
 
-[Unreleased]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.3...HEAD
+[Unreleased]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.4...HEAD
+[2.0.1-kqmd.4]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.3...v2.0.1-kqmd.4
 [2.0.1-kqmd.3]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.2...v2.0.1-kqmd.3
 [2.0.1-kqmd.2]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.1...v2.0.1-kqmd.2
 [2.0.1-kqmd.1]: https://github.com/jylkim/kqmd/releases/tag/v2.0.1-kqmd.1
