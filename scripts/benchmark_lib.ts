@@ -7,7 +7,7 @@ import type {
 import {
   assertSafeSyntheticLabel,
   assertSafeSyntheticPath,
-} from './query_recall_fixture_safety.js';
+} from './benchmark_fixture_safety.js';
 
 export const QUERY_RECALL_BENCHMARK_DATE = '2026-03-20';
 export const QUERY_RECALL_SCHEMA_VERSION = '3';
@@ -325,148 +325,161 @@ export function createReport(rows: readonly QueryRecallRow[]): QueryRecallReport
   };
 }
 
-function formatLayer(summary: LayerSummary): string {
-  return summary.hitStatus;
+// ---------------------------------------------------------------------------
+// Display helpers
+// ---------------------------------------------------------------------------
+
+export interface DisplayHints {
+  readonly queries: ReadonlyMap<string, string>;
+  readonly docContents: ReadonlyMap<string, string>;
+}
+
+const CATEGORY_LABELS: Record<QueryRecallCategory, string> = {
+  spacing: '띄어쓰기',
+  compound: '복합어',
+  mixed: '한영 혼합',
+  'long-query': '긴 쿼리',
+  control: 'control',
+};
+
+export function formatDocExcerpt(
+  docContent: string,
+  query: string,
+  maxLength = 50,
+): string {
+  const bodyLines = docContent
+    .split('\n')
+    .filter((line) => !line.startsWith('#') && line.trim().length > 0);
+
+  const lowerQuery = query.toLowerCase();
+
+  for (const line of bodyLines) {
+    const idx = line.toLowerCase().indexOf(lowerQuery);
+    if (idx >= 0) {
+      const truncated =
+        line.length > maxLength ? line.slice(0, maxLength) : line;
+      const suffix = line.length > maxLength ? '...' : '';
+      const matchEnd = idx + query.length;
+      if (matchEnd <= truncated.length) {
+        return (
+          truncated.slice(0, idx) +
+          '**' +
+          truncated.slice(idx, matchEnd) +
+          '**' +
+          truncated.slice(matchEnd) +
+          suffix
+        );
+      }
+      return truncated + suffix;
+    }
+  }
+
+  const first = bodyLines[0] ?? '';
+  return first.length > maxLength ? first.slice(0, maxLength) + '...' : first;
+}
+
+function formatHit(summary: LayerSummary, isGain: boolean): string {
+  if (summary.hitStatus === 'miss') return 'miss';
+  return isGain ? `**${summary.hitStatus}**` : summary.hitStatus;
 }
 
 function formatPercent(value: number): string {
   return `${round(value)}%`;
 }
 
-function formatDelta(base: LayerSummary, current: LayerSummary): string {
-  const baseHit = base.targetInTop5 ? 1 : 0;
-  const currentHit = current.targetInTop5 ? 1 : 0;
-  const delta = currentHit - baseHit;
-  return delta > 0 ? `+${delta}` : `${delta}`;
+function formatAggregateSide(side: QueryRecallSide): string {
+  return side === 'upstream-compatible-base' ? 'QMD' : 'K-QMD';
 }
 
-export function toMarkdown(report: QueryRecallReport): string {
+export function toMarkdown(report: QueryRecallReport, hints?: DisplayHints): string {
   const coreRows = report.rows.filter((item) => item.aggregateScope === 'core');
   const controlRows = report.rows.filter((item) => item.category === 'control');
-  const longQueryRows = report.rows.filter(
-    (item) => item.category === 'long-query' && item.runtimeMode === 'native',
-  );
-  const diagnosticRows = report.rows.filter(
-    (item) => item.category === 'long-query' && item.runtimeMode === 'injected-control',
-  );
+
   const lines: string[] = [
-    '# Korean Query Recall Metrics',
+    '# Korean Query Recall Benchmark',
     '',
     `Date: ${QUERY_RECALL_BENCHMARK_DATE}`,
-    'Command: `bun run measure:query-recall`',
+    'Command: `bun run benchmark:query-recall`',
     '',
-    '이 문서는 upstream-compatible base query 대비 current kqmd query의 한국어 recall correctness 비교 벤치마크다.',
-    'synthetic fixture에서 띄어쓰기 변형, 복합어 분해, 한영 혼합 기술어, 긴 한국어 plain query를 비교하고, control/diagnostic case는 별도 표로 분리한다.',
+    'QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입니다.',
+    '띄어쓰기 변형, 복합어, 한영 혼합, 긴 한국어 질문에서 QMD 대비 K-QMD의 검색 결과를 비교합니다.',
     '',
-    '## Method',
+    '## 테스트 방법',
     '',
-    '- 비교 레이어:',
-    '  - `base`: upstream-compatible base query',
-    '  - `adaptive`: base candidate set에 adaptive rerank만 적용한 결과',
-    '  - `current`: current kqmd query path (`adaptive+assist`)',
-    '- 핵심 카테고리:',
-    '  - `spacing`: 띄어쓰기 변형',
-    '  - `compound`: 복합어 분해',
-    '  - `mixed`: 한영 혼합 기술어',
-    '  - `long-query`: native long Korean plain query guardrail',
-    '- control 카테고리:',
-    '  - `conservative-syntax`, `weak-hit`, `ineligible`, `collection-isolation`, `no-target miss`',
-    '- aggregate 범위: core 카테고리에는 native `long-query`가 포함되며, diagnostic injected case와 control은 제외한다',
-    '- persisted surface: benchmark markdown/raw JSON은 synthetic label만 남기고 raw query와 intent는 남기지 않는다',
-    '- hit 정의: target 문서의 displayPath가 top-5 결과에 존재',
-    '- miss 정의: target 문서가 top-5에 없으면 통과하며, empty top-5 purity는 별도 signal로 본다',
-    '- fixture/runtime: deterministic synthetic fixture, temp HOME/XDG/INDEX isolation, deterministic LLM stub, deterministic timing seam, single-pass serial execution',
+    '- synthetic fixture 문서에 대해 QMD와 K-QMD의 query 결과를 비교합니다.',
+    '- hit: target 문서가 상위 5개 결과에 포함되면 검색 성공입니다.',
+    '- miss: target 문서가 상위 5개 결과에 없으면 검색 실패입니다.',
     '',
-    '## Results',
+    '## 결과',
     '',
-    '| Category | Case | Target | base | adaptive | current | Delta |',
-    '|---|---|---|---|---|---|---|',
   ];
 
+  const queryLabel = hints ? '쿼리' : 'Case';
+  const docLabel = hints ? '문서 내용' : 'Target';
+
+  lines.push(
+    `| 패턴 | ${queryLabel} | ${docLabel} | QMD | K-QMD |`,
+    '|---|---|---|:---:|:---:|',
+  );
+
   for (const row of coreRows) {
+    const query = hints?.queries.get(row.caseId) ?? row.syntheticLabel;
+    const targetDoc = row.targetDocs[0] ?? '';
+    const docContent = hints?.docContents.get(targetDoc);
+    const col3 = docContent
+      ? formatDocExcerpt(docContent, query)
+      : row.targetDocs.join(', ');
+    const isGain = row.base.hitStatus === 'miss' && row.current.targetInTop5;
+
     lines.push(
-      `| ${row.category} | ${row.syntheticLabel} | ${row.targetDocs.join(', ')} | ${formatLayer(row.base)} | ${formatLayer(row.adaptive)} | ${formatLayer(row.current)} | ${formatDelta(row.base, row.current)} |`,
+      `| ${CATEGORY_LABELS[row.category]} | ${query} | ${col3} | ${row.base.hitStatus} | ${formatHit(row.current, isGain)} |`,
     );
   }
 
-  lines.push(
-    '',
-    '## Controls',
-    '',
-    '| Case | Expected | base | current | Assist | Reason |',
-    '|---|---|---|---|---|---|',
-  );
-
-  for (const row of controlRows) {
+  // Controls
+  if (controlRows.length > 0) {
     lines.push(
-      `| ${row.syntheticLabel} | ${row.expectedOutcome} | ${formatLayer(row.base)} | ${formatLayer(row.current)} | ${row.assistApplied ? 'yes' : 'no'} | ${row.assistReason} |`,
+      '',
+      '## 검증용 테스트',
+      '',
+      `| ${queryLabel} | 예상 | QMD | K-QMD | 설명 |`,
+      '|---|---|:---:|:---:|---|',
     );
+
+    for (const row of controlRows) {
+      const query = hints?.queries.get(row.caseId) ?? row.syntheticLabel;
+      lines.push(
+        `| ${query} | ${row.expectedOutcome} | ${row.base.hitStatus} | ${row.current.hitStatus} | ${row.assistReason} |`,
+      );
+    }
   }
+
+  // Aggregate
+  const coreAggregate = report.aggregate.filter((row) => row.scope === 'core');
 
   lines.push(
     '',
-    '## Long Query',
+    '## 요약',
     '',
-    '| Case | Target | base | current | In Core |',
-    '|---|---|---|---|---|',
+    '| | Hits | Total | Recall |',
+    '|---|---:|---:|---:|',
   );
 
-  for (const row of longQueryRows) {
-    lines.push(
-      `| ${row.syntheticLabel} | ${row.targetDocs.join(', ')} | ${formatLayer(row.base)} | ${formatLayer(row.current)} | ${row.aggregateScope === 'core' ? 'yes' : 'no'} |`,
-    );
+  for (const row of coreAggregate) {
+    const label = formatAggregateSide(row.side);
+    const recall =
+      row.recall === 100 ? `**${formatPercent(row.recall)}**` : formatPercent(row.recall);
+    lines.push(`| ${label} | ${row.hits} | ${row.total} | ${recall} |`);
   }
 
+  // Notes
   lines.push(
-    '',
-    '## Diagnostics',
-    '',
-    '| Case | Current | Mode |',
-    '|---|---|---|',
-  );
-
-  for (const row of diagnosticRows) {
-    lines.push(`| ${row.syntheticLabel} | ${formatLayer(row.current)} | ${row.runtimeMode} |`);
-  }
-
-  lines.push(
-    '',
-    '## Aggregate',
-    '',
-    '| Scope | Side | Hits | Total | Recall |',
-    '|---|---|---:|---:|---:|',
-  );
-
-  for (const row of report.aggregate) {
-    lines.push(`| ${row.scope} | ${row.side} | ${row.hits} | ${row.total} | ${formatPercent(row.recall)} |`);
-  }
-
-  lines.push(
-    '',
-    '## Derived Signals',
-    '',
-    `- core current recall uplift vs upstream-compatible base: ${formatPercent(report.derivedSignals.coreRecallUpliftPct)}`,
-    `- long-query current recall uplift vs upstream-compatible base: ${formatPercent(report.derivedSignals.longQueryRecallUpliftPct)}`,
-    `- native long-query count: ${report.derivedSignals.nativeLongQueryCount}`,
-    `- diagnostic long-query count: ${report.derivedSignals.diagnosticLongQueryCount}`,
-    `- adaptive-only gain count: ${report.derivedSignals.adaptiveOnlyGainCount}`,
-    `- assist-rescue gain count: ${report.derivedSignals.assistRescueGainCount}`,
-    `- normalization applied count: ${report.derivedSignals.normalizationAppliedCount}`,
-    `- negative control pass rate: ${formatPercent(report.derivedSignals.negativeControlPassRate)}`,
-    `- negative control empty-top5 rate: ${formatPercent(report.derivedSignals.negativeControlEmptyTop5Rate)}`,
-    `- unresolved core miss count: ${report.derivedSignals.unresolvedCoreMissCount}`,
     '',
     '## Notes',
     '',
-    '- upstream baseline은 실제 upstream CLI subprocess가 아니라 upstream-compatible seam이다.',
-    '- core aggregate는 native `long-query`를 포함하고 control/diagnostic case는 제외한다.',
-    '- benchmark markdown/raw JSON은 synthetic label만 persisted surface로 사용한다.',
-    '- assist score normalization은 raw base score-domain과 동치가 아니다.',
-    '- rescue dedupe는 `docid || displayPath`, rescue cap은 downstream policy 계약을 따른다.',
-    '- 이 리포트는 recall correctness만 다루며, wall-clock latency/overhead나 production representativeness 주장은 하지 않는다.',
-    '- negative control pass rate는 `expected=miss` control만 포함하며, noise-only 반환은 empty-top5 rate로 따로 본다.',
-    '- deterministic fixture를 사용하므로 real vault 일반화에는 제한이 있다.',
-    '- raw JSON below is the source-of-truth; markdown tables are derived views.',
+    '- deterministic synthetic fixture를 사용하므로 실제 vault와 결과가 다를 수 있습니다.',
+    '- 이 벤치마크는 recall correctness만 다루며, 응답 시간은 측정하지 않습니다.',
+    '- 아래 JSON은 전체 측정 데이터입니다.',
     '',
     '```json',
     JSON.stringify(report, null, 2),
@@ -497,9 +510,10 @@ export function toMarkdownSkeleton(markdown: string): string {
     }
 
     if (
-      line.startsWith('| Category |') ||
-      line.startsWith('| Scope |') ||
+      line.startsWith('| 패턴 |') ||
+      line.startsWith('| 쿼리 |') ||
       line.startsWith('| Case |') ||
+      line.startsWith('| |') ||
       line.startsWith('|---')
     ) {
       skeleton.push(line);
@@ -511,7 +525,10 @@ export function toMarkdownSkeleton(markdown: string): string {
       continue;
     }
 
-    if (line.startsWith('이 문서는 ') || line.startsWith('synthetic fixture에서 ')) {
+    if (
+      line.startsWith('QMD의 ') ||
+      line.startsWith('띄어쓰기 변형')
+    ) {
       skeleton.push(line);
       continue;
     }

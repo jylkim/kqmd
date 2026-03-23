@@ -5,7 +5,7 @@ import {
   type QueryRecallRow,
   toMarkdown,
   toMarkdownSkeleton,
-} from '../scripts/query_recall_benchmark_lib.js';
+} from '../scripts/benchmark_lib.js';
 
 function createSampleRow(overrides: Partial<QueryRecallRow> = {}): QueryRecallRow {
   return {
@@ -129,64 +129,28 @@ describe('query recall benchmark helpers', () => {
     ]);
 
     expect(toMarkdownSkeleton(toMarkdown(report))).toMatchInlineSnapshot(`
-      "# Korean Query Recall Metrics
+      "# Korean Query Recall Benchmark
       Date: <date>
-      Command: \`bun run measure:query-recall\`
-      이 문서는 upstream-compatible base query 대비 current kqmd query의 한국어 recall correctness 비교 벤치마크다.
-      synthetic fixture에서 띄어쓰기 변형, 복합어 분해, 한영 혼합 기술어, 긴 한국어 plain query를 비교하고, control/diagnostic case는 별도 표로 분리한다.
-      ## Method
-      - 비교 레이어:
-        - \`base\`: upstream-compatible base query
-        - \`adaptive\`: base candidate set에 adaptive rerank만 적용한 결과
-        - \`current\`: current kqmd query path (\`adaptive+assist\`)
-      - 핵심 카테고리:
-        - \`spacing\`: 띄어쓰기 변형
-        - \`compound\`: 복합어 분해
-        - \`mixed\`: 한영 혼합 기술어
-        - \`long-query\`: native long Korean plain query guardrail
-      - control 카테고리:
-        - \`conservative-syntax\`, \`weak-hit\`, \`ineligible\`, \`collection-isolation\`, \`no-target miss\`
-      - aggregate 범위: core 카테고리에는 native \`long-query\`가 포함되며, diagnostic injected case와 control은 제외한다
-      - persisted surface: benchmark markdown/raw JSON은 synthetic label만 남기고 raw query와 intent는 남기지 않는다
-      - hit 정의: target 문서의 displayPath가 top-<n> 결과에 존재
-      - miss 정의: target 문서가 top-<n>에 없으면 통과하며, empty top-<n> purity는 별도 signal로 본다
-      - fixture/runtime: deterministic synthetic fixture, temp HOME/XDG/INDEX isolation, deterministic LLM stub, deterministic timing seam, single-pass serial execution
-      ## Results
-      | Category | Case | Target | base | adaptive | current | Delta |
-      |---|---|---|---|---|---|---|
-      ## Controls
-      | Case | Expected | base | current | Assist | Reason |
-      |---|---|---|---|---|---|
-      ## Long Query
-      | Case | Target | base | current | In Core |
-      |---|---|---|---|---|
-      ## Diagnostics
-      | Case | Current | Mode |
-      |---|---|---|
-      ## Aggregate
-      | Scope | Side | Hits | Total | Recall |
-      |---|---|---:|---:|---:|
-      ## Derived Signals
-      - core current recall uplift vs upstream-compatible base: <n>%
-      - long-query current recall uplift vs upstream-compatible base: <n>%
-      - native long-query count: <n>
-      - diagnostic long-query count: <n>
-      - adaptive-only gain count: <n>
-      - assist-rescue gain count: <n>
-      - normalization applied count: <n>
-      - negative control pass rate: <n>%
-      - negative control empty-top<n> rate: <n>%
-      - unresolved core miss count: <n>
+      Command: \`bun run benchmark:query-recall\`
+      QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입니다.
+      띄어쓰기 변형, 복합어, 한영 혼합, 긴 한국어 질문에서 QMD 대비 K-QMD의 검색 결과를 비교합니다.
+      ## 테스트 방법
+      - synthetic fixture 문서에 대해 QMD와 K-QMD의 query 결과를 비교합니다.
+      - hit: target 문서가 상위 <n>개 결과에 포함되면 검색 성공입니다.
+      - miss: target 문서가 상위 <n>개 결과에 없으면 검색 실패입니다.
+      ## 결과
+      | 패턴 | Case | Target | QMD | K-QMD |
+      |---|---|---|:---:|:---:|
+      ## 검증용 테스트
+      | Case | 예상 | QMD | K-QMD | 설명 |
+      |---|---|:---:|:---:|---|
+      ## 요약
+      | | Hits | Total | Recall |
+      |---|---:|---:|---:|
       ## Notes
-      - upstream baseline은 실제 upstream CLI subprocess가 아니라 upstream-compatible seam이다.
-      - core aggregate는 native \`long-query\`를 포함하고 control/diagnostic case는 제외한다.
-      - benchmark markdown/raw JSON은 synthetic label만 persisted surface로 사용한다.
-      - assist score normalization은 raw base score-domain과 동치가 아니다.
-      - rescue dedupe는 \`docid || displayPath\`, rescue cap은 downstream policy 계약을 따른다.
-      - 이 리포트는 recall correctness만 다루며, wall-clock latency/overhead나 production representativeness 주장은 하지 않는다.
-      - negative control pass rate는 \`expected=miss\` control만 포함하며, noise-only 반환은 empty-top<n> rate로 따로 본다.
-      - deterministic fixture를 사용하므로 real vault 일반화에는 제한이 있다.
-      - raw JSON below is the source-of-truth; markdown tables are derived views.
+      - deterministic synthetic fixture를 사용하므로 실제 vault와 결과가 다를 수 있습니다.
+      - 이 벤치마크는 recall correctness만 다루며, 응답 시간은 측정하지 않습니다.
+      - 아래 JSON은 전체 측정 데이터입니다.
       \`\`\`json
         "schemaVersion": "<version>",
         "fixtureVersion": "<version>",

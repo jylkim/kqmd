@@ -1,102 +1,54 @@
-# Korean Query Recall Metrics
+# Korean Query Recall Benchmark
 
 Date: 2026-03-20
-Command: `bun run measure:query-recall`
+Command: `bun run benchmark:query-recall`
 
-이 문서는 upstream-compatible base query 대비 current kqmd query의 한국어 recall correctness 비교 벤치마크다.
-synthetic fixture에서 띄어쓰기 변형, 복합어 분해, 한영 혼합 기술어, 긴 한국어 plain query를 비교하고, control/diagnostic case는 별도 표로 분리한다.
+QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입니다.
+띄어쓰기 변형, 복합어, 한영 혼합, 긴 한국어 질문에서 QMD 대비 K-QMD의 검색 결과를 비교합니다.
 
-## Method
+## 테스트 방법
 
-- 비교 레이어:
-  - `base`: upstream-compatible base query
-  - `adaptive`: base candidate set에 adaptive rerank만 적용한 결과
-  - `current`: current kqmd query path (`adaptive+assist`)
-- 핵심 카테고리:
-  - `spacing`: 띄어쓰기 변형
-  - `compound`: 복합어 분해
-  - `mixed`: 한영 혼합 기술어
-  - `long-query`: native long Korean plain query guardrail
-- control 카테고리:
-  - `conservative-syntax`, `weak-hit`, `ineligible`, `collection-isolation`, `no-target miss`
-- aggregate 범위: core 카테고리에는 native `long-query`가 포함되며, diagnostic injected case와 control은 제외한다
-- persisted surface: benchmark markdown/raw JSON은 synthetic label만 남기고 raw query와 intent는 남기지 않는다
-- hit 정의: target 문서의 displayPath가 top-5 결과에 존재
-- miss 정의: target 문서가 top-5에 없으면 통과하며, empty top-5 purity는 별도 signal로 본다
-- fixture/runtime: deterministic synthetic fixture, temp HOME/XDG/INDEX isolation, deterministic LLM stub, deterministic timing seam, single-pass serial execution
+- synthetic fixture 문서에 대해 QMD와 K-QMD의 query 결과를 비교합니다.
+- hit: target 문서가 상위 5개 결과에 포함되면 검색 성공입니다.
+- miss: target 문서가 상위 5개 결과에 없으면 검색 실패입니다.
 
-## Results
+## 결과
 
-| Category | Case | Target | base | adaptive | current | Delta |
-|---|---|---|---|---|---|---|
-| spacing | spacing-adaptive | docs/spacing-adaptive-target.md | hit@2 | hit@2 | hit@2 | 0 |
-| spacing | spacing-rescue-upload | docs/spacing-rescue-upload.md | miss | miss | hit@3 | +1 |
-| compound | compound-orchestration | docs/compound-orchestration.md | miss | miss | hit@2 | +1 |
-| compound | compound-analysis | docs/compound-analysis.md | hit@1 | hit@1 | hit@1 | 0 |
-| mixed | mixed-schema | docs/mixed-schema.md | miss | miss | hit@2 | +1 |
-| mixed | mixed-auth | docs/mixed-auth.md | miss | miss | hit@1 | +1 |
-| long-query | long-query-question-upload | docs/question-upload.md | miss | miss | hit@3 | +1 |
-| long-query | long-query-descriptive-upload | docs/long-query-upload-overview.md | hit@1 | hit@1 | hit@1 | 0 |
-| long-query | long-query-normalization-rescue | docs/long-query-normalized-upload.md | miss | miss | hit@1 | +1 |
+| 패턴 | 쿼리 | 문서 내용 | QMD | K-QMD |
+|---|---|---|:---:|:---:|
+| 띄어쓰기 | 지속 학습 | **지속 학습** 워크플로우를 짧게 정리합니다. | hit@2 | hit@2 |
+| 띄어쓰기 | 문서 업로드 파싱 | 문서업로드파서와 업로드파싱기 동작을 설명합니다. | miss | **hit@3** |
+| 복합어 | 오케스트레이션 | 컨테이너**오케스트레이션** 환경에서 shadow index를 운영합니다. | miss | **hit@2** |
+| 복합어 | 분석 | 형태소**분석**기와 텍스트정규화기를 비교합니다. | hit@1 | hit@1 |
+| 한영 혼합 | schema 마이그레이션 | Schema마이그레이션 절차와 rollback 전략을 문서화합니다. | miss | **hit@2** |
+| 한영 혼합 | oauth 인증 | OAuth인증 flow와 callback 정책을 설명합니다. | miss | **hit@1** |
+| 긴 쿼리 | 문서 업로드 파싱은 어떻게 동작해? | 문서 업로드 파싱 단계와 indexing 흐름을 설명합니다. | miss | **hit@3** |
+| 긴 쿼리 | 문서 업로드 파싱 동작 단계를 정리한 문서 | 문서 업로드 파싱 동작 단계를 정리한 개요 문서입니다. | hit@1 | hit@1 |
+| 긴 쿼리 | 문서 업로드 파싱은 어떻게 설명해줘? | 문서 업로드 파싱 단계와 parser 흐름을 설명합니다. | miss | **hit@1** |
 
-## Controls
+## 검증용 테스트
 
-| Case | Expected | base | current | Assist | Reason |
-|---|---|---|---|---|---|
-| control-quoted | hit | hit@1 | hit@1 | no | conservative-syntax |
-| control-negated | hit | hit@2 | hit@2 | no | ineligible |
-| control-ineligible | hit | hit@1 | hit@1 | no | ineligible |
-| control-collection-isolation | miss | miss | miss | no | weak-hit |
-| control-no-target | miss | miss | miss | no | weak-hit |
-| control-weak-hit | miss | miss | miss | no | weak-hit |
+| 쿼리 | 예상 | QMD | K-QMD | 설명 |
+|---|---|:---:|:---:|---|
+| "지속 학습" | hit | hit@1 | hit@1 | conservative-syntax |
+| 지속 학습 -파이프라인 | hit | hit@2 | hit@2 | ineligible |
+| what's new | hit | hit@1 | hit@1 | ineligible |
+| 오케스트레이션 | miss | miss | miss | weak-hit |
+| 양자 방화벽 | miss | miss | miss | weak-hit |
+| 분산 추론 | miss | miss | miss | weak-hit |
 
-## Long Query
+## 요약
 
-| Case | Target | base | current | In Core |
-|---|---|---|---|---|
-| long-query-question-upload | docs/question-upload.md | miss | hit@3 | yes |
-| long-query-descriptive-upload | docs/long-query-upload-overview.md | hit@1 | hit@1 | yes |
-| long-query-normalization-rescue | docs/long-query-normalized-upload.md | miss | hit@1 | yes |
-
-## Diagnostics
-
-| Case | Current | Mode |
-|---|---|---|
-| diagnostic-long-query-adaptive-showcase | hit@1 | injected-control |
-
-## Aggregate
-
-| Scope | Side | Hits | Total | Recall |
-|---|---|---:|---:|---:|
-| core | upstream-compatible-base | 3 | 9 | 33.33% |
-| core | current-kqmd | 9 | 9 | 100% |
-| long-query | upstream-compatible-base | 1 | 3 | 33.33% |
-| long-query | current-kqmd | 3 | 3 | 100% |
-
-## Derived Signals
-
-- core current recall uplift vs upstream-compatible base: 66.67%
-- long-query current recall uplift vs upstream-compatible base: 66.67%
-- native long-query count: 3
-- diagnostic long-query count: 1
-- adaptive-only gain count: 0
-- assist-rescue gain count: 4
-- normalization applied count: 2
-- negative control pass rate: 100%
-- negative control empty-top5 rate: 100%
-- unresolved core miss count: 0
+| | Hits | Total | Recall |
+|---|---:|---:|---:|
+| QMD | 3 | 9 | 33.33% |
+| K-QMD | 9 | 9 | **100%** |
 
 ## Notes
 
-- upstream baseline은 실제 upstream CLI subprocess가 아니라 upstream-compatible seam이다.
-- core aggregate는 native `long-query`를 포함하고 control/diagnostic case는 제외한다.
-- benchmark markdown/raw JSON은 synthetic label만 persisted surface로 사용한다.
-- assist score normalization은 raw base score-domain과 동치가 아니다.
-- rescue dedupe는 `docid || displayPath`, rescue cap은 downstream policy 계약을 따른다.
-- 이 리포트는 recall correctness만 다루며, wall-clock latency/overhead나 production representativeness 주장은 하지 않는다.
-- negative control pass rate는 `expected=miss` control만 포함하며, noise-only 반환은 empty-top5 rate로 따로 본다.
-- deterministic fixture를 사용하므로 real vault 일반화에는 제한이 있다.
-- raw JSON below is the source-of-truth; markdown tables are derived views.
+- deterministic synthetic fixture를 사용하므로 실제 vault와 결과가 다를 수 있습니다.
+- 이 벤치마크는 recall correctness만 다루며, 응답 시간은 측정하지 않습니다.
+- 아래 JSON은 전체 측정 데이터입니다.
 
 ```json
 {

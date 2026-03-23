@@ -9,6 +9,7 @@ import {
   searchShadowIndex,
 } from '../src/commands/owned/search_shadow_index.js';
 import { describeEffectiveSearchPolicy } from '../src/config/search_policy.js';
+import { formatDocExcerpt } from './benchmark_lib.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -317,94 +318,108 @@ async function measureRecall(): Promise<{
 // Output formatting
 // ---------------------------------------------------------------------------
 
+const CATEGORY_LABELS: Record<Category, string> = {
+  compound: '복합어',
+  particle: '조사',
+  mixed: '한영 혼합',
+  baseline: '기준선',
+};
+
 function toMarkdown(
   rows: readonly RecallRow[],
   aggregate: readonly AggregateRow[],
 ): string {
   const today = new Date().toISOString().slice(0, 10);
+  const coreRows = rows.filter((r) => r.category !== 'baseline');
+  const baselineRows = rows.filter((r) => r.category === 'baseline');
+  const docContents = new Map(
+    Object.entries(TARGET_DOCS).map(([k, v]) => [`docs/${k}`, v]),
+  );
+
   const lines: string[] = [];
 
-  lines.push('# Korean Recall Comparison Metrics');
+  lines.push('# Korean Search Recall Benchmark');
   lines.push('');
   lines.push(`Date: ${today}`);
-  lines.push('Command: `bun run measure:recall-comparison`');
+  lines.push('Command: `bun run benchmark:search-recall`');
   lines.push('');
   lines.push(
-    '이 문서는 upstream qmd FTS5 대비 kqmd shadow index의 한국어 recall 비교 벤치마크다.',
+    'QMD의 search 명령에서 한국어 검색 품질을 비교한 벤치마크입니다.',
   );
   lines.push(
-    'synthetic fixture에서 복합어 분리, 조사 제거, 한영 혼합 세 가지 한국어 패턴의 hit/miss를 비교한다.',
+    '복합어 분리, 조사 제거, 한영 혼합 세 가지 한국어 패턴에서 QMD 대비 K-QMD의 검색 결과를 비교합니다.',
   );
   lines.push('');
 
   // Method
-  lines.push('## Method');
+  lines.push('## 테스트 방법');
   lines.push('');
-  lines.push(`- fixture 규모: target 문서 ${Object.keys(TARGET_DOCS).length}개 + noise 문서 10개`);
-  lines.push('- 패턴 카테고리:');
-  lines.push('  - `compound`: 복합어 분리 (형태소분석기 → 형태소+분석)');
-  lines.push('  - `particle`: 조사 제거 (에이전트가 → 에이전트)');
-  lines.push('  - `mixed`: 한영 혼합 (API연동 → API+연동)');
-  lines.push('  - `baseline`: 양쪽 모두 매칭되는 기준 쿼리');
-  lines.push('- hit 정의: target 문서의 displayPath가 결과 목록(limit=20)에 존재');
-  lines.push(
-    '- tokenizer: deterministic stub 사용 (Kiwi 모델 다운로드 불필요)',
-  );
-  lines.push(
-    '- query 전달: 양쪽 모두 동일한 raw query string 사용 (index-side projection 효과만 격리 측정)',
-  );
+  lines.push(`- synthetic fixture 문서 ${Object.keys(TARGET_DOCS).length}개 + noise 문서 10개에 대해 QMD와 K-QMD의 search 결과를 비교합니다.`);
+  lines.push('- hit: target 문서가 검색 결과(limit=20)에 포함되면 검색 성공입니다.');
+  lines.push('- miss: target 문서가 검색 결과에 없으면 검색 실패입니다.');
   lines.push('');
 
   // Results table
-  lines.push('## Results');
+  lines.push('## 결과');
   lines.push('');
-  lines.push('| Category | Query | Target | upstream | shadow | Delta |');
-  lines.push('|---|---|---|---|---|---|');
+  lines.push('| 패턴 | 쿼리 | 문서 내용 | QMD | K-QMD |');
+  lines.push('|---|---|---|:---:|:---:|');
 
-  for (const row of rows) {
+  for (const row of coreRows) {
+    const docContent = docContents.get(row.targetDoc) ?? '';
+    const excerpt = docContent
+      ? formatDocExcerpt(docContent, row.query)
+      : row.targetDoc;
     const upstream = row.upstreamHit ? 'hit' : 'miss';
-    const shadow = row.shadowHit ? 'hit' : 'miss';
-    const delta = row.shadowHit && !row.upstreamHit ? '+1' : row.upstreamHit && !row.shadowHit ? '-1' : '0';
-    lines.push(
-      `| ${row.category} | ${row.query} | ${row.targetDoc} | ${upstream} | ${shadow} | ${delta} |`,
-    );
+    const isGain = row.shadowHit && !row.upstreamHit;
+    const shadow = row.shadowHit ? (isGain ? '**hit**' : 'hit') : 'miss';
+    const category = CATEGORY_LABELS[row.category] ?? row.category;
+    lines.push(`| ${category} | ${row.query} | ${excerpt} | ${upstream} | ${shadow} |`);
+  }
+
+  lines.push('');
+
+  // Baseline
+  lines.push('### 기준선 (양쪽 모두 hit)');
+  lines.push('');
+  lines.push('| 쿼리 | 문서 내용 | QMD | K-QMD |');
+  lines.push('|---|---|:---:|:---:|');
+
+  for (const row of baselineRows) {
+    const docContent = docContents.get(row.targetDoc) ?? '';
+    const excerpt = docContent
+      ? formatDocExcerpt(docContent, row.query)
+      : row.targetDoc;
+    lines.push(`| ${row.query} | ${excerpt} | hit | hit |`);
   }
 
   lines.push('');
 
   // Aggregate table
-  lines.push('## Aggregate');
+  lines.push('## 요약');
   lines.push('');
-  lines.push('| Side | Hits | Total | Recall |');
+  lines.push('| | Hits | Total | Recall |');
   lines.push('|---|---:|---:|---:|');
 
   for (const row of aggregate) {
-    lines.push(`| ${row.side} | ${row.hits} | ${row.total} | ${row.recall}% |`);
+    const label = row.side === 'upstream' ? 'QMD' : 'K-QMD';
+    const recall =
+      row.recall === 100 ? `**${row.recall}%**` : `${row.recall}%`;
+    lines.push(`| ${label} | ${row.hits} | ${row.total} | ${recall} |`);
   }
 
-  lines.push('');
-
-  // Derived signals
-  const upstreamRecall = aggregate.find((a) => a.side === 'upstream')!.recall;
-  const shadowRecall = aggregate.find((a) => a.side === 'shadow')!.recall;
-
-  lines.push('## Derived Signals');
-  lines.push('');
-  lines.push(`- Shadow recall uplift: +${shadowRecall - upstreamRecall}pp`);
   lines.push('');
 
   // Notes
   lines.push('## Notes');
   lines.push('');
   lines.push(
-    "- shadow table은 `tokenize='porter unicode61'`, upstream은 `unicode61`을 사용한다. 영어 토큰에서 porter stemming이 shadow에 유리하게 작용할 수 있으나, 이 벤치마크의 핵심 비교 대상은 한국어 패턴이다.",
+    '- deterministic tokenize stub를 사용하므로, 실제 Kiwi 형태소 분석과 결과가 다를 수 있습니다.',
   );
   lines.push(
-    '- deterministic tokenize stub를 사용하므로, 실제 Kiwi 형태소 분석과 결과가 다를 수 있다. 이 벤치마크는 shadow index projection 메커니즘의 recall 효과를 측정한다.',
+    '- 기준선 카테고리는 양쪽 모두 hit이어야 하는 sanity check 쿼리입니다.',
   );
-  lines.push(
-    '- baseline 카테고리는 양쪽 모두 hit이어야 하는 sanity check 쿼리다.',
-  );
+  lines.push('- 아래 JSON은 전체 측정 데이터입니다.');
   lines.push('');
 
   return lines.join('\n');

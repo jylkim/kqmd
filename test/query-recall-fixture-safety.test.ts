@@ -4,7 +4,7 @@ import {
   assertSafeSyntheticPath,
   assertSafeSyntheticText,
   assertSafeSyntheticTexts,
-} from '../scripts/query_recall_fixture_safety.js';
+} from '../scripts/benchmark_fixture_safety.js';
 
 describe('query recall fixture safety', () => {
   test('accepts safe synthetic benchmark content', () => {

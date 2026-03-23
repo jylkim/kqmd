@@ -16,16 +16,17 @@ import {
   collectJsonKeyPaths,
   createReport,
   determineWinningLayer,
+  type DisplayHints,
   type QueryRecallAggregateScope,
   type QueryRecallCase,
   summarizeLayer,
   toMarkdown,
-} from './query_recall_benchmark_lib.js';
+} from './benchmark_lib.js';
 import {
   assertSafeSyntheticLabel,
   assertSafeSyntheticPath,
   assertSafeSyntheticTexts,
-} from './query_recall_fixture_safety.js';
+} from './benchmark_fixture_safety.js';
 
 type QueryBenchmarkDependencies = Parameters<typeof executeQueryCore>[3];
 type CollectionSnapshots = {
@@ -851,7 +852,15 @@ async function main() {
 
     const report = createReport(rows);
 
-    const markdown = toMarkdown(report);
+    const hints: DisplayHints = {
+      queries: new Map(
+        runtimeCases.map((r) => [r.caseDefinition.caseId, r.caseDefinition.query]),
+      ),
+      docContents: new Map(
+        Object.entries(TARGET_DOCS).map(([k, v]) => [`docs/${k}`, v]),
+      ),
+    };
+    const markdown = toMarkdown(report, hints);
     const expectedJsonKeys = [
       'aggregate',
       'aggregate[].hits',

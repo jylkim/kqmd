@@ -1,74 +1,69 @@
-# Korean Recall Comparison Metrics
+# Korean Search Recall Benchmark
 
-Date: 2026-03-17
-Command: `bun run measure:recall-comparison`
+Date: 2026-03-23
+Command: `bun run benchmark:search-recall`
 
-이 문서는 upstream qmd FTS5 대비 kqmd shadow index의 한국어 recall 비교 벤치마크다.
-synthetic fixture에서 복합어 분리, 조사 제거, 한영 혼합 세 가지 한국어 패턴의 hit/miss를 비교한다.
+QMD의 search 명령에서 한국어 검색 품질을 비교한 벤치마크입니다.
+복합어 분리, 조사 제거, 한영 혼합 세 가지 한국어 패턴에서 QMD 대비 K-QMD의 검색 결과를 비교합니다.
 
-## Method
+## 테스트 방법
 
-- fixture 규모: target 문서 8개 + noise 문서 10개
-- 패턴 카테고리:
-  - `compound`: 복합어 분리 (형태소분석기 → 형태소+분석)
-  - `particle`: 조사 제거 (에이전트가 → 에이전트)
-  - `mixed`: 한영 혼합 (API연동 → API+연동)
-  - `baseline`: 양쪽 모두 매칭되는 기준 쿼리
-- hit 정의: target 문서의 displayPath가 결과 목록(limit=20)에 존재
-- tokenizer: deterministic stub 사용 (Kiwi 모델 다운로드 불필요)
-- query 전달: 양쪽 모두 동일한 raw query string 사용 (index-side projection 효과만 격리 측정)
+- synthetic fixture 문서 8개 + noise 문서 10개에 대해 QMD와 K-QMD의 search 결과를 비교합니다.
+- hit: target 문서가 검색 결과(limit=20)에 포함되면 검색 성공입니다.
+- miss: target 문서가 검색 결과에 없으면 검색 실패입니다.
 
-## Results
+## 결과
 
-| Category | Query | Target | upstream | shadow | Delta |
-|---|---|---|---|---|---|
-| compound | 분석 | docs/compound-nlp.md | miss | hit | +1 |
-| compound | 모델 | docs/compound-nlp.md | miss | hit | +1 |
-| compound | 형태소 | docs/compound-nlp.md | hit | hit | 0 |
-| compound | 처리 | docs/compound-nlp.md | miss | hit | +1 |
-| compound | 에이전트 | docs/compound-arch.md | miss | hit | +1 |
-| compound | 서비스 | docs/compound-arch.md | miss | hit | +1 |
-| compound | 브로커 | docs/compound-arch.md | miss | hit | +1 |
-| compound | 밸런서 | docs/compound-infra.md | miss | hit | +1 |
-| compound | 스케일링 | docs/compound-infra.md | miss | hit | +1 |
-| compound | 오케스트레이션 | docs/compound-infra.md | miss | hit | +1 |
-| compound | 케이스 | docs/particle-review.md | miss | hit | +1 |
-| particle | 프레임워크 | docs/particle-agent.md | hit | hit | 0 |
-| particle | 오케스트레이터 | docs/particle-agent.md | hit | hit | 0 |
-| particle | 미들웨어 | docs/particle-middleware.md | hit | hit | 0 |
-| particle | 샌드박스 | docs/particle-middleware.md | hit | hit | 0 |
-| particle | 가드레일 | docs/particle-middleware.md | hit | hit | 0 |
-| particle | 리팩토링 | docs/particle-review.md | hit | hit | 0 |
-| particle | 커버리지 | docs/particle-review.md | hit | hit | 0 |
-| mixed | 연동 | docs/mixed-api.md | miss | hit | +1 |
-| mixed | 인증 | docs/mixed-api.md | miss | hit | +1 |
-| mixed | 엔드포인트 | docs/mixed-api.md | miss | hit | +1 |
-| mixed | 스키마 | docs/mixed-api.md | miss | hit | +1 |
-| mixed | 파이프라인 | docs/mixed-devops.md | miss | hit | +1 |
-| mixed | 컨테이너 | docs/mixed-devops.md | miss | hit | +1 |
-| mixed | 클러스터 | docs/mixed-devops.md | miss | hit | +1 |
-| baseline | 형태소분석기 | docs/compound-nlp.md | hit | hit | 0 |
-| baseline | 데이터베이스 | docs/compound-arch.md | hit | hit | 0 |
-| baseline | 필요합니다 | docs/particle-agent.md | hit | hit | 0 |
-| baseline | API | docs/mixed-api.md | hit | hit | 0 |
-| baseline | 설정 | docs/particle-middleware.md | hit | hit | 0 |
+| 패턴 | 쿼리 | 문서 내용 | QMD | K-QMD |
+|---|---|---|:---:|:---:|
+| 복합어 | 분석 | 형태소**분석**기와 거대언어모델을 비교하는 실험 문서입니다. | miss | **hit** |
+| 복합어 | 모델 | 형태소분석기와 거대언어**모델**을 비교하는 실험 문서입니다. | miss | **hit** |
+| 복합어 | 형태소 | **형태소**분석기와 거대언어모델을 비교하는 실험 문서입니다. | hit | hit |
+| 복합어 | 처리 | 자연어**처리** 파이프라인 설계를 다룹니다. | miss | **hit** |
+| 복합어 | 에이전트 | 서브**에이전트** 패턴으로 마이크로서비스를 구성합니다. | miss | **hit** |
+| 복합어 | 서비스 | 서브에이전트 패턴으로 마이크로**서비스**를 구성합니다. | miss | **hit** |
+| 복합어 | 브로커 | 데이터베이스 스키마와 메시지**브로커** 설정을 포함합니다. | miss | **hit** |
+| 복합어 | 밸런서 | 로드**밸런서** 뒤에 오토스케일링 그룹을 배치합니다. | miss | **hit** |
+| 복합어 | 스케일링 | 로드밸런서 뒤에 오토**스케일링** 그룹을 배치합니다. | miss | **hit** |
+| 복합어 | 오케스트레이션 | 컨테이너**오케스트레이션** 플랫폼으로 운영합니다. | miss | **hit** |
+| 복합어 | 케이스 | 테스트**케이스**에 엣지케이스를 포함합니다. | miss | **hit** |
+| 조사 | 프레임워크 | 에이전트가 필요합니다. **프레임워크**를 선택해야 합니다. | hit | hit |
+| 조사 | 오케스트레이터 | **오케스트레이터**는 에이전트를 관리합니다. | hit | hit |
+| 조사 | 미들웨어 | **미들웨어**를 구성하고 샌드박스는 격리하며 운영합니다. | hit | hit |
+| 조사 | 샌드박스 | 미들웨어를 구성하고 **샌드박스**는 격리하며 운영합니다. | hit | hit |
+| 조사 | 가드레일 | 파이프라인의 **가드레일**을 설정합니다. | hit | hit |
+| 조사 | 리팩토링 | **리팩토링**이 완료되면 커버리지를 확인합니다. | hit | hit |
+| 조사 | 커버리지 | 리팩토링이 완료되면 **커버리지**를 확인합니다. | hit | hit |
+| 한영 혼합 | 연동 | API**연동** 가이드와 OAuth인증 설정을 정리합니다. | miss | **hit** |
+| 한영 혼합 | 인증 | API연동 가이드와 OAuth**인증** 설정을 정리합니다. | miss | **hit** |
+| 한영 혼합 | 엔드포인트 | REST**엔드포인트**와 GraphQL스키마를 비교합니다. | miss | **hit** |
+| 한영 혼합 | 스키마 | REST엔드포인트와 GraphQL**스키마**를 비교합니다. | miss | **hit** |
+| 한영 혼합 | 파이프라인 | CI**파이프라인** 구축과 Docker컨테이너 배포를 다룹니다. | miss | **hit** |
+| 한영 혼합 | 컨테이너 | CI파이프라인 구축과 Docker**컨테이너** 배포를 다룹니다. | miss | **hit** |
+| 한영 혼합 | 클러스터 | Kubernetes**클러스터** 운영 노하우를 공유합니다. | miss | **hit** |
 
-## Aggregate
+### 기준선 (양쪽 모두 hit)
 
-| Side | Hits | Total | Recall |
+| 쿼리 | 문서 내용 | QMD | K-QMD |
+|---|---|:---:|:---:|
+| 형태소분석기 | **형태소분석기**와 거대언어모델을 비교하는 실험 문서입니다. | hit | hit |
+| 데이터베이스 | **데이터베이스** 스키마와 메시지브로커 설정을 포함합니다. | hit | hit |
+| 필요합니다 | 에이전트가 **필요합니다**. 프레임워크를 선택해야 합니다. | hit | hit |
+| API | **API**연동 가이드와 OAuth인증 설정을 정리합니다. | hit | hit |
+| 설정 | 파이프라인의 가드레일을 **설정**합니다. | hit | hit |
+
+## 요약
+
+| | Hits | Total | Recall |
 |---|---:|---:|---:|
-| upstream | 13 | 30 | 43% |
-| shadow | 30 | 30 | 100% |
-
-## Derived Signals
-
-- Shadow recall uplift: +57pp
+| QMD | 13 | 30 | 43% |
+| K-QMD | 30 | 30 | **100%** |
 
 ## Notes
 
-- shadow table은 `tokenize='porter unicode61'`, upstream은 `unicode61`을 사용한다. 영어 토큰에서 porter stemming이 shadow에 유리하게 작용할 수 있으나, 이 벤치마크의 핵심 비교 대상은 한국어 패턴이다.
-- deterministic tokenize stub를 사용하므로, 실제 Kiwi 형태소 분석과 결과가 다를 수 있다. 이 벤치마크는 shadow index projection 메커니즘의 recall 효과를 측정한다.
-- baseline 카테고리는 양쪽 모두 hit이어야 하는 sanity check 쿼리다.
+- deterministic tokenize stub를 사용하므로, 실제 Kiwi 형태소 분석과 결과가 다를 수 있습니다.
+- 기준선 카테고리는 양쪽 모두 hit이어야 하는 sanity check 쿼리입니다.
+- 아래 JSON은 전체 측정 데이터입니다.
 
 ```json
 {

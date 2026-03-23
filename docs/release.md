@@ -148,8 +148,8 @@ qmd search "형태소 분석"
 
 | 항목 | 명령 |
 |---|---|
-| Query Korean recall 비교 | `bun run measure:query-recall` |
-| Upstream vs shadow FTS recall 비교 | `bun run measure:recall-comparison` |
+| Query Korean recall 비교 | `bun run benchmark:query-recall` |
+| Search recall 비교 | `bun run benchmark:search-recall` |
 
 ## Upstream QMD version bump checklist
 

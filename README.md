@@ -8,19 +8,18 @@ Drop-in [QMD](https://github.com/tobi/qmd) replacement with Korean-aware search.
 
 ## Why K-QMD
 
-QMD가 사용하는 토크나이저는 한글 검색률이 떨어집니다. "형태소분석기"를 하나의 단어로 취급하기 때문에, "분석"으로 검색하면 해당 문서를 찾지 못합니다.
+QMD가 사용하는 토크나이저는 한글 검색률이 떨어집니다. 복합어, 한영 혼합 붙여쓰기, 긴 한국어 질문에서 문서를 찾지 못하는 경우가 많습니다. K-QMD는 QMD에 [Kiwi](https://github.com/bab2min/Kiwi) 형태소 분석을 결합해 이 문제를 해결합니다.
 
-| 쿼리 | 문서 텍스트 | QMD | K-QMD |
-|---|---|:---:|:---:|
-| 분석 | 형태소**분석**기 | miss | **hit** |
-| 에이전트 | 서브**에이전트** | miss | **hit** |
-| 연동 | API**연동** | miss | **hit** |
-| 컨테이너 | Docker**컨테이너** | miss | **hit** |
+| 패턴 | 쿼리 | 문서 텍스트 | QMD | K-QMD |
+|---|---|---|:---:|:---:|
+| 복합어 | 분석 | 형태소**분석**기와 거대언어모델을... | miss | **hit** |
+| 복합어 | 오케스트레이션 | 컨테이너**오케스트레이션** 환경에서... | miss | **hit** |
+| 한영 혼합 | 연동 | API**연동** 가이드와 OAuth인증... | miss | **hit** |
+| 한영 혼합 | schema 마이그레이션 | **Schema마이그레이션** 절차와 rollback... | miss | **hit** |
+| 긴 쿼리 | 문서 업로드 파싱은 어떻게 동작해? | 문서 업로드 파싱 단계와 indexing 흐름을... | miss | **hit** |
 
-> **Search recall: QMD 43% → K-QMD 100%** — 30개 search benchmark ([상세 결과](docs/benchmarks/2026-03-17-recall-comparison-metrics.md))
-> **Query recall: base 33% → current K-QMD 100%** — synthetic fixture query benchmark ([상세 결과](docs/benchmarks/2026-03-20-query-recall-metrics.md))
-
-K-QMD는 QMD에 [Kiwi](https://github.com/bab2min/Kiwi) 형태소 분석을 결합해 이 문제를 해결합니다.
+> **Search recall: QMD 43% → K-QMD 100%** — 30개 search benchmark ([상세 결과](docs/benchmarks/search-recall.md))
+> **Query recall: QMD 33% → K-QMD 100%** — 9개 query benchmark ([상세 결과](docs/benchmarks/query-recall.md))
 
 ## Quick Start
 
