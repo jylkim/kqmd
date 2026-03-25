@@ -12,16 +12,12 @@ import type {
   QueryCommandInput,
   QueryExecutionSummary,
   QueryNormalizationReason,
-  QueryRetrievalFallbackReason,
-  QueryRetrievalSummary,
   SearchAssistSummary,
   SearchOutputRow,
 } from './io/types.js';
 import { resolveSelectedCollections } from './io/validate.js';
 import { mergeNormalizedCandidates } from './query_candidate_merge.js';
 import { classifyQuery, shouldDisableRerankForQuery } from './query_classifier.js';
-import { buildQueryExecutionPlan, type QueryExecutionPlan } from './query_execution_policy.js';
-import { executeLexicalCandidateSearch } from './query_lexical_candidates.js';
 import {
   buildNormalizedSearchRequest,
   buildPlainQuerySearchRequest,
@@ -75,27 +71,15 @@ function buildEmbeddingMismatchAdvisory(expectedModel: string, storedModels: str
 
 function buildQueryExecutionSummary(args: {
   readonly input: QueryCommandInput;
-  readonly executionPlan: QueryExecutionPlan;
   readonly queryClass: QueryExecutionSummary['queryClass'];
-  readonly retrievalFallbackReason?: QueryRetrievalFallbackReason;
   readonly normalization: QueryExecutionSummary['normalization'];
   readonly searchAssist: SearchAssistSummary;
 }): QueryExecutionSummary {
-  const retrieval: QueryRetrievalSummary = {
-    path: args.executionPlan.strategy,
-    eligibilityReason: args.executionPlan.eligibilityReason,
-    heavyPathUsed: args.executionPlan.canUseModelStages,
-    ...(args.retrievalFallbackReason
-      ? { fallbackReason: args.retrievalFallbackReason }
-      : {}),
-  };
-
   return {
     mode: args.input.queryMode,
     primaryQuery: args.input.displayQuery,
     intent: args.input.intent,
     queryClass: args.queryClass,
-    retrieval,
     normalization: args.normalization,
     searchAssist: args.searchAssist,
   };
@@ -142,14 +126,10 @@ export async function executeQueryCore(
   }
 
   const traits = classifyQuery(input);
-  const executionPlan = buildQueryExecutionPlan({
-    input,
-    selectedCollections,
-  });
   const baseRequest =
     input.queryMode === 'plain' ? buildPlainQuerySearchRequest(input, traits) : undefined;
   const normalizationPlan: import('./io/types.js').QueryNormalizationPlan =
-    input.queryMode === 'plain' && executionPlan.normalizationEnabled
+    input.queryMode === 'plain'
       ? buildQueryNormalizationPlan(input, traits)
       : { kind: 'skip', reason: 'not-eligible' as const };
   const searchRequest =
@@ -178,6 +158,22 @@ export async function executeQueryCore(
     };
   }
 
+  let searchAssistPolicy: QuerySearchAssistPolicy;
+  if (!shouldConsiderQuerySearchAssist(input, traits) || !traits.hasHangul) {
+    searchAssistPolicy = { kind: 'skip', reason: 'ineligible' };
+  } else if (hasConservativeLexSyntax(input.query)) {
+    searchAssistPolicy = { kind: 'skip', reason: 'conservative-syntax' };
+  } else {
+    searchAssistPolicy = evaluateQuerySearchAssistPolicy({
+      input,
+      traits,
+      searchHealth: readSearchIndexHealth(store.internal.db, describeEffectiveSearchPolicy(), {
+        collections: selectedCollections,
+      }),
+      selectedCollections,
+    });
+  }
+
   const now = runtimeDependencies.now ?? Date.now;
   const healthPromise = readEmbeddingHealth(store, effectiveModel.uri, {
     collections: selectedCollections,
@@ -186,24 +182,14 @@ export async function executeQueryCore(
     (error) => ({ ok: false as const, error }),
   );
   const baseSearchStartedAt = now();
-  const lexicalResult =
-    executionPlan.strategy === 'fast-default'
-      ? await executeLexicalCandidateSearch(
-          store,
-          input.query,
-          selectedCollections,
-          baseRequest?.fetchLimit ?? input.limit,
-        )
-      : undefined;
-  const results =
-    executionPlan.strategy === 'compatibility'
-      ? await executeOwnedQuerySearch(store, searchRequest, selectedCollections, runtimeDependencies)
-      : undefined;
+  const results = await executeOwnedQuerySearch(
+    store,
+    searchRequest,
+    selectedCollections,
+    runtimeDependencies,
+  );
   const baseSearchDurationMs = now() - baseSearchStartedAt;
-  const baseRows =
-    executionPlan.strategy === 'fast-default'
-      ? lexicalResult?.rows ?? []
-      : normalizeHybridQueryResults(results ?? []);
+  const baseRows = normalizeHybridQueryResults(results);
   let mergedRows = baseRows;
   let normalizationReason: QueryNormalizationReason =
     normalizationPlan.kind === 'skip' ? normalizationPlan.reason : 'applied';
@@ -211,36 +197,25 @@ export async function executeQueryCore(
   let searchAssist: QueryCoreSuccess['searchAssist'] | undefined;
 
   if (
-    executionPlan.normalizationEnabled &&
     normalizationPlan.kind === 'apply' &&
     !hasStrongBaseNormalizationHit(baseRows, normalizationPlan) &&
     baseSearchDurationMs <= QUERY_NORMALIZATION_LATENCY_BUDGET_MS
   ) {
     try {
-      const normalizedRequest = baseRequest
-        ? buildNormalizedSearchRequest(baseRequest, normalizationPlan)
-        : undefined;
-      const normalizedRows =
-        executionPlan.strategy === 'fast-default'
-          ? (
-              await executeLexicalCandidateSearch(
-                store,
-                normalizationPlan.normalizedQuery,
-                selectedCollections,
-                normalizedRequest?.fetchLimit ?? baseRequest?.fetchLimit ?? input.limit,
-              )
-            ).rows
-          : normalizeHybridQueryResults(
-              await executeOwnedQuerySearch(
-                store,
-                normalizedRequest ?? searchRequest,
-                selectedCollections,
-                runtimeDependencies,
-              ),
-            );
+      if (!baseRequest) {
+        throw new Error('Normalized supplement requires a plain base request.');
+      }
+
+      const normalizedRequest = buildNormalizedSearchRequest(baseRequest, normalizationPlan);
+      const normalizedResults = await executeOwnedQuerySearch(
+        store,
+        normalizedRequest,
+        selectedCollections,
+        runtimeDependencies,
+      );
       const normalizationMerge = mergeNormalizedCandidates(
         baseRows,
-        normalizedRows,
+        normalizeHybridQueryResults(normalizedResults),
         QUERY_NORMALIZATION_RESCUE_CAP,
       );
       mergedRows = normalizationMerge.rows;
@@ -253,33 +228,6 @@ export async function executeQueryCore(
       baseSearchDurationMs > QUERY_NORMALIZATION_LATENCY_BUDGET_MS
         ? 'latency-budget'
         : 'skipped-guard';
-  }
-
-  let searchAssistPolicy: QuerySearchAssistPolicy;
-  if (!executionPlan.searchAssistEnabled || !shouldConsiderQuerySearchAssist(input, traits)) {
-    searchAssistPolicy = { kind: 'skip', reason: 'ineligible' };
-  } else if (!traits.hasHangul) {
-    searchAssistPolicy = { kind: 'skip', reason: 'ineligible' };
-  } else if (hasConservativeLexSyntax(input.query)) {
-    searchAssistPolicy = { kind: 'skip', reason: 'conservative-syntax' };
-  } else {
-    const searchHealth =
-      executionPlan.strategy === 'fast-default'
-        ? lexicalResult?.searchHealth
-        : readSearchIndexHealth(store.internal.db, describeEffectiveSearchPolicy(), {
-            collections: selectedCollections,
-          });
-
-    if (!searchHealth) {
-      searchAssistPolicy = { kind: 'skip', reason: 'ineligible' };
-    } else {
-      searchAssistPolicy = evaluateQuerySearchAssistPolicy({
-        input,
-        traits,
-        searchHealth,
-        selectedCollections,
-      });
-    }
   }
 
   if (searchAssistPolicy.kind === 'eligible') {
@@ -325,10 +273,7 @@ export async function executeQueryCore(
       : [],
     query: buildQueryExecutionSummary({
       input,
-      executionPlan,
       queryClass: traits.queryClass,
-      retrievalFallbackReason:
-        executionPlan.strategy === 'fast-default' ? lexicalResult?.fallbackReason : undefined,
       normalization: buildQueryNormalizationSummary({
         reason: normalizationReason,
         addedCandidates: normalizationAddedCandidates,

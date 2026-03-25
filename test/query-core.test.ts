@@ -37,18 +37,6 @@ function createStore(): QMDStore {
         bestChunkPos: 0,
       },
     ]),
-    searchLex: vi.fn(async () => [
-      {
-        displayPath: 'docs/readme.md',
-        title: 'README',
-        body: 'Auth flow details',
-        context: 'documentation',
-        score: 0.8,
-        docid: 'doc-1',
-        collectionName: 'docs',
-        chunkPos: 0,
-      },
-    ]),
     getStatus: vi.fn(async () => ({
       totalDocuments: 2,
       needsEmbedding: 0,
@@ -89,23 +77,11 @@ function getPreparedSqls(store: QMDStore): string[] {
 function createCleanAssistStore(
   baseSearchResults: Awaited<ReturnType<QMDStore['search']>>,
 ): QMDStore {
-  const lexicalResults = baseSearchResults.map((result) => ({
-    displayPath: result.displayPath,
-    title: result.title,
-    body: result.bestChunk,
-    context: result.context,
-    score: result.score,
-    docid: result.docid,
-    collectionName: 'docs',
-    chunkPos: result.bestChunkPos,
-  }));
-
   return {
     close: vi.fn(async () => {}),
     listCollections: vi.fn(async () => [{ name: 'docs' }]),
     getDefaultCollectionNames: vi.fn(async () => ['docs']),
     search: vi.fn(async () => baseSearchResults),
-    searchLex: vi.fn(async () => lexicalResults),
     getStatus: vi.fn(async () => ({
       totalDocuments: 1,
       needsEmbedding: 0,
@@ -174,32 +150,11 @@ function createCleanAssistStore(
 }
 
 function createDynamicSearchStore(searchImpl: NonNullable<QMDStore['search']>): QMDStore {
-  const searchLex = vi.fn(async (query: string) => {
-    const results = await searchImpl({
-      query,
-      collections: ['docs'],
-      limit: 20,
-      minScore: 0,
-    } as never);
-
-    return results.map((result) => ({
-      displayPath: result.displayPath,
-      title: result.title,
-      body: result.bestChunk,
-      context: result.context,
-      score: result.score,
-      docid: result.docid,
-      collectionName: 'docs',
-      chunkPos: result.bestChunkPos,
-    }));
-  });
-
   return {
     close: vi.fn(async () => {}),
     listCollections: vi.fn(async () => [{ name: 'docs' }]),
     getDefaultCollectionNames: vi.fn(async () => ['docs']),
     search: vi.fn(searchImpl),
-    searchLex,
     getStatus: vi.fn(async () => ({
       totalDocuments: 1,
       needsEmbedding: 0,
@@ -639,17 +594,18 @@ describe('query core', () => {
       addedCandidates: 1,
     });
     const searchCalls = (
-      store.searchLex as unknown as { mock: { calls: Array<[string, Record<string, unknown>]> } }
+      store.search as unknown as { mock: { calls: Array<[Record<string, unknown>]> } }
     ).mock.calls;
-    expect(searchCalls[0]?.[0]).toBe(originalQuery);
-    expect(searchCalls[0]?.[1]).toMatchObject({
+    expect(searchCalls[0]?.[0]).toMatchObject({
+      query: originalQuery,
+      collections: ['docs'],
       limit: 20,
-      collection: 'docs',
     });
-    expect(searchCalls[1]?.[0]).toBe(normalizedQuery);
-    expect(searchCalls[1]?.[1]).toMatchObject({
+    expect(searchCalls[1]?.[0]).toMatchObject({
+      query: normalizedQuery,
+      collections: ['docs'],
       limit: 18,
-      collection: 'docs',
+      rerank: false,
     });
     expect(result.rows.map((row) => row.displayPath)).toContain('docs/upload-parser.md');
     expect(result.rows.some((row) => row.normalization?.supplemented)).toBe(true);
@@ -726,9 +682,9 @@ describe('query core', () => {
       reason: 'applied',
       addedCandidates: 1,
     });
-    expect(
-      (store.searchLex as unknown as { mock: { calls: unknown[][] } }).mock.calls,
-    ).toHaveLength(2);
+    expect((store.search as unknown as { mock: { calls: unknown[][] } }).mock.calls).toHaveLength(
+      2,
+    );
     expect(result.rows.map((row) => row.displayPath)).toContain('docs/upload-parser.md');
   });
 
@@ -774,9 +730,9 @@ describe('query core', () => {
       reason: 'skipped-guard',
       addedCandidates: 0,
     });
-    expect(
-      (store.searchLex as unknown as { mock: { calls: unknown[][] } }).mock.calls,
-    ).toHaveLength(1);
+    expect((store.search as unknown as { mock: { calls: unknown[][] } }).mock.calls).toHaveLength(
+      1,
+    );
   });
 
   test('skips normalized supplement when deterministic timing seam exceeds the latency budget', async () => {
@@ -842,9 +798,9 @@ describe('query core', () => {
       reason: 'latency-budget',
       addedCandidates: 0,
     });
-    expect(
-      (store.searchLex as unknown as { mock: { calls: unknown[][] } }).mock.calls,
-    ).toHaveLength(1);
+    expect((store.search as unknown as { mock: { calls: unknown[][] } }).mock.calls).toHaveLength(
+      1,
+    );
   });
 
   test('fails open when normalized supplement retrieval throws', async () => {

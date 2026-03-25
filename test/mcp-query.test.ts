@@ -48,11 +48,6 @@ describe('mcp query response', () => {
           mode: 'plain',
           primaryQuery: '지속 학습',
           queryClass: 'short-korean-phrase',
-          retrieval: {
-            path: 'fast-default',
-            eligibilityReason: 'plain-default',
-            heavyPathUsed: false,
-          },
           normalization: {
             applied: false,
             reason: 'not-eligible',
@@ -159,11 +154,6 @@ describe('mcp query response', () => {
           mode: 'plain',
           primaryQuery: '지속 학습',
           queryClass: 'short-korean-phrase',
-          retrieval: {
-            path: 'fast-default',
-            eligibilityReason: 'plain-default',
-            heavyPathUsed: false,
-          },
           normalization: {
             applied: false,
             reason: 'not-eligible',
@@ -208,13 +198,7 @@ describe('mcp query response', () => {
     expect(response.query).toEqual({
       mode: 'plain',
       primaryQuery: '문서 업로드 파싱은 어떻게 동작해?',
-      intent: undefined,
       queryClass: 'general',
-      retrieval: {
-        path: 'fast-default',
-        eligibilityReason: 'plain-default',
-        heavyPathUsed: false,
-      },
       normalization: {
         applied: false,
         reason: 'not-eligible',
@@ -249,11 +233,6 @@ describe('mcp query response', () => {
       mode: 'plain',
       primaryQuery: '문서 업로드 파싱은 어떻게 동작해?',
       queryClass: 'general',
-      retrieval: {
-        path: 'fast-default',
-        eligibilityReason: 'plain-default',
-        heavyPathUsed: false,
-      },
       normalization: {
         applied: false,
         reason: 'not-eligible',

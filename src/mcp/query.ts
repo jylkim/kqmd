@@ -11,7 +11,6 @@ import {
 } from '#src/commands/owned/io/validate.js';
 import { classifyQuery } from '#src/commands/owned/query_classifier.js';
 import type { QueryCoreSuccess } from '#src/commands/owned/query_core.js';
-import { buildQueryExecutionPlan } from '../commands/owned/query_execution_policy.js';
 import { filterRows } from '../commands/owned/io/format.js';
 import type { queryRequestSchema } from './types.js';
 
@@ -59,21 +58,11 @@ function buildFallbackQuerySummary(
   input: QueryCommandInput,
   searchAssist?: QueryCoreSuccess['searchAssist'],
 ): QueryCoreSuccess['query'] {
-  const executionPlan = buildQueryExecutionPlan({
-    input,
-    selectedCollections: input.collections ?? [],
-  });
-
   return {
     mode: input.queryMode,
     primaryQuery: input.displayQuery,
     intent: input.intent,
     queryClass: classifyQuery(input).queryClass,
-    retrieval: {
-      path: executionPlan.strategy,
-      eligibilityReason: executionPlan.eligibilityReason,
-      heavyPathUsed: executionPlan.canUseModelStages,
-    },
     normalization: {
       applied: false,
       reason: 'not-eligible',

@@ -136,11 +136,6 @@ describe('query output security', () => {
       mode: 'plain',
       primaryQuery: '문서 업로드 파싱은 어떻게 동작해?',
       queryClass: 'general',
-      retrieval: {
-        path: 'fast-default',
-        eligibilityReason: 'plain-default',
-        heavyPathUsed: false,
-      },
       normalization: {
         applied: true,
         reason: 'applied',

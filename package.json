@@ -31,7 +31,6 @@
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "measure:kiwi-reliability": "bun run scripts/measure_kiwi_search_reliability.ts",
-    "measure:query-cold-start": "bun run scripts/measure_query_cold_start.ts > docs/benchmarks/2026-03-25-query-cold-start-metrics.md",
     "measure:query-adaptive": "bun run scripts/measure_query_adaptive_ranking.ts > docs/benchmarks/2026-03-17-query-adaptive-ranking-metrics.md",
     "measure:query-adaptive-e2e": "bun run scripts/measure_query_adaptive_e2e.ts > docs/benchmarks/2026-03-17-query-adaptive-e2e-metrics.md",
     "benchmark:query-recall": "bun run scripts/benchmark_query_recall.ts > docs/benchmarks/query-recall.md",

@@ -33,7 +33,6 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 - owned runtime은 upstream의 DB-only mode를 그대로 신뢰하지 않고, K-QMD policy로
   "기존 DB가 실제로 있을 때만 reopen" 규칙을 추가한다
 - `search/query`는 config-file mode보다 기존 DB reopen을 우선해 read path metadata sync side effect를 줄인다
-- plain default `query`는 local lexical fast-default policy를 우선할 수 있지만, explicit `intent`, explicit `candidateLimit`, structured query 같은 advanced surface는 upstream compatibility adapter를 유지한다
 - upstream private CLI 경로(`@tobilu/qmd/dist/cli/*`)는 직접 import하지 않고 local adapter로 semantics를 반영한다
 - upstream MCP surface는 tool/resource names와 transport routes를 기준선으로 삼되, local MCP adapter가 execution semantics를 소유할 수 있다
 - intentional MCP divergence는 [`docs/architecture/mcp-divergence-registry.md`](./mcp-divergence-registry.md)에 기록한다

@@ -74,18 +74,6 @@ function createMismatchStore(overrides: Partial<QMDStore> = {}): QMDStore {
         docid: 'abc123',
       },
     ]),
-    searchLex: vi.fn(async () => [
-      {
-        displayPath: 'docs/a.md',
-        title: 'A',
-        body: 'auth flow summary',
-        score: 0.88,
-        context: null,
-        docid: 'abc123',
-        collectionName: 'docs',
-        chunkPos: 0,
-      },
-    ]),
     getStatus: vi.fn(async () => ({
       totalDocuments: 1,
       needsEmbedding: 0,

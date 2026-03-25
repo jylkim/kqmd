@@ -96,33 +96,11 @@ export interface SearchAssistSummary {
   readonly addedCandidates: number;
 }
 
-export type QueryRetrievalPath = 'fast-default' | 'compatibility';
-
-export type QueryRetrievalEligibilityReason =
-  | 'plain-default'
-  | 'structured-query'
-  | 'explicit-intent'
-  | 'explicit-candidate-limit'
-  | 'explicit-collection-filter';
-
-export type QueryRetrievalFallbackReason =
-  | 'dirty-health'
-  | 'conservative-syntax'
-  | 'non-hangul';
-
-export interface QueryRetrievalSummary {
-  readonly path: QueryRetrievalPath;
-  readonly eligibilityReason: QueryRetrievalEligibilityReason;
-  readonly fallbackReason?: QueryRetrievalFallbackReason;
-  readonly heavyPathUsed: boolean;
-}
-
 export interface QueryExecutionSummary {
   readonly mode: QueryCommandInput['queryMode'];
   readonly primaryQuery: string;
   readonly intent?: string;
   readonly queryClass: QueryClass;
-  readonly retrieval: QueryRetrievalSummary;
   readonly normalization: QueryNormalizationSummary;
   readonly searchAssist: SearchAssistSummary;
 }

@@ -60,11 +60,6 @@ const querySummary: QueryExecutionSummary = {
   mode: 'plain',
   primaryQuery: 'auth flow',
   queryClass: 'mixed-technical',
-  retrieval: {
-    path: 'compatibility',
-    eligibilityReason: 'explicit-candidate-limit',
-    heavyPathUsed: true,
-  },
   normalization: {
     applied: false,
     reason: 'not-eligible',
@@ -215,11 +210,6 @@ describe('owned query parity output', () => {
               mode: 'plain',
               primaryQuery: '문서 업로드 파싱은 어떻게 동작해?',
               queryClass: 'general',
-              retrieval: {
-                path: 'fast-default',
-                eligibilityReason: 'plain-default',
-                heavyPathUsed: false,
-              },
               normalization: {
                 applied: true,
                 reason: 'applied',

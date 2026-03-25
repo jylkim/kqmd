@@ -74,15 +74,6 @@ bun run check
 | 한국어 검색 정책/shadow index | `bun run test -- search-policy search-index-health kiwi-tokenizer search-shadow-index owned-search-behavior status-command` |
 | query search-assist / MCP parity | `bun run test -- query-core query-output-security query-output mcp-query mcp-server mcp-http` |
 | 임베딩 정책/mismatch | `bun run test -- embedding-policy embedding-health owned-embedding-behavior status-command` |
-| query execution policy / lexical adapter | `bun run test -- query-execution-policy query-lexical-candidates query-core query-runtime mcp-query query-output-security` |
-
-### 측정 스크립트
-
-| 항목 | 명령 |
-|---|---|
-| Query cold start (fresh child process, wall-clock/max RSS) | `bun run measure:query-cold-start` |
-| Query adaptive ranking (warm in-process metrics) | `bun run measure:query-adaptive` |
-| Query adaptive E2E (warm fixture store) | `bun run measure:query-adaptive-e2e` |
 
 ### 수동 검증
 
