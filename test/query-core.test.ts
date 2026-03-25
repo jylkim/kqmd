@@ -25,6 +25,7 @@ function createStore(): QMDStore {
     close: vi.fn(async () => {}),
     listCollections: vi.fn(async () => [{ name: 'docs' }, { name: 'notes' }]),
     getDefaultCollectionNames: vi.fn(async () => ['docs']),
+    searchLex: vi.fn(async () => []),
     search: vi.fn(async () => [
       {
         displayPath: 'docs/readme.md',
@@ -81,6 +82,7 @@ function createCleanAssistStore(
     close: vi.fn(async () => {}),
     listCollections: vi.fn(async () => [{ name: 'docs' }]),
     getDefaultCollectionNames: vi.fn(async () => ['docs']),
+    searchLex: vi.fn(async () => []),
     search: vi.fn(async () => baseSearchResults),
     getStatus: vi.fn(async () => ({
       totalDocuments: 1,
@@ -154,6 +156,7 @@ function createDynamicSearchStore(searchImpl: NonNullable<QMDStore['search']>): 
     close: vi.fn(async () => {}),
     listCollections: vi.fn(async () => [{ name: 'docs' }]),
     getDefaultCollectionNames: vi.fn(async () => ['docs']),
+    searchLex: vi.fn(async () => []),
     search: vi.fn(searchImpl),
     getStatus: vi.fn(async () => ({
       totalDocuments: 1,
@@ -182,6 +185,12 @@ function createDynamicSearchStore(searchImpl: NonNullable<QMDStore['search']>): 
       },
     },
   } as unknown as QMDStore;
+}
+
+function attachSearchLexSpy(store: QMDStore) {
+  const searchLex = vi.fn(async () => []);
+  (store as QMDStore & { searchLex: typeof searchLex }).searchLex = searchLex;
+  return searchLex;
 }
 
 describe('query core', () => {
@@ -237,15 +246,19 @@ describe('query core', () => {
     );
 
     expect('kind' in result).toBe(false);
-    expect(hybridQuery).toHaveBeenCalledWith(expect.anything(), "what's new", {
-      collection: 'docs',
-      limit: 20,
-      minScore: 0,
-      candidateLimit: 80,
-      explain: false,
-      intent: undefined,
-      skipRerank: false,
-    });
+    expect(hybridQuery).toHaveBeenCalledWith(
+      expect.anything(),
+      "what's new",
+      expect.objectContaining({
+        collection: 'docs',
+        limit: 20,
+        minScore: 0,
+        candidateLimit: 80,
+        explain: false,
+        intent: undefined,
+        skipRerank: false,
+      }),
+    );
   });
 
   test('skips search health reads for ineligible general english queries', async () => {
@@ -282,6 +295,76 @@ describe('query core', () => {
     ).toBe(false);
   });
 
+  test('does not probe lexical candidates for explicit intent compatibility queries', async () => {
+    const store = createStore();
+    const searchLex = attachSearchLexSpy(store);
+
+    const result = await executeQueryCore(
+      store,
+      createInput({
+        query: 'release checklist',
+        displayQuery: 'release checklist',
+        intent: 'release notes',
+      }),
+      { HOME: '/home/tester' },
+    );
+
+    expect('kind' in result).toBe(false);
+    if ('kind' in result) {
+      return;
+    }
+
+    expect(searchLex).not.toHaveBeenCalled();
+    expect(result.query.execution).toMatchObject({
+      retrievalKind: 'compatibility-hybrid',
+      embeddingApplied: false,
+      expansionApplied: false,
+      rerankApplied: false,
+      heavyPathUsed: false,
+    });
+  });
+
+  test('does not probe lexical candidates for explicit collection compatibility queries', async () => {
+    const store = createStore();
+    const searchLex = attachSearchLexSpy(store);
+
+    const result = await executeQueryCore(
+      store,
+      createInput({
+        query: 'release checklist',
+        displayQuery: 'release checklist',
+        collections: ['docs'],
+      }),
+      { HOME: '/home/tester' },
+    );
+
+    expect('kind' in result).toBe(false);
+    expect(searchLex).not.toHaveBeenCalled();
+  });
+
+  test('does not probe lexical candidates for multi-collection default compatibility queries', async () => {
+    const store = createStore();
+    const searchLex = attachSearchLexSpy(store);
+    store.getDefaultCollectionNames = vi.fn(async () => ['docs', 'notes']);
+
+    const result = await executeQueryCore(
+      store,
+      createInput({
+        query: 'release checklist',
+        displayQuery: 'release checklist',
+      }),
+      { HOME: '/home/tester' },
+    );
+
+    expect('kind' in result).toBe(false);
+    if ('kind' in result) {
+      return;
+    }
+
+    expect(searchLex).not.toHaveBeenCalled();
+    expect(result.query.execution.fallbackReason).toBe('compatibility-multi-collection-default');
+  });
+
   test('allows structured compatibility queries to keep rerank enabled', async () => {
     const structuredSearch = vi.fn(async () => []);
 
@@ -302,15 +385,19 @@ describe('query core', () => {
     );
 
     expect('kind' in result).toBe(false);
-    expect(structuredSearch).toHaveBeenCalledWith(expect.anything(), expect.any(Array), {
-      collections: ['docs'],
-      limit: 10,
-      minScore: 0,
-      candidateLimit: 80,
-      explain: false,
-      intent: undefined,
-      skipRerank: false,
-    });
+    expect(structuredSearch).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(Array),
+      expect.objectContaining({
+        collections: ['docs'],
+        limit: 10,
+        minScore: 0,
+        candidateLimit: 80,
+        explain: false,
+        intent: undefined,
+        skipRerank: false,
+      }),
+    );
   });
 
   test('returns structured advisories when embedding models mismatch', async () => {
@@ -377,15 +464,19 @@ describe('query core', () => {
     );
 
     expect('kind' in result).toBe(false);
-    expect(hybridQuery).toHaveBeenCalledWith(expect.anything(), '지속 학습', {
-      collection: 'docs',
-      limit: 30,
-      minScore: 0,
-      candidateLimit: 30,
-      explain: false,
-      intent: undefined,
-      skipRerank: true,
-    });
+    expect(hybridQuery).toHaveBeenCalledWith(
+      expect.anything(),
+      '지속 학습',
+      expect.objectContaining({
+        collection: 'docs',
+        limit: 30,
+        minScore: 0,
+        candidateLimit: 30,
+        explain: false,
+        intent: undefined,
+        skipRerank: true,
+      }),
+    );
   });
 
   test('allows oversized candidate-limit for path-like plain queries when rerank is disabled', async () => {
@@ -407,7 +498,7 @@ describe('query core', () => {
     expect(hybridQuery).toHaveBeenCalledWith(
       expect.anything(),
       'src/commands/owned/query_core.ts',
-      {
+      expect.objectContaining({
         collection: 'docs',
         limit: 40,
         minScore: 0,
@@ -415,7 +506,7 @@ describe('query core', () => {
         explain: false,
         intent: undefined,
         skipRerank: true,
-      },
+      }),
     );
   });
 
@@ -599,12 +690,12 @@ describe('query core', () => {
     expect(searchCalls[0]?.[0]).toMatchObject({
       query: originalQuery,
       collections: ['docs'],
-      limit: 20,
+      limit: 18,
     });
     expect(searchCalls[1]?.[0]).toMatchObject({
       query: normalizedQuery,
       collections: ['docs'],
-      limit: 18,
+      limit: 20,
       rerank: false,
     });
     expect(result.rows.map((row) => row.displayPath)).toContain('docs/upload-parser.md');

@@ -1,4 +1,5 @@
-Query: mode=plain class=general
+Query: mode=plain class=general retrieval=cost-capped-structured signal=weak reason=fast-default
+  Execution: embed=yes expand=no rerank=no heavy=no candidateWindow=9
   Normalization: applied=yes reason=applied added=1
   SearchAssist summary: applied=no reason=ineligible added=0
 

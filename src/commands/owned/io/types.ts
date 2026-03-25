@@ -36,7 +36,9 @@ export interface PlainQuerySearchRequest extends SearchCommandInput {
   readonly fetchLimit?: number;
   readonly explain: boolean;
   readonly intent?: string;
+  readonly preExpandedQueries?: ExpandedQuery[];
   readonly queryMode: 'plain';
+  readonly runtimeKind?: 'cost-capped-structured' | 'compatibility-hybrid' | 'compatibility-public';
   readonly displayQuery: string;
 }
 
@@ -96,11 +98,39 @@ export interface SearchAssistSummary {
   readonly addedCandidates: number;
 }
 
+export type QueryLexicalSignalStrength = 'strong' | 'moderate' | 'weak' | 'none';
+
+export type QueryExecutionFallbackReason =
+  | 'fast-default'
+  | 'conservative-syntax'
+  | 'compatibility-structured'
+  | 'compatibility-explicit-intent'
+  | 'compatibility-explicit-candidate-limit'
+  | 'compatibility-explicit-collection-filter'
+  | 'compatibility-multi-collection-default'
+  | 'compatibility-public-fallback';
+
+export interface QueryExecutionStagesSummary {
+  readonly retrievalKind:
+    | 'cost-capped-structured'
+    | 'compatibility-hybrid'
+    | 'compatibility-public'
+    | 'structured-compatibility';
+  readonly fallbackReason: QueryExecutionFallbackReason;
+  readonly lexicalSignal: QueryLexicalSignalStrength;
+  readonly embeddingApplied: boolean;
+  readonly expansionApplied: boolean;
+  readonly rerankApplied: boolean;
+  readonly heavyPathUsed: boolean;
+  readonly candidateWindow: number;
+}
+
 export interface QueryExecutionSummary {
   readonly mode: QueryCommandInput['queryMode'];
   readonly primaryQuery: string;
   readonly intent?: string;
   readonly queryClass: QueryClass;
+  readonly execution: QueryExecutionStagesSummary;
   readonly normalization: QueryNormalizationSummary;
   readonly searchAssist: SearchAssistSummary;
 }

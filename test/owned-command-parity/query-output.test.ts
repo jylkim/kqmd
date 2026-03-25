@@ -5,6 +5,17 @@ import type { QueryExecutionSummary, SearchOutputRow } from '../../src/commands/
 import { handleQueryCommand } from '../../src/commands/owned/query.js';
 import { createContext, withTrailingNewline } from '../helpers.js';
 
+const defaultExecution = {
+  retrievalKind: 'cost-capped-structured' as const,
+  fallbackReason: 'fast-default' as const,
+  lexicalSignal: 'moderate' as const,
+  embeddingApplied: true,
+  expansionApplied: false,
+  rerankApplied: true,
+  heavyPathUsed: true,
+  candidateWindow: 12,
+};
+
 const queryRows: SearchOutputRow[] = [
   {
     displayPath: 'notes/plan.md',
@@ -60,6 +71,7 @@ const querySummary: QueryExecutionSummary = {
   mode: 'plain',
   primaryQuery: 'auth flow',
   queryClass: 'mixed-technical',
+  execution: defaultExecution,
   normalization: {
     applied: false,
     reason: 'not-eligible',
@@ -210,6 +222,13 @@ describe('owned query parity output', () => {
               mode: 'plain',
               primaryQuery: '문서 업로드 파싱은 어떻게 동작해?',
               queryClass: 'general',
+              execution: {
+                ...defaultExecution,
+                lexicalSignal: 'weak',
+                rerankApplied: false,
+                heavyPathUsed: false,
+                candidateWindow: 9,
+              },
               normalization: {
                 applied: true,
                 reason: 'applied',

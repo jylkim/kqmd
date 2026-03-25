@@ -117,14 +117,18 @@ describe('owned query runtime', () => {
     );
 
     expect(store.search).not.toHaveBeenCalled();
-    expect(hybridQuery).toHaveBeenCalledWith(store.internal, 'auth flow', {
-      collection: 'docs',
-      limit: 20,
-      minScore: 0,
-      candidateLimit: 10,
-      explain: false,
-      intent: undefined,
-    });
+    expect(hybridQuery).toHaveBeenCalledWith(
+      store.internal,
+      'auth flow',
+      expect.objectContaining({
+        collection: 'docs',
+        limit: 20,
+        minScore: 0,
+        candidateLimit: 10,
+        explain: false,
+        intent: undefined,
+      }),
+    );
   });
 
   test('passes skipRerank to hybridQuery when candidate-limit path disables rerank', async () => {
@@ -142,15 +146,19 @@ describe('owned query runtime', () => {
       { hybridQuery },
     );
 
-    expect(hybridQuery).toHaveBeenCalledWith(store.internal, 'auth flow', {
-      collection: 'docs',
-      limit: 20,
-      minScore: 0,
-      candidateLimit: 10,
-      explain: false,
-      intent: undefined,
-      skipRerank: true,
-    });
+    expect(hybridQuery).toHaveBeenCalledWith(
+      store.internal,
+      'auth flow',
+      expect.objectContaining({
+        collection: 'docs',
+        limit: 20,
+        minScore: 0,
+        candidateLimit: 10,
+        explain: false,
+        intent: undefined,
+        skipRerank: true,
+      }),
+    );
   });
 
   test('rejects plain query candidate-limit with multiple collection filters', async () => {
@@ -194,13 +202,49 @@ describe('owned query runtime', () => {
     );
 
     expect(store.search).not.toHaveBeenCalled();
-    expect(structuredSearch).toHaveBeenCalledWith(store.internal, queries, {
+    expect(structuredSearch).toHaveBeenCalledWith(
+      store.internal,
+      queries,
+      expect.objectContaining({
+        collections: ['docs', 'notes'],
+        limit: 20,
+        minScore: 0,
+        candidateLimit: 10,
+        explain: false,
+        intent: undefined,
+      }),
+    );
+  });
+
+  test('falls back to public search when fast-default spans multiple collections', async () => {
+    const store = createStore();
+    const structuredSearch = vi.fn(async () => []);
+
+    await executeOwnedQuerySearch(
+      store,
+      {
+        ...createInput({
+          fetchLimit: 20,
+          candidateLimit: 12,
+        }),
+        preExpandedQueries: [
+          { type: 'lex', query: 'auth flow', line: 1 },
+          { type: 'vec', query: 'auth flow', line: 2 },
+        ],
+        runtimeKind: 'cost-capped-structured',
+      } as never,
+      ['docs', 'notes'],
+      { structuredSearch },
+    );
+
+    expect(store.search).toHaveBeenCalledWith({
+      query: 'auth flow',
       collections: ['docs', 'notes'],
       limit: 20,
       minScore: 0,
-      candidateLimit: 10,
       explain: false,
       intent: undefined,
     });
+    expect(structuredSearch).not.toHaveBeenCalled();
   });
 });

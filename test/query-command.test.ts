@@ -9,6 +9,7 @@ function createCollectionStore(): QMDStore {
     close: vi.fn(async () => {}),
     listCollections: vi.fn(async () => [{ name: 'docs' }, { name: 'notes' }]),
     getDefaultCollectionNames: vi.fn(async () => ['docs']),
+    searchLex: vi.fn(async () => []),
     search: vi.fn(async () => []),
     getStatus: vi.fn(async () => ({
       totalDocuments: 2,

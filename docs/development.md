@@ -32,6 +32,7 @@ bun run check
 | `bun run test:coverage` | 테스트 커버리지 |
 | `bun run build` | TypeScript 빌드 |
 | `bun run check` | lint + typecheck + test |
+| `bun run measure:query-cold-start` | fresh child-process query cold-start benchmark |
 
 ## 프로젝트 구조
 
@@ -73,6 +74,7 @@ bun run check
 | MCP 동작 | `bun run test -- mcp-command mcp-server mcp-http mcp-stdio mcp-runtime mcp-daemon-state` |
 | 한국어 검색 정책/shadow index | `bun run test -- search-policy search-index-health kiwi-tokenizer search-shadow-index owned-search-behavior status-command` |
 | query search-assist / MCP parity | `bun run test -- query-core query-output-security query-output mcp-query mcp-server mcp-http` |
+| query fast-default policy / cold-start | `bun run test -- query-execution-policy query-lexical-candidates query-runtime query-core` |
 | 임베딩 정책/mismatch | `bun run test -- embedding-policy embedding-health owned-embedding-behavior status-command` |
 
 ### 수동 검증

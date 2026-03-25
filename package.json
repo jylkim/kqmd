@@ -33,12 +33,13 @@
     "measure:kiwi-reliability": "bun run scripts/measure_kiwi_search_reliability.ts",
     "measure:query-adaptive": "bun run scripts/measure_query_adaptive_ranking.ts > docs/benchmarks/2026-03-17-query-adaptive-ranking-metrics.md",
     "measure:query-adaptive-e2e": "bun run scripts/measure_query_adaptive_e2e.ts > docs/benchmarks/2026-03-17-query-adaptive-e2e-metrics.md",
+    "measure:query-cold-start": "bun run scripts/measure_query_cold_start.ts > docs/benchmarks/2026-03-25-query-cold-start-metrics.md",
     "benchmark:query-recall": "bun run scripts/benchmark_query_recall.ts > docs/benchmarks/query-recall.md",
     "measure:mcp-contract": "bun run scripts/measure_mcp_contract.ts > docs/benchmarks/2026-03-16-mcp-contract-metrics.md",
     "benchmark:search-recall": "bun run scripts/benchmark_search_recall.ts > docs/benchmarks/search-recall.md",
     "check": "bun run lint && bun run typecheck && bun run test",
     "release:artifact": "bun run scripts/verify_release_artifact.ts",
-    "release:verify": "bun run lint && bun run typecheck && bun run test:release-contract && bun run measure:kiwi-reliability && bun run measure:mcp-contract && bun run release:artifact"
+    "release:verify": "bun run lint && bun run typecheck && bun run test:release-contract && bun run measure:kiwi-reliability && bun run measure:mcp-contract && bun run measure:query-cold-start && bun run release:artifact"
   },
   "trustedDependencies": [
     "better-sqlite3",

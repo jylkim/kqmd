@@ -79,6 +79,7 @@ function createFakeMcpStore(): QMDStore {
   return {
     close: vi.fn(async () => {}),
     dbPath: '/home/tester/.cache/qmd/index.sqlite',
+    searchLex: vi.fn(async () => []),
     search: vi.fn(async () => [
       {
         displayPath: 'docs/readme.md',

@@ -45,7 +45,8 @@ bun run release:verify
 3. Release contract 테스트 (`test:release-contract` — owned command parity, passthrough contract 포함)
 4. Kiwi search 안정성 측정 (`measure:kiwi-reliability`)
 5. MCP contract 정합성 측정 (`measure:mcp-contract`)
-6. 산출물 검증 (`release:artifact`)
+6. query cold-start 측정 (`measure:query-cold-start`)
+7. 산출물 검증 (`release:artifact`)
 
 ### 산출물 검증
 
@@ -77,6 +78,7 @@ bun publish --dry-run
 - `qmd update` 이후 shadow index 동기화가 완료됩니다.
 - `qmd status`가 `clean`이면 `qmd search`가 실제로 shadow path를 사용합니다.
 - `search --json` stdout이 warning이나 advisory로 오염되지 않습니다.
+- synthetic fixture 기준 `measure:query-cold-start`가 모든 fixture에서 target `hit@5`를 유지합니다.
 - stale 또는 policy mismatch 상태에서 false clean path를 타지 않습니다.
 
 ### 즉시 중단 조건
@@ -143,6 +145,7 @@ qmd search "형태소 분석"
 |---|---|
 | Query adaptive ranking (p50/p95, heap/rss) | `bun run measure:query-adaptive` |
 | Query adaptive E2E (p50/p95, heap/rss) | `bun run measure:query-adaptive-e2e` |
+| Query cold start (fresh child process, p50/p95/max, peak RSS) | `bun run measure:query-cold-start` |
 
 ### 벤치마크
 

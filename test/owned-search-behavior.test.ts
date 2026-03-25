@@ -310,6 +310,29 @@ function createCollectionScopedCleanStore(): QMDStore {
   } as unknown as QMDStore;
 }
 
+function createMissingLegacyLexStore(): QMDStore {
+  return {
+    close: vi.fn(async () => {}),
+    listCollections: vi.fn(async () => [{ name: 'docs' }]),
+    getDefaultCollectionNames: vi.fn(async () => ['docs']),
+    internal: {
+      db: {
+        prepare: vi.fn((sql: string) => ({
+          get: vi.fn(() => {
+            if (sql.includes('COUNT(*) AS count')) {
+              return { count: 1 };
+            }
+
+            return undefined;
+          }),
+          all: vi.fn(() => []),
+        })),
+      },
+      getContextForFile: vi.fn(() => 'Docs'),
+    },
+  } as unknown as QMDStore;
+}
+
 describe('owned search Korean fallback behavior', () => {
   test('preserves json stdout while warning on stale Korean search policy', async () => {
     const result = await handleSearchCommand(createContext(['search', '--json', '형태소 분석']), {
@@ -397,6 +420,18 @@ describe('owned search Korean fallback behavior', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBeUndefined();
     expect(store.searchLex).toHaveBeenCalledTimes(1);
+  });
+
+  test('returns an execution failure when the legacy lexical API is unavailable', async () => {
+    const result = await handleSearchCommand(createContext(['search', 'hangul']), {
+      runtimeDependencies: createRuntimeDependencies(createMissingLegacyLexStore(), {
+        existingPaths: ['/home/tester/.config/qmd/index.yml'],
+      }),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('The `search` command failed.');
+    expect(result.stderr).toContain('store.searchLex()');
   });
 
   test('falls back when the source snapshot drifts even if the indexed document count matches', async () => {

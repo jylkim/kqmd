@@ -315,7 +315,8 @@ export function formatSearchExecutionResult(
       const queryLines =
         'explain' in input && input.explain && querySummary
           ? [
-              `${colors.dim}Query: mode=${querySummary.mode} class=${querySummary.queryClass}${colors.reset}`,
+              `${colors.dim}Query: mode=${querySummary.mode} class=${querySummary.queryClass} retrieval=${querySummary.execution.retrievalKind} signal=${querySummary.execution.lexicalSignal} reason=${querySummary.execution.fallbackReason}${colors.reset}`,
+              `${colors.dim}  Execution: embed=${querySummary.execution.embeddingApplied ? 'yes' : 'no'} expand=${querySummary.execution.expansionApplied ? 'yes' : 'no'} rerank=${querySummary.execution.rerankApplied ? 'yes' : 'no'} heavy=${querySummary.execution.heavyPathUsed ? 'yes' : 'no'} candidateWindow=${querySummary.execution.candidateWindow}${colors.reset}`,
               `${colors.dim}  Normalization: applied=${querySummary.normalization.applied ? 'yes' : 'no'} reason=${querySummary.normalization.reason} added=${querySummary.normalization.addedCandidates}${colors.reset}`,
               `${colors.dim}  SearchAssist summary: applied=${querySummary.searchAssist.applied ? 'yes' : 'no'} reason=${querySummary.searchAssist.reason} added=${querySummary.searchAssist.addedCandidates}${colors.reset}`,
             ]

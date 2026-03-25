@@ -3,6 +3,16 @@
     "mode": "plain",
     "primaryQuery": "auth flow",
     "queryClass": "mixed-technical",
+    "execution": {
+      "retrievalKind": "cost-capped-structured",
+      "fallbackReason": "fast-default",
+      "lexicalSignal": "moderate",
+      "embeddingApplied": true,
+      "expansionApplied": false,
+      "rerankApplied": true,
+      "heavyPathUsed": true,
+      "candidateWindow": 12
+    },
     "normalization": {
       "applied": false,
       "reason": "not-eligible",

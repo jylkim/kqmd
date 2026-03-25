@@ -46,7 +46,7 @@ npm install -g kqmd
 
 ### Adaptive query ranking
 
-짧은 한국어 구, 한영 혼합 기술 용어 등 쿼리 유형에 따라 ranking 전략을 다르게 적용합니다. `--explain`으로 ranking 근거를 확인할 수 있습니다.
+짧은 한국어 구, 한영 혼합 기술 용어 등 쿼리 유형에 따라 ranking 전략을 다르게 적용하고, 이에 맞춰 벡터 검색 경로도 최적화했습니다. `--explain`으로 ranking 근거를 확인할 수 있습니다.
 
 ### Search-assist query rescue
 

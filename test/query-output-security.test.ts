@@ -4,6 +4,17 @@ import { formatSearchExecutionResult } from '../src/commands/owned/io/format.js'
 import { buildMcpQueryRows } from '../src/commands/owned/io/query_rows.js';
 import type { QueryCommandInput, SearchOutputRow } from '../src/commands/owned/io/types.js';
 
+const defaultExecution = {
+  retrievalKind: 'cost-capped-structured' as const,
+  fallbackReason: 'fast-default' as const,
+  lexicalSignal: 'moderate' as const,
+  embeddingApplied: true,
+  expansionApplied: false,
+  rerankApplied: true,
+  heavyPathUsed: true,
+  candidateWindow: 14,
+};
+
 function createInput(overrides: Partial<QueryCommandInput> = {}): QueryCommandInput {
   return {
     query: 'agent orchestration',
@@ -136,6 +147,7 @@ describe('query output security', () => {
       mode: 'plain',
       primaryQuery: '문서 업로드 파싱은 어떻게 동작해?',
       queryClass: 'general',
+      execution: defaultExecution,
       normalization: {
         applied: true,
         reason: 'applied',

@@ -61,6 +61,7 @@ function createMismatchStore(overrides: Partial<QMDStore> = {}): QMDStore {
       },
     ]),
     getDefaultCollectionNames: vi.fn(async () => ['docs']),
+    searchLex: vi.fn(async () => []),
     search: vi.fn(async () => [
       {
         file: 'qmd://docs/a.md',

@@ -4,6 +4,17 @@ import { buildMcpQueryRows } from '../src/commands/owned/io/query_rows.js';
 import type { QueryCommandInput, SearchOutputRow } from '../src/commands/owned/io/types.js';
 import { buildQueryResponse } from '../src/mcp/query.js';
 
+const defaultExecution = {
+  retrievalKind: 'cost-capped-structured' as const,
+  fallbackReason: 'fast-default' as const,
+  lexicalSignal: 'strong' as const,
+  embeddingApplied: true,
+  expansionApplied: false,
+  rerankApplied: false,
+  heavyPathUsed: false,
+  candidateWindow: 7,
+};
+
 function createInput(overrides: Partial<QueryCommandInput> = {}): QueryCommandInput {
   return {
     query: '지속 학습',
@@ -48,6 +59,7 @@ describe('mcp query response', () => {
           mode: 'plain',
           primaryQuery: '지속 학습',
           queryClass: 'short-korean-phrase',
+          execution: defaultExecution,
           normalization: {
             applied: false,
             reason: 'not-eligible',
@@ -154,6 +166,7 @@ describe('mcp query response', () => {
           mode: 'plain',
           primaryQuery: '지속 학습',
           queryClass: 'short-korean-phrase',
+          execution: defaultExecution,
           normalization: {
             applied: false,
             reason: 'not-eligible',
@@ -195,10 +208,18 @@ describe('mcp query response', () => {
       }),
     );
 
-    expect(response.query).toEqual({
+    expect(response.query).toMatchObject({
       mode: 'plain',
       primaryQuery: '문서 업로드 파싱은 어떻게 동작해?',
       queryClass: 'general',
+      execution: {
+        retrievalKind: 'compatibility-public',
+        fallbackReason: 'compatibility-public-fallback',
+        embeddingApplied: false,
+        expansionApplied: false,
+        rerankApplied: false,
+        heavyPathUsed: false,
+      },
       normalization: {
         applied: false,
         reason: 'not-eligible',

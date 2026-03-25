@@ -58,11 +58,33 @@ function buildFallbackQuerySummary(
   input: QueryCommandInput,
   searchAssist?: QueryCoreSuccess['searchAssist'],
 ): QueryCoreSuccess['query'] {
+  const retrievalKind =
+    input.queryMode === 'structured' ? 'structured-compatibility' : 'compatibility-public';
+  const fallbackReason =
+    input.queryMode === 'structured'
+      ? 'compatibility-structured'
+      : input.intent
+        ? 'compatibility-explicit-intent'
+        : input.candidateLimit !== undefined
+          ? 'compatibility-explicit-candidate-limit'
+          : input.collections && input.collections.length > 0
+            ? 'compatibility-explicit-collection-filter'
+            : 'compatibility-public-fallback';
   return {
     mode: input.queryMode,
     primaryQuery: input.displayQuery,
     intent: input.intent,
     queryClass: classifyQuery(input).queryClass,
+    execution: {
+      retrievalKind,
+      fallbackReason,
+      lexicalSignal: 'none',
+      embeddingApplied: false,
+      expansionApplied: false,
+      rerankApplied: false,
+      heavyPathUsed: false,
+      candidateWindow: input.candidateLimit ?? 40,
+    },
     normalization: {
       applied: false,
       reason: 'not-eligible',
