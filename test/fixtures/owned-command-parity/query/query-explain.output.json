@@ -3,6 +3,11 @@
     "mode": "plain",
     "primaryQuery": "auth flow",
     "queryClass": "mixed-technical",
+    "retrieval": {
+      "path": "compatibility",
+      "eligibilityReason": "explicit-candidate-limit",
+      "heavyPathUsed": true
+    },
     "normalization": {
       "applied": false,
       "reason": "not-eligible",

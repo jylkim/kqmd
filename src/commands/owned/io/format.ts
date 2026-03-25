@@ -134,10 +134,12 @@ export function normalizeSearchResults(results: SearchResult[]): SearchOutputRow
     displayPath: result.displayPath,
     title: result.title,
     body: result.body ?? '',
+    sourceBody: result.body ?? '',
     context: result.context,
     score: result.score,
     docid: result.docid,
     chunkPos: result.chunkPos,
+    sourceChunkPos: result.chunkPos,
   }));
 }
 
@@ -316,6 +318,7 @@ export function formatSearchExecutionResult(
         'explain' in input && input.explain && querySummary
           ? [
               `${colors.dim}Query: mode=${querySummary.mode} class=${querySummary.queryClass}${colors.reset}`,
+              `${colors.dim}  Retrieval: path=${querySummary.retrieval.path} reason=${querySummary.retrieval.eligibilityReason} heavy=${querySummary.retrieval.heavyPathUsed ? 'yes' : 'no'}${querySummary.retrieval.fallbackReason ? ` fallback=${querySummary.retrieval.fallbackReason}` : ''}${colors.reset}`,
               `${colors.dim}  Normalization: applied=${querySummary.normalization.applied ? 'yes' : 'no'} reason=${querySummary.normalization.reason} added=${querySummary.normalization.addedCandidates}${colors.reset}`,
               `${colors.dim}  SearchAssist summary: applied=${querySummary.searchAssist.applied ? 'yes' : 'no'} reason=${querySummary.searchAssist.reason} added=${querySummary.searchAssist.addedCandidates}${colors.reset}`,
             ]

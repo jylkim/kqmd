@@ -141,6 +141,7 @@ qmd search "형태소 분석"
 
 | 항목 | 명령 |
 |---|---|
+| Query cold start (fresh child process, wall-clock/max RSS) | `bun run measure:query-cold-start` |
 | Query adaptive ranking (p50/p95, heap/rss) | `bun run measure:query-adaptive` |
 | Query adaptive E2E (p50/p95, heap/rss) | `bun run measure:query-adaptive-e2e` |
 

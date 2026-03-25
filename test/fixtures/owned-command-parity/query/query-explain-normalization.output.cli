@@ -1,4 +1,5 @@
 Query: mode=plain class=general
+  Retrieval: path=fast-default reason=plain-default heavy=no
   Normalization: applied=yes reason=applied added=1
   SearchAssist summary: applied=no reason=ineligible added=0
 
