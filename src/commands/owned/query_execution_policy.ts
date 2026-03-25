@@ -32,6 +32,17 @@ function buildFastDefaultQueries(query: string): ExpandedQuery[] {
   ];
 }
 
+function shouldDisableFastDefaultRerank(
+  traits: QueryTraits,
+  lexicalSignal: QueryLexicalProbe['signal'],
+): boolean {
+  if (shouldDisableRerankForQuery(traits) || lexicalSignal === 'strong') {
+    return true;
+  }
+
+  return traits.queryClass === 'mixed-technical' && traits.hasHangul;
+}
+
 function resolveFastDefaultCandidateWindow(
   limit: number,
   traits: QueryTraits,
@@ -154,7 +165,7 @@ export function buildQueryExecutionPlan(args: {
     traits,
     lexicalProbe.signal,
   );
-  const disableRerank = shouldDisableRerankForQuery(traits) || lexicalProbe.signal === 'strong';
+  const disableRerank = shouldDisableFastDefaultRerank(traits, lexicalProbe.signal);
 
   return {
     request: {

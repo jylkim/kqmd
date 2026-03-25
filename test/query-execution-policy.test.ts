@@ -146,4 +146,28 @@ describe('query execution policy', () => {
       'preExpandedQueries' in plan.request ? plan.request.preExpandedQueries : undefined,
     ).toBeUndefined();
   });
+
+  test('disables rerank for mixed-technical Hangul fast-default queries', () => {
+    const input = createInput({
+      query: '도커 compose 설정',
+      displayQuery: '도커 compose 설정',
+      collections: ['docs'],
+    });
+    const plan = buildQueryExecutionPlan({
+      input,
+      traits: classifyQuery(input),
+      lexicalProbe: {
+        rows: [],
+        signal: 'none',
+        usesShadowIndex: false,
+        conservativeSyntax: false,
+      },
+      normalizationPlan: { kind: 'skip', reason: 'not-eligible' },
+      selectedCollectionsCount: 1,
+    });
+
+    expect(plan.retrievalKind).toBe('cost-capped-structured');
+    expect(plan.request.queryMode).toBe('plain');
+    expect(plan.request.disableRerank).toBe(true);
+  });
 });
