@@ -5,6 +5,17 @@
 
 ## [Unreleased]
 
+## [2.0.1-kqmd.5] - 2026-03-25
+
+### Fixed
+
+- query cold-start 시 불필요한 lexical preflight로 인한 응답 지연 개선
+
+### Refactored
+
+- query 실행 정책(execution policy)과 lexical candidate 처리를 독립 모듈로 분리
+- 벤치마크 fixture를 실제 vault 기반 도메인으로 재설계
+
 ## [2.0.1-kqmd.4] - 2026-03-23
 
 ### Changed
@@ -72,7 +83,8 @@ upstream `@tobilu/qmd@2.0.1` 기반 K-QMD 최초 릴리스.
 - 중복 코드 통합 및 runtime path alias 수정
 - 빌드/워크플로를 bun 기반으로 전환
 
-[Unreleased]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.4...HEAD
+[Unreleased]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.5...HEAD
+[2.0.1-kqmd.5]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.4...v2.0.1-kqmd.5
 [2.0.1-kqmd.4]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.3...v2.0.1-kqmd.4
 [2.0.1-kqmd.3]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.2...v2.0.1-kqmd.3
 [2.0.1-kqmd.2]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.1...v2.0.1-kqmd.2
