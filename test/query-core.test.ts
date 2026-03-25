@@ -324,7 +324,7 @@ describe('query core', () => {
     });
   });
 
-  test('does not probe lexical candidates for explicit collection compatibility queries', async () => {
+  test('does probe lexical candidates for single explicit collection fast-default queries', async () => {
     const store = createStore();
     const searchLex = attachSearchLexSpy(store);
 
@@ -339,6 +339,33 @@ describe('query core', () => {
     );
 
     expect('kind' in result).toBe(false);
+    if ('kind' in result) {
+      return;
+    }
+
+    expect(searchLex).toHaveBeenCalled();
+    expect(result.query.execution.retrievalKind).toBe('cost-capped-structured');
+  });
+
+  test('does not probe lexical candidates for explicit multi-collection compatibility queries', async () => {
+    const store = createStore();
+    const searchLex = attachSearchLexSpy(store);
+
+    const result = await executeQueryCore(
+      store,
+      createInput({
+        query: 'release checklist',
+        displayQuery: 'release checklist',
+        collections: ['docs', 'notes'],
+      }),
+      { HOME: '/home/tester' },
+    );
+
+    expect('kind' in result).toBe(false);
+    if ('kind' in result) {
+      return;
+    }
+
     expect(searchLex).not.toHaveBeenCalled();
   });
 

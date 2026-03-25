@@ -122,7 +122,7 @@ function shouldProbeLexicalCandidates(
     selectedCollectionsCount <= 1 &&
     input.intent === undefined &&
     input.candidateLimit === undefined &&
-    (!input.collections || input.collections.length === 0);
+    (!input.collections || input.collections.length <= 1);
   const searchAssistCandidate = shouldConsiderQuerySearchAssist(input, traits) && traits.hasHangul;
 
   return fastDefaultCandidate || searchAssistCandidate;

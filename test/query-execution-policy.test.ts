@@ -87,7 +87,7 @@ describe('query execution policy', () => {
     expect(plan.fallbackReason).toBe('conservative-syntax');
   });
 
-  test('keeps explicit collection filters on compatibility public path', () => {
+  test('keeps single explicit collection on fast-default path', () => {
     const input = createInput({ collections: ['docs'] });
     const plan = buildQueryExecutionPlan({
       input,
@@ -100,6 +100,25 @@ describe('query execution policy', () => {
       },
       normalizationPlan: { kind: 'skip', reason: 'not-eligible' },
       selectedCollectionsCount: 1,
+    });
+
+    expect(plan.retrievalKind).toBe('cost-capped-structured');
+    expect(plan.fallbackReason).toBe('fast-default');
+  });
+
+  test('keeps explicit multi-collection filters on compatibility public path', () => {
+    const input = createInput({ collections: ['docs', 'notes'] });
+    const plan = buildQueryExecutionPlan({
+      input,
+      traits: classifyQuery(input),
+      lexicalProbe: {
+        rows: [],
+        signal: 'weak',
+        usesShadowIndex: false,
+        conservativeSyntax: false,
+      },
+      normalizationPlan: { kind: 'skip', reason: 'not-eligible' },
+      selectedCollectionsCount: 2,
     });
 
     expect(plan.retrievalKind).toBe('compatibility-public');

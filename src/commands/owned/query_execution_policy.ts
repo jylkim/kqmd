@@ -21,8 +21,8 @@ export interface QueryExecutionPlan {
   readonly normalizationPlan: QueryNormalizationPlan;
 }
 
-function hasExplicitCollectionFilter(input: QueryCommandInput): boolean {
-  return Array.isArray(input.collections) && input.collections.length > 0;
+function explicitCollectionFilterCount(input: QueryCommandInput): number {
+  return Array.isArray(input.collections) ? input.collections.length : 0;
 }
 
 function buildFastDefaultQueries(query: string): ExpandedQuery[] {
@@ -107,7 +107,7 @@ export function buildQueryExecutionPlan(args: {
     };
   }
 
-  if (hasExplicitCollectionFilter(input)) {
+  if (explicitCollectionFilterCount(input) > 1) {
     return {
       request: {
         ...baseRequest,
