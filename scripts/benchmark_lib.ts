@@ -11,7 +11,7 @@ import {
 
 export const QUERY_RECALL_BENCHMARK_DATE = '2026-03-20';
 export const QUERY_RECALL_SCHEMA_VERSION = '3';
-export const QUERY_RECALL_FIXTURE_VERSION = '2';
+export const QUERY_RECALL_FIXTURE_VERSION = '3';
 export const QUERY_RECALL_DATASET_ID = 'kqmd-query-recall-v2';
 export const TOP_K = 5;
 

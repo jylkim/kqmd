@@ -53,83 +53,136 @@ type BenchmarkContext = {
 };
 
 const TARGET_DOCS: Record<string, string> = {
-  'spacing-adaptive-target.md': [
-    '# 지속 학습',
+  // --- CI/CD, Kubernetes 배포 ---
+  'devops-deploy.md': [
+    '# CI/CD 배포 로그',
     '',
-    '## 지속 학습',
-    '지속 학습 워크플로우를 짧게 정리합니다.',
-    '이 문서는 실험 메모만 남깁니다.',
+    '## Jenkins에서 GitHub Actions 전환',
+    'Jenkins파이프라인에서 GitHub Actions로 전환을 진행했습니다.',
+    '빌드스크립트를 리팩토링하고 캐싱 전략을 최적화했습니다.',
+    'Docker이미지 빌드 시간이 40% 단축되었습니다.',
+    '',
+    '## Kubernetes 운영',
+    'HPA 임계값을 CPU 70%에서 60%로 낮추고 replica 수를 조정했습니다.',
   ].join('\n'),
-  'spacing-rescue-upload.md': [
-    '# 문서 업로드 파서',
+
+  // --- AI 에이전트 설계 ---
+  'agent-architecture.md': [
+    '# 멀티에이전트 시스템 설계',
     '',
-    '문서업로드파서와 업로드파싱기 동작을 설명합니다.',
-    '문서업로드파서 구현 세부사항을 정리합니다.',
+    '서브에이전트 패턴으로 멀티에이전트 시스템을 구성합니다.',
+    '오케스트레이터가 작업을 분배하고 각 워커를 관리합니다.',
+    '시스템프롬프트 주입 기능과 맥락 관리가 핵심 요구사항입니다.',
+    '',
+    '승인 플로우를 구현하여 위험한 도구 호출을 사전에 차단합니다.',
+    '가드레일을 설정하여 허용 범위를 벗어나지 않도록 합니다.',
   ].join('\n'),
-  'compound-orchestration.md': [
-    '# 플랫폼 운영',
+
+  // --- 보안/샌드박싱 ---
+  'security-sandbox.md': [
+    '# 샌드박싱 보안 아키텍처',
     '',
-    '컨테이너오케스트레이션 환경에서 shadow index를 운영합니다.',
-    '운영팀은 플랫폼 상태를 모니터링합니다.',
+    'seccomp필터와 Landlock LSM을 결합한 다층 방어를 구현합니다.',
+    '공급망공격 방지를 위해 의존성 무결성 검증 절차를 도입했습니다.',
+    '보안취약점 스캔 결과를 감사 로그에 기록합니다.',
+    '',
+    '각 계층별 격리 정책과 탈출 방지 전략을 정리합니다.',
   ].join('\n'),
-  'compound-analysis.md': [
-    '# 자연어 처리',
+
+  // --- Python 에코시스템 ---
+  'python-migration.md': [
+    '# Python 저장소 마이그레이션',
     '',
-    '형태소분석기와 텍스트정규화기를 비교합니다.',
-    '분석 결과의 품질과 처리 흐름을 다룹니다.',
+    'pytest실행 환경을 uv로 전환했습니다.',
+    'ruff린팅 규칙을 추가하고 기존 pylint 설정을 대체했습니다.',
+    '타입힌트를 Python 3.10+ 문법으로 모더나이제이션했습니다.',
+    '',
+    'pyproject.toml로 빌드 설정을 통합하고 의존성을 정리했습니다.',
   ].join('\n'),
-  'mixed-schema.md': [
-    '# Schema Migration Guide',
+
+  // --- 프론트엔드 마이그레이션 ---
+  'frontend-sprint.md': [
+    '# UI 마이그레이션 스프린트',
     '',
-    'Schema마이그레이션 절차와 rollback 전략을 문서화합니다.',
-    'schema migration checklist를 함께 정리합니다.',
+    'MUI에서 shadcn/ui로 컴포넌트 마이그레이션을 진행합니다.',
+    'Tailwind설정과 디자인토큰 통합을 완료했습니다.',
+    'Storybook문서화를 추가하여 컴포넌트 카탈로그를 구축합니다.',
+    '',
+    '이번 스프린트에서 Button, Dialog, Table 컴포넌트를 완료합니다.',
   ].join('\n'),
-  'mixed-auth.md': [
-    '# Auth Flow Setup',
+
+  // --- 코드 리뷰 미팅 ---
+  'meeting-review.md': [
+    '# 코드 리뷰 미팅 노트',
     '',
-    'OAuth인증 flow와 callback 정책을 설명합니다.',
-    'oauth auth flow examples for Korean docs.',
+    '리팩토링이 완료된 모듈의 테스트커버리지를 확인했습니다.',
+    '통합테스트 실행 시간이 3분에서 45초로 단축되었습니다.',
+    '정적분석 도구를 PMD에서 SonarQube로 전환하는 안건을 논의했습니다.',
+    '',
+    '## Action Items',
+    '- 다음 주까지 SonarQube 파일럿 환경 구성',
   ].join('\n'),
-  'question-upload.md': [
-    '# 문서 업로드 FAQ',
+
+  // --- 모니터링/관측 ---
+  'observability-guide.md': [
+    '# OpenTelemetry 적용 가이드',
     '',
-    '문서 업로드 파싱 단계와 indexing 흐름을 설명합니다.',
-    'parser와 indexing 단계로 나뉘며 업로드 처리 순서를 정리합니다.',
+    '분산추적 설정과 메트릭수집 파이프라인을 구축합니다.',
+    'Grafana대시보드에 API 레이턴시와 에러율 패널을 추가합니다.',
+    '로그 집계 시스템을 Loki로 통합하는 방법을 설명합니다.',
+    '',
+    'span context propagation과 sampling 전략을 다룹니다.',
   ].join('\n'),
-  'long-query-upload-overview.md': [
-    '# 문서 업로드 개요',
+
+  // --- Rust 시스템 프로그래밍 ---
+  'rust-sdk.md': [
+    '# PAGER Rust SDK 개발 노트',
     '',
-    '문서 업로드 파싱 동작 단계를 정리한 개요 문서입니다.',
-    '문서 업로드 파싱 동작 단계와 구조를 차례대로 설명합니다.',
+    'PyO3바인딩으로 Python에서 Rust 코어를 호출합니다.',
+    '이벤트드리븐 아키텍처를 Tower 미들웨어로 구현했습니다.',
+    'SQLite에 이벤트소싱 패턴을 적용하여 상태를 관리합니다.',
+    '',
+    'cargo nextest로 병렬 테스트를 실행합니다.',
   ].join('\n'),
-  'long-query-normalized-upload.md': [
-    '# 문서 업로드 파싱 단계',
+
+  // --- Long-query 전용 target 문서 ---
+  'security-scan-faq.md': [
+    '# 보안 취약점 스캔 FAQ',
     '',
-    '문서 업로드 파싱 단계와 parser 흐름을 설명합니다.',
-    '업로드 파이프라인의 indexing 단계와 parsing 단계를 정리합니다.',
+    '보안 취약점 스캔 동작 단계와 결과 해석 방법을 설명합니다.',
+    '스캔 대상 범위 설정과 오탐 처리 절차를 정리합니다.',
+    '정기 스캔 스케줄과 긴급 패치 판단 기준을 안내합니다.',
+  ].join('\n'),
+
+  'observability-setup.md': [
+    '# Grafana 대시보드 설정 가이드',
+    '',
+    'Grafana 대시보드 설정 방법과 패널 구성을 정리한 가이드입니다.',
+    '데이터소스 연결, 알림 규칙, 변수 템플릿 설정을 다룹니다.',
+    'JSON 모델 내보내기와 팀 공유 방법을 안내합니다.',
+  ].join('\n'),
+
+  'python-test-setup.md': [
+    '# pytest 실행 환경 설정',
+    '',
+    'pytest 실행 환경 설정 단계와 conftest 구성을 설명합니다.',
+    'fixture 계층 구조와 marker 규칙을 정리합니다.',
+    'CI에서의 병렬 실행 옵션과 커버리지 리포트 설정을 안내합니다.',
   ].join('\n'),
 };
 
 const DOC_NOISE: readonly string[] = [
-  [
-    '# 지속 운영 노트',
-    '',
-    '지속 운영 절차를 설명합니다.',
-    '학습 계획은 별도로 적고, 지속 과제와 학습 순서를 번갈아 정리합니다.',
-    '지속 항목, 학습 항목, 지속 기록, 학습 기록을 여러 줄로 남깁니다.',
-    '지속 운영과 학습 운영을 반복해서 적고, 지속 이슈와 학습 이슈를 계속 기록합니다.',
-    '지속 단계, 학습 단계, 지속 점검, 학습 점검, 지속 보고, 학습 보고를 나열합니다.',
-  ].join('\n'),
-  ['# 학습 체크리스트', '', '학습 목표와 학습 순서를 정리합니다.', '지속성 이야기는 없습니다.'].join('\n'),
-  ['# 검색 운영 메모', '', '검색 품질과 색인 운영에 대한 일반 메모입니다.', '문서 파이프라인을 다룹니다.'].join('\n'),
-  ['# 플랫폼 개요', '', '오케스트레이터와 스케줄러를 소개합니다.', '오케스트레이션이라는 완전한 단어는 쓰지 않습니다.'].join('\n'),
-  ['# API Guide', '', 'API schema checklist와 migration timeline을 정리합니다.', '마이그레이션은 영어 문맥으로만 설명합니다.'].join('\n'),
-  ['# Security Notes', '', '인증 토큰 회전과 세션 정책을 설명합니다.', 'flow 라는 단어는 쓰지 않습니다.'].join('\n'),
-  ['# 문서 업로드 설명 1', '', '문서 업로드는 어떻게 설명해줘야 하는지 정리합니다.', '업로드 설명 문서입니다.'].join('\n'),
-  ['# 문서 업로드 설명 2', '', '문서 업로드는 어떻게 설명해줘야 하는지 다시 적습니다.', '질문형 설명 문서입니다.'].join('\n'),
-  ['# 업로드 동작 설명', '', '업로드 동작은 어떻게 설명해줘야 하는지 적습니다.', '파싱이라는 단어는 쓰지 않습니다.'].join('\n'),
-  ['# 문서 업로드 질문', '', '문서 업로드 질문과 설명해줘 패턴을 모읍니다.', '질문 대응 메모입니다.'].join('\n'),
-  ['# 업로드 안내', '', '문서 업로드는 어떻게 동작하는지 설명해줘 안내합니다.', '설명 안내 메모입니다.'].join('\n'),
+  ['# 빌드 환경 점검', '', '빌드 캐시를 정리하고 배포 환경을 점검했습니다.', '로컬에서 스크립트 동작을 확인했습니다.'].join('\n'),
+  ['# 보안 감사 결과', '', '보안 정책을 검토하고 감사 로그를 확인했습니다.', '취약점 패치 일정을 수립합니다.'].join('\n'),
+  ['# 테스트 전략 회의', '', '테스트 자동화 범위를 논의했습니다.', '커버리지 목표를 80%로 상향 조정합니다.'].join('\n'),
+  ['# Python 환경 정리', '', 'uv로 가상 환경을 재구성했습니다.', '린트 규칙 충돌을 해결했습니다.'].join('\n'),
+  ['# 디자인 시스템 검토', '', '디자인 시스템 컴포넌트 목록을 정리했습니다.', '토큰 네이밍 규칙을 확정합니다.'].join('\n'),
+  ['# 모니터링 운영 메모', '', '메트릭 임계값을 재조정하고 알림 규칙을 갱신했습니다.', '대시보드 레이아웃을 개선합니다.'].join('\n'),
+  ['# Rust 모듈 리뷰', '', '이벤트 처리 로직을 리뷰했습니다.', '미들웨어 체인 순서를 재배치합니다.'].join('\n'),
+  ['# 에이전트 운영 일지', '', '에이전트 응답 속도를 모니터링했습니다.', '프롬프트 튜닝 실험 결과를 기록합니다.'].join('\n'),
+  ['# 스프린트 회고', '', '이번 스프린트에서 완료한 작업을 정리했습니다.', '다음 스프린트 목표를 설정합니다.'].join('\n'),
+  ['# 팀 온보딩 가이드', '', '신규 입사자를 위한 개발 환경 설정 가이드입니다.', '로컬 실행 방법과 코드 규칙을 안내합니다.'].join('\n'),
+  ['# 보안 스캔 일정', '', '보안 스캔 일정과 담당자를 정리합니다.', '취약점이라는 단어 없이 스캔 절차만 설명합니다.'].join('\n'),
 ];
 
 const NOTES_DOCS: Record<string, string> = {
@@ -138,68 +191,106 @@ const NOTES_DOCS: Record<string, string> = {
 };
 
 const DECOMPOSITION_MAP: ReadonlyMap<string, string> = new Map([
-  ['문서업로드파서', '문서 업로드 파싱'],
-  ['업로드파싱기', '업로드 파싱'],
-  ['컨테이너오케스트레이션', '컨테이너 오케스트레이션'],
-  ['형태소분석기', '형태소 분석'],
-  ['텍스트정규화기', '텍스트 정규화'],
-  ['Schema마이그레이션', 'Schema 마이그레이션'],
-  ['OAuth인증', 'OAuth 인증'],
+  ['빌드스크립트', '빌드 스크립트'],
+  ['서브에이전트', '서브 에이전트'],
+  ['멀티에이전트', '멀티 에이전트'],
+  ['시스템프롬프트', '시스템 프롬프트'],
+  ['공급망공격', '공급망 공격'],
+  ['보안취약점', '보안 취약점'],
+  ['타입힌트', '타입 힌트'],
+  ['디자인토큰', '디자인 토큰'],
+  ['테스트커버리지', '테스트 커버리지'],
+  ['통합테스트', '통합 테스트'],
+  ['정적분석', '정적 분석'],
+  ['분산추적', '분산 추적'],
+  ['메트릭수집', '메트릭 수집'],
+  ['이벤트소싱', '이벤트 소싱'],
+  ['이벤트드리븐', '이벤트 드리븐'],
+  ['Jenkins파이프라인', 'Jenkins 파이프라인'],
+  ['Docker이미지', 'Docker 이미지'],
+  ['pytest실행', 'pytest 실행'],
+  ['ruff린팅', 'ruff 린팅'],
+  ['Tailwind설정', 'Tailwind 설정'],
+  ['Storybook문서화', 'Storybook 문서화'],
+  ['Grafana대시보드', 'Grafana 대시보드'],
+  ['PyO3바인딩', 'PyO3 바인딩'],
+  ['seccomp필터', 'seccomp 필터'],
 ]);
 
 const CORE_CASES: readonly BenchmarkCaseRuntime[] = [
+  // --- spacing: 띄어쓰기 변형 ---
   createCase({
-    caseId: 'spacing-adaptive',
-    syntheticLabel: 'spacing-adaptive',
+    caseId: 'spacing-security',
+    syntheticLabel: 'spacing-security',
     category: 'spacing',
     expectedOutcome: 'hit',
-    query: '지속 학습',
-    targetDocs: ['docs/spacing-adaptive-target.md'],
+    query: '보안 취약점',
+    targetDocs: ['docs/security-sandbox.md'],
     collections: ['docs'],
   }),
   createCase({
-    caseId: 'spacing-rescue-upload',
-    syntheticLabel: 'spacing-rescue-upload',
+    caseId: 'spacing-coverage',
+    syntheticLabel: 'spacing-coverage',
     category: 'spacing',
     expectedOutcome: 'hit',
-    query: '문서 업로드 파싱',
-    targetDocs: ['docs/spacing-rescue-upload.md'],
+    query: '테스트 커버리지',
+    targetDocs: ['docs/meeting-review.md'],
     collections: ['docs'],
   }),
+  // --- compound: 복합어 sub-token ---
   createCase({
-    caseId: 'compound-orchestration',
-    syntheticLabel: 'compound-orchestration',
+    caseId: 'compound-prompt',
+    syntheticLabel: 'compound-prompt',
     category: 'compound',
     expectedOutcome: 'hit',
-    query: '오케스트레이션',
-    targetDocs: ['docs/compound-orchestration.md'],
+    query: '프롬프트',
+    targetDocs: ['docs/agent-architecture.md'],
     collections: ['docs'],
   }),
   createCase({
-    caseId: 'compound-analysis',
-    syntheticLabel: 'compound-analysis',
+    caseId: 'compound-tracing',
+    syntheticLabel: 'compound-tracing',
     category: 'compound',
     expectedOutcome: 'hit',
-    query: '분석',
-    targetDocs: ['docs/compound-analysis.md'],
+    query: '추적',
+    targetDocs: ['docs/observability-guide.md'],
     collections: ['docs'],
   }),
   createCase({
-    caseId: 'mixed-schema',
-    syntheticLabel: 'mixed-schema',
+    caseId: 'compound-sourcing',
+    syntheticLabel: 'compound-sourcing',
+    category: 'compound',
+    expectedOutcome: 'hit',
+    query: '소싱',
+    targetDocs: ['docs/rust-sdk.md'],
+    collections: ['docs'],
+  }),
+  // --- mixed: 한영 혼합 ---
+  createCase({
+    caseId: 'mixed-pipeline',
+    syntheticLabel: 'mixed-pipeline',
     category: 'mixed',
     expectedOutcome: 'hit',
-    query: 'schema 마이그레이션',
-    targetDocs: ['docs/mixed-schema.md'],
+    query: '파이프라인',
+    targetDocs: ['docs/devops-deploy.md'],
     collections: ['docs'],
   }),
   createCase({
-    caseId: 'mixed-auth',
-    syntheticLabel: 'mixed-auth',
+    caseId: 'mixed-dashboard',
+    syntheticLabel: 'mixed-dashboard',
     category: 'mixed',
     expectedOutcome: 'hit',
-    query: 'oauth 인증',
-    targetDocs: ['docs/mixed-auth.md'],
+    query: '대시보드',
+    targetDocs: ['docs/observability-guide.md'],
+    collections: ['docs'],
+  }),
+  createCase({
+    caseId: 'mixed-binding',
+    syntheticLabel: 'mixed-binding',
+    category: 'mixed',
+    expectedOutcome: 'hit',
+    query: '바인딩',
+    targetDocs: ['docs/rust-sdk.md'],
     collections: ['docs'],
   }),
 ];
@@ -210,8 +301,8 @@ const CONTROL_CASES: readonly BenchmarkCaseRuntime[] = [
     syntheticLabel: 'control-quoted',
     category: 'control',
     expectedOutcome: 'hit',
-    query: '"지속 학습"',
-    targetDocs: ['docs/spacing-adaptive-target.md'],
+    query: '"보안 취약점"',
+    targetDocs: ['docs/security-scan-faq.md'],
     collections: ['docs'],
   }),
   createCase({
@@ -219,8 +310,8 @@ const CONTROL_CASES: readonly BenchmarkCaseRuntime[] = [
     syntheticLabel: 'control-negated',
     category: 'control',
     expectedOutcome: 'hit',
-    query: '지속 학습 -파이프라인',
-    targetDocs: ['docs/spacing-adaptive-target.md'],
+    query: '보안 취약점 -파이프라인',
+    targetDocs: ['docs/security-scan-faq.md'],
     collections: ['docs'],
   }),
   createCase({
@@ -237,8 +328,8 @@ const CONTROL_CASES: readonly BenchmarkCaseRuntime[] = [
     syntheticLabel: 'control-collection-isolation',
     category: 'control',
     expectedOutcome: 'miss',
-    query: '오케스트레이션',
-    targetDocs: ['docs/compound-orchestration.md'],
+    query: '추적',
+    targetDocs: ['docs/observability-guide.md'],
     collections: ['notes'],
   }),
   createCase({
@@ -274,30 +365,30 @@ const CONTROL_CASES: readonly BenchmarkCaseRuntime[] = [
 
 const LONG_QUERY_CASES: readonly BenchmarkCaseRuntime[] = [
   createCase({
-    caseId: 'long-query-question-upload',
-    syntheticLabel: 'long-query-question-upload',
+    caseId: 'long-query-security-scan',
+    syntheticLabel: 'long-query-security-scan',
     category: 'long-query',
     expectedOutcome: 'hit',
-    query: '문서 업로드 파싱은 어떻게 동작해?',
-    targetDocs: ['docs/question-upload.md'],
+    query: '보안 취약점 스캔은 어떻게 동작해?',
+    targetDocs: ['docs/security-scan-faq.md'],
     collections: ['docs'],
   }),
   createCase({
-    caseId: 'long-query-descriptive-upload',
-    syntheticLabel: 'long-query-descriptive-upload',
+    caseId: 'long-query-dashboard-setup',
+    syntheticLabel: 'long-query-dashboard-setup',
     category: 'long-query',
     expectedOutcome: 'hit',
-    query: '문서 업로드 파싱 동작 단계를 정리한 문서',
-    targetDocs: ['docs/long-query-upload-overview.md'],
+    query: 'Grafana 대시보드 설정 방법을 정리한 문서',
+    targetDocs: ['docs/observability-setup.md'],
     collections: ['docs'],
   }),
   createCase({
-    caseId: 'long-query-normalization-rescue',
-    syntheticLabel: 'long-query-normalization-rescue',
+    caseId: 'long-query-test-env',
+    syntheticLabel: 'long-query-test-env',
     category: 'long-query',
     expectedOutcome: 'hit',
-    query: '문서 업로드 파싱은 어떻게 설명해줘?',
-    targetDocs: ['docs/long-query-normalized-upload.md'],
+    query: 'pytest 실행 환경은 어떻게 설정해줘?',
+    targetDocs: ['docs/python-test-setup.md'],
     collections: ['docs'],
   }),
   createInjectedQuestionCase({
@@ -305,25 +396,25 @@ const LONG_QUERY_CASES: readonly BenchmarkCaseRuntime[] = [
     syntheticLabel: 'diagnostic-long-query-adaptive-showcase',
     category: 'long-query',
     expectedOutcome: 'hit',
-    query: '지속 학습 질문',
-    targetDocs: ['docs/spacing-adaptive-target.md'],
+    query: '보안 취약점 질문',
+    targetDocs: ['docs/security-sandbox.md'],
     collections: ['docs'],
     hybridRows: [
       createHybridRow({
-        displayPath: 'docs/noise-000.md',
-        title: '지속 운영 노트',
-        body: '지속 운영과 학습 운영을 반복해서 적고, 지속 이슈와 학습 이슈를 계속 기록합니다.',
-        bestChunk: '지속 운영과 학습 운영을 반복해서 적고, 지속 이슈와 학습 이슈를 계속 기록합니다.',
+        displayPath: 'docs/noise-001.md',
+        title: '보안 감사 결과',
+        body: '보안 정책을 검토하고 감사 로그를 확인했습니다.',
+        bestChunk: '보안 정책을 검토하고 감사 로그를 확인했습니다.',
         score: 0.78,
-        docid: 'noise-000',
+        docid: 'noise-001',
       }),
       createHybridRow({
-        displayPath: 'docs/spacing-adaptive-target.md',
-        title: '지속 학습',
-        body: '지속 학습 워크플로우를 짧게 정리합니다.',
-        bestChunk: '지속 학습 워크플로우를 짧게 정리합니다.',
+        displayPath: 'docs/security-sandbox.md',
+        title: '샌드박싱 보안 아키텍처',
+        body: '보안취약점 스캔 결과를 감사 로그에 기록합니다.',
+        bestChunk: '보안취약점 스캔 결과를 감사 로그에 기록합니다.',
         score: 0.74,
-        docid: 'spacing-adaptive-target',
+        docid: 'security-sandbox',
       }),
     ],
   }),
@@ -484,11 +575,11 @@ function assertSafeFixtureCorpus(): void {
         ? [
             {
               label: `injected-hybrid-path:${runtime.caseDefinition.syntheticLabel}`,
-              text: 'docs/noise-000.md',
+              text: 'docs/noise-001.md',
             },
             {
               label: `injected-hybrid-path-target:${runtime.caseDefinition.syntheticLabel}`,
-              text: 'docs/spacing-adaptive-target.md',
+              text: 'docs/security-sandbox.md',
             },
           ]
         : [],

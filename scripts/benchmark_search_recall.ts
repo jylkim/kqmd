@@ -15,7 +15,7 @@ import { formatDocExcerpt } from './benchmark_lib.js';
 // Types
 // ---------------------------------------------------------------------------
 
-type Category = 'compound' | 'particle' | 'mixed' | 'baseline';
+type Category = 'compound' | 'mixed' | 'baseline';
 
 type QueryCase = {
   readonly category: Category;
@@ -40,87 +40,158 @@ type AggregateRow = {
 // ---------------------------------------------------------------------------
 
 const TARGET_DOCS: Record<string, string> = {
-  // --- Compound words (복합어) ---
-  'compound-nlp.md': [
-    '# 자연어처리 개요',
+  // --- CI/CD, Kubernetes 배포 ---
+  'devops-deploy.md': [
+    '# CI/CD 배포 로그',
     '',
-    '형태소분석기와 거대언어모델을 비교하는 실험 문서입니다.',
-    '자연어처리 파이프라인 설계를 다룹니다.',
+    '## Jenkins에서 GitHub Actions 전환',
+    'Jenkins파이프라인에서 GitHub Actions로 전환을 진행했습니다.',
+    '빌드스크립트를 리팩토링하고 캐싱 전략을 최적화했습니다.',
+    'Docker이미지 빌드 시간이 40% 단축되었습니다.',
+    '',
+    '## Kubernetes 운영',
+    'HPA 임계값을 CPU 70%에서 60%로 낮추고 replica 수를 조정했습니다.',
   ].join('\n'),
 
-  'compound-arch.md': [
-    '# 아키텍처 설계',
+  // --- AI 에이전트 설계 ---
+  'agent-architecture.md': [
+    '# 멀티에이전트 시스템 설계',
     '',
-    '서브에이전트 패턴으로 마이크로서비스를 구성합니다.',
-    '데이터베이스 스키마와 메시지브로커 설정을 포함합니다.',
+    '서브에이전트 패턴으로 멀티에이전트 시스템을 구성합니다.',
+    '오케스트레이터가 작업을 분배하고 각 워커를 관리합니다.',
+    '시스템프롬프트 주입 기능과 맥락 관리가 핵심 요구사항입니다.',
+    '',
+    '승인 플로우를 구현하여 위험한 도구 호출을 사전에 차단합니다.',
+    '가드레일을 설정하여 허용 범위를 벗어나지 않도록 합니다.',
   ].join('\n'),
 
-  'compound-infra.md': [
-    '# 인프라 구성',
+  // --- 보안/샌드박싱 ---
+  'security-sandbox.md': [
+    '# 샌드박싱 보안 아키텍처',
     '',
-    '로드밸런서 뒤에 오토스케일링 그룹을 배치합니다.',
-    '컨테이너오케스트레이션 플랫폼으로 운영합니다.',
+    'seccomp필터와 Landlock LSM을 결합한 다층 방어를 구현합니다.',
+    '공급망공격 방지를 위해 의존성 무결성 검증 절차를 도입했습니다.',
+    '보안취약점 스캔 결과를 감사 로그에 기록합니다.',
+    '',
+    '각 계층별 격리 정책과 탈출 방지 전략을 정리합니다.',
   ].join('\n'),
 
-  // --- Particles (조사 붙여쓰기) ---
-  'particle-agent.md': [
-    '# 에이전트 운영',
+  // --- Python 에코시스템 ---
+  'python-migration.md': [
+    '# Python 저장소 마이그레이션',
     '',
-    '에이전트가 필요합니다. 프레임워크를 선택해야 합니다.',
-    '오케스트레이터는 에이전트를 관리합니다.',
+    'pytest실행 환경을 uv로 전환했습니다.',
+    'ruff린팅 규칙을 추가하고 기존 pylint 설정을 대체했습니다.',
+    '타입힌트를 Python 3.10+ 문법으로 모더나이제이션했습니다.',
+    '',
+    'pyproject.toml로 빌드 설정을 통합하고 의존성을 정리했습니다.',
   ].join('\n'),
 
-  'particle-middleware.md': [
-    '# 미들웨어 구성',
+  // --- 프론트엔드 마이그레이션 ---
+  'frontend-sprint.md': [
+    '# UI 마이그레이션 스프린트',
     '',
-    '미들웨어를 구성하고 샌드박스는 격리하며 운영합니다.',
-    '파이프라인의 가드레일을 설정합니다.',
+    'MUI에서 shadcn/ui로 컴포넌트 마이그레이션을 진행합니다.',
+    'Tailwind설정과 디자인토큰 통합을 완료했습니다.',
+    'Storybook문서화를 추가하여 컴포넌트 카탈로그를 구축합니다.',
+    '',
+    '이번 스프린트에서 Button, Dialog, Table 컴포넌트를 완료합니다.',
   ].join('\n'),
 
-  'particle-review.md': [
-    '# 코드 리뷰 가이드',
+  // --- 코드 리뷰 미팅 ---
+  'meeting-review.md': [
+    '# 코드 리뷰 미팅 노트',
     '',
-    '리팩토링이 완료되면 커버리지를 확인합니다.',
-    '테스트케이스에 엣지케이스를 포함합니다.',
+    '리팩토링이 완료된 모듈의 테스트커버리지를 확인했습니다.',
+    '통합테스트 실행 시간이 3분에서 45초로 단축되었습니다.',
+    '정적분석 도구를 PMD에서 SonarQube로 전환하는 안건을 논의했습니다.',
+    '',
+    '## Action Items',
+    '- 다음 주까지 SonarQube 파일럿 환경 구성',
   ].join('\n'),
 
-  // --- Korean-English mixed (한영 혼합 붙여쓰기) ---
-  'mixed-api.md': [
-    '# API 통합',
+  // --- 모니터링/관측 ---
+  'observability-guide.md': [
+    '# OpenTelemetry 적용 가이드',
     '',
-    'API연동 가이드와 OAuth인증 설정을 정리합니다.',
-    'REST엔드포인트와 GraphQL스키마를 비교합니다.',
+    '분산추적 설정과 메트릭수집 파이프라인을 구축합니다.',
+    'Grafana대시보드에 API 레이턴시와 에러율 패널을 추가합니다.',
+    '로그 집계 시스템을 Loki로 통합하는 방법을 설명합니다.',
+    '',
+    'span context propagation과 sampling 전략을 다룹니다.',
   ].join('\n'),
 
-  'mixed-devops.md': [
-    '# DevOps 가이드',
+  // --- Rust 시스템 프로그래밍 ---
+  'rust-sdk.md': [
+    '# PAGER Rust SDK 개발 노트',
     '',
-    'CI파이프라인 구축과 Docker컨테이너 배포를 다룹니다.',
-    'Kubernetes클러스터 운영 노하우를 공유합니다.',
+    'PyO3바인딩으로 Python에서 Rust 코어를 호출합니다.',
+    '이벤트드리븐 아키텍처를 Tower 미들웨어로 구현했습니다.',
+    'SQLite에 이벤트소싱 패턴을 적용하여 상태를 관리합니다.',
+    '',
+    'cargo nextest로 병렬 테스트를 실행합니다.',
   ].join('\n'),
 };
 
-function writeNoiseDocs(docsDir: string, count: number): void {
-  const topics = [
-    '프로젝트 일정 관리 방법론을 소개합니다.',
-    '클라우드 인프라 비용 최적화 전략입니다.',
-    '코드 리뷰 프로세스 개선 방안을 제안합니다.',
-    '모니터링 대시보드 구축 경험을 공유합니다.',
-    '배포 파이프라인 자동화 설계 문서입니다.',
-    '팀 온보딩 체크리스트를 정리했습니다.',
-    '장애 대응 플레이북 초안입니다.',
-    '기술 부채 관리 프레임워크를 소개합니다.',
-    '성능 테스트 시나리오 설계 가이드입니다.',
-    '보안 감사 결과 리포트 요약입니다.',
-    '스프린트 회고 템플릿을 공유합니다.',
-    '아키텍처 결정 기록 작성 가이드입니다.',
-  ];
+const NOISE_DOCS: readonly { readonly title: string; readonly body: string }[] = [
+  // DevOps 관련 — 빌드, 배포 언급하되 compound 없음
+  {
+    title: '빌드 환경 점검',
+    body: '빌드 캐시를 정리하고 배포 환경을 점검했습니다.\n로컬에서 스크립트 동작을 확인했습니다.',
+  },
+  // 보안 관련 — 보안, 감사 언급하되 compound 없음
+  {
+    title: '보안 감사 결과',
+    body: '보안 정책을 검토하고 감사 로그를 확인했습니다.\n취약점 패치 일정을 수립합니다.',
+  },
+  // 테스트 관련 — 테스트 언급하되 compound 없음
+  {
+    title: '테스트 전략 회의',
+    body: '테스트 자동화 범위를 논의했습니다.\n커버리지 목표를 80%로 상향 조정합니다.',
+  },
+  // Python 관련 — uv, 린트 언급하되 compound 없음
+  {
+    title: 'Python 환경 정리',
+    body: 'uv로 가상 환경을 재구성했습니다.\n린트 규칙 충돌을 해결했습니다.',
+  },
+  // 프론트엔드 관련 — 컴포넌트, 디자인 언급하되 compound 없음
+  {
+    title: '디자인 시스템 검토',
+    body: '디자인 시스템 컴포넌트 목록을 정리했습니다.\n토큰 네이밍 규칙을 확정합니다.',
+  },
+  // 모니터링 관련 — 메트릭, 대시보드 언급하되 compound 없음
+  {
+    title: '모니터링 운영 메모',
+    body: '메트릭 임계값을 재조정하고 알림 규칙을 갱신했습니다.\n대시보드 레이아웃을 개선합니다.',
+  },
+  // Rust 관련 — 이벤트, 미들웨어 언급하되 compound 없음
+  {
+    title: 'Rust 모듈 리뷰',
+    body: '이벤트 처리 로직을 리뷰했습니다.\n미들웨어 체인 순서를 재배치합니다.',
+  },
+  // 에이전트 관련 — 에이전트 언급하되 compound 없음
+  {
+    title: '에이전트 운영 일지',
+    body: '에이전트 응답 속도를 모니터링했습니다.\n프롬프트 튜닝 실험 결과를 기록합니다.',
+  },
+  // 프로젝트 관리
+  {
+    title: '스프린트 회고',
+    body: '이번 스프린트에서 완료한 작업을 정리했습니다.\n다음 스프린트 목표를 설정합니다.',
+  },
+  // 온보딩 가이드
+  {
+    title: '팀 온보딩 가이드',
+    body: '신규 입사자를 위한 개발 환경 설정 가이드입니다.\n로컬 실행 방법과 코드 규칙을 안내합니다.',
+  },
+];
 
-  for (let i = 0; i < count; i++) {
-    const topic = topics[i % topics.length]!;
+function writeNoiseDocs(docsDir: string): void {
+  for (let i = 0; i < NOISE_DOCS.length; i++) {
+    const doc = NOISE_DOCS[i]!;
     writeFileSync(
       join(docsDir, `noise-${i.toString().padStart(3, '0')}.md`),
-      [`# 노이즈 문서 ${i}`, '', topic, '', `문서 번호 ${i}입니다.`].join('\n'),
+      [`# ${doc.title}`, '', doc.body].join('\n'),
       'utf8',
     );
   }
@@ -131,37 +202,32 @@ function writeNoiseDocs(docsDir: string, count: number): void {
 // ---------------------------------------------------------------------------
 
 const DECOMPOSITION_MAP: ReadonlyMap<string, string> = new Map([
-  // Compound words
-  ['형태소분석기', '형태소 분석'],
-  ['거대언어모델', '거대 언어 모델'],
+  // Compound words (복합어)
+  ['빌드스크립트', '빌드 스크립트'],
   ['서브에이전트', '서브 에이전트'],
-  ['데이터베이스', '데이터 베이스'],
-  ['자연어처리', '자연어 처리'],
-  ['마이크로서비스', '마이크로 서비스'],
-  ['메시지브로커', '메시지 브로커'],
-  ['로드밸런서', '로드 밸런서'],
-  ['오토스케일링', '오토 스케일링'],
-  ['컨테이너오케스트레이션', '컨테이너 오케스트레이션'],
-  ['테스트케이스', '테스트 케이스'],
-  ['엣지케이스', '엣지 케이스'],
-  // Particle-attached words
-  ['에이전트가', '에이전트'],
-  ['에이전트를', '에이전트'],
-  ['프레임워크를', '프레임워크'],
-  ['오케스트레이터는', '오케스트레이터'],
-  ['미들웨어를', '미들웨어'],
-  ['샌드박스는', '샌드박스'],
-  ['가드레일을', '가드레일'],
-  ['리팩토링이', '리팩토링'],
-  ['커버리지를', '커버리지'],
-  // Korean-English mixed
-  ['API연동', 'API 연동'],
-  ['OAuth인증', 'OAuth 인증'],
-  ['REST엔드포인트', 'REST 엔드포인트'],
-  ['GraphQL스키마', 'GraphQL 스키마'],
-  ['CI파이프라인', 'CI 파이프라인'],
-  ['Docker컨테이너', 'Docker 컨테이너'],
-  ['Kubernetes클러스터', 'Kubernetes 클러스터'],
+  ['멀티에이전트', '멀티 에이전트'],
+  ['시스템프롬프트', '시스템 프롬프트'],
+  ['공급망공격', '공급망 공격'],
+  ['보안취약점', '보안 취약점'],
+  ['타입힌트', '타입 힌트'],
+  ['디자인토큰', '디자인 토큰'],
+  ['테스트커버리지', '테스트 커버리지'],
+  ['통합테스트', '통합 테스트'],
+  ['정적분석', '정적 분석'],
+  ['분산추적', '분산 추적'],
+  ['메트릭수집', '메트릭 수집'],
+  ['이벤트소싱', '이벤트 소싱'],
+  ['이벤트드리븐', '이벤트 드리븐'],
+  // Korean-English mixed (한영 혼합)
+  ['Jenkins파이프라인', 'Jenkins 파이프라인'],
+  ['Docker이미지', 'Docker 이미지'],
+  ['pytest실행', 'pytest 실행'],
+  ['ruff린팅', 'ruff 린팅'],
+  ['Tailwind설정', 'Tailwind 설정'],
+  ['Storybook문서화', 'Storybook 문서화'],
+  ['Grafana대시보드', 'Grafana 대시보드'],
+  ['PyO3바인딩', 'PyO3 바인딩'],
+  ['seccomp필터', 'seccomp 필터'],
 ]);
 
 async function deterministicTokenize(text: string): Promise<string> {
@@ -179,46 +245,57 @@ async function deterministicTokenize(text: string): Promise<string> {
 // ---------------------------------------------------------------------------
 
 const QUERY_CASES: readonly QueryCase[] = [
-  // --- Compound word decomposition ---
-  // upstream cannot find sub-tokens inside compounds
-  { category: 'compound', query: '분석', targetDoc: 'docs/compound-nlp.md' },
-  { category: 'compound', query: '모델', targetDoc: 'docs/compound-nlp.md' },
-  { category: 'compound', query: '형태소', targetDoc: 'docs/compound-nlp.md' },
-  { category: 'compound', query: '처리', targetDoc: 'docs/compound-nlp.md' },
-  { category: 'compound', query: '에이전트', targetDoc: 'docs/compound-arch.md' },
-  { category: 'compound', query: '서비스', targetDoc: 'docs/compound-arch.md' },
-  { category: 'compound', query: '브로커', targetDoc: 'docs/compound-arch.md' },
-  { category: 'compound', query: '밸런서', targetDoc: 'docs/compound-infra.md' },
-  { category: 'compound', query: '스케일링', targetDoc: 'docs/compound-infra.md' },
-  { category: 'compound', query: '오케스트레이션', targetDoc: 'docs/compound-infra.md' },
-  { category: 'compound', query: '케이스', targetDoc: 'docs/particle-review.md' },
+  // --- Compound word decomposition (복합어 내부 sub-token 검색) ---
+  // DevOps: 빌드스크립트 → 스크립트
+  { category: 'compound', query: '스크립트', targetDoc: 'docs/devops-deploy.md' },
+  // Agent: 서브에이전트, 멀티에이전트 → 에이전트
+  { category: 'compound', query: '에이전트', targetDoc: 'docs/agent-architecture.md' },
+  // Agent: 시스템프롬프트 → 프롬프트
+  { category: 'compound', query: '프롬프트', targetDoc: 'docs/agent-architecture.md' },
+  // Security: 공급망공격 → 공격
+  { category: 'compound', query: '공격', targetDoc: 'docs/security-sandbox.md' },
+  // Security: 보안취약점 → 취약점
+  { category: 'compound', query: '취약점', targetDoc: 'docs/security-sandbox.md' },
+  // Python: 타입힌트 → 힌트
+  { category: 'compound', query: '힌트', targetDoc: 'docs/python-migration.md' },
+  // Frontend: 디자인토큰 → 토큰
+  { category: 'compound', query: '토큰', targetDoc: 'docs/frontend-sprint.md' },
+  // Meeting: 테스트커버리지 → 커버리지
+  { category: 'compound', query: '커버리지', targetDoc: 'docs/meeting-review.md' },
+  // Meeting: 정적분석 → 분석
+  { category: 'compound', query: '분석', targetDoc: 'docs/meeting-review.md' },
+  // Observability: 분산추적 → 추적
+  { category: 'compound', query: '추적', targetDoc: 'docs/observability-guide.md' },
+  // Observability: 메트릭수집 → 수집
+  { category: 'compound', query: '수집', targetDoc: 'docs/observability-guide.md' },
+  // Rust: 이벤트소싱 → 소싱
+  { category: 'compound', query: '소싱', targetDoc: 'docs/rust-sdk.md' },
 
-  // --- Particle stripping ---
-  // upstream cannot match stem inside particle-attached tokens
-  { category: 'particle', query: '프레임워크', targetDoc: 'docs/particle-agent.md' },
-  { category: 'particle', query: '오케스트레이터', targetDoc: 'docs/particle-agent.md' },
-  { category: 'particle', query: '미들웨어', targetDoc: 'docs/particle-middleware.md' },
-  { category: 'particle', query: '샌드박스', targetDoc: 'docs/particle-middleware.md' },
-  { category: 'particle', query: '가드레일', targetDoc: 'docs/particle-middleware.md' },
-  { category: 'particle', query: '리팩토링', targetDoc: 'docs/particle-review.md' },
-  { category: 'particle', query: '커버리지', targetDoc: 'docs/particle-review.md' },
+  // --- Korean-English mixed (한영 혼합 토큰 내 한국어 sub-token 검색) ---
+  // DevOps: Jenkins파이프라인 → 파이프라인
+  { category: 'mixed', query: '파이프라인', targetDoc: 'docs/devops-deploy.md' },
+  // DevOps: Docker이미지 → 이미지
+  { category: 'mixed', query: '이미지', targetDoc: 'docs/devops-deploy.md' },
+  // Python: pytest실행 → 실행
+  { category: 'mixed', query: '실행', targetDoc: 'docs/python-migration.md' },
+  // Python: ruff린팅 → 린팅
+  { category: 'mixed', query: '린팅', targetDoc: 'docs/python-migration.md' },
+  // Frontend: Tailwind설정 → 설정
+  { category: 'mixed', query: '설정', targetDoc: 'docs/frontend-sprint.md' },
+  // Frontend: Storybook문서화 → 문서화
+  { category: 'mixed', query: '문서화', targetDoc: 'docs/frontend-sprint.md' },
+  // Observability: Grafana대시보드 → 대시보드
+  { category: 'mixed', query: '대시보드', targetDoc: 'docs/observability-guide.md' },
+  // Rust: PyO3바인딩 → 바인딩
+  { category: 'mixed', query: '바인딩', targetDoc: 'docs/rust-sdk.md' },
 
-  // --- Korean-English mixed ---
-  // upstream cannot find Korean sub-token inside mixed token
-  { category: 'mixed', query: '연동', targetDoc: 'docs/mixed-api.md' },
-  { category: 'mixed', query: '인증', targetDoc: 'docs/mixed-api.md' },
-  { category: 'mixed', query: '엔드포인트', targetDoc: 'docs/mixed-api.md' },
-  { category: 'mixed', query: '스키마', targetDoc: 'docs/mixed-api.md' },
-  { category: 'mixed', query: '파이프라인', targetDoc: 'docs/mixed-devops.md' },
-  { category: 'mixed', query: '컨테이너', targetDoc: 'docs/mixed-devops.md' },
-  { category: 'mixed', query: '클러스터', targetDoc: 'docs/mixed-devops.md' },
-
-  // --- Baseline (both sides should hit) ---
-  { category: 'baseline', query: '형태소분석기', targetDoc: 'docs/compound-nlp.md' },
-  { category: 'baseline', query: '데이터베이스', targetDoc: 'docs/compound-arch.md' },
-  { category: 'baseline', query: '필요합니다', targetDoc: 'docs/particle-agent.md' },
-  { category: 'baseline', query: 'API', targetDoc: 'docs/mixed-api.md' },
-  { category: 'baseline', query: '설정', targetDoc: 'docs/particle-middleware.md' },
+  // --- Baseline (양쪽 모두 hit — sanity check) ---
+  { category: 'baseline', query: 'Jenkins', targetDoc: 'docs/devops-deploy.md' },
+  { category: 'baseline', query: '샌드박싱', targetDoc: 'docs/security-sandbox.md' },
+  { category: 'baseline', query: 'pytest', targetDoc: 'docs/python-migration.md' },
+  { category: 'baseline', query: 'Grafana', targetDoc: 'docs/observability-guide.md' },
+  { category: 'baseline', query: '리팩토링', targetDoc: 'docs/meeting-review.md' },
+  { category: 'baseline', query: 'Tower', targetDoc: 'docs/rust-sdk.md' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -259,7 +336,7 @@ async function measureRecall(): Promise<{
   }
 
   // Write noise documents for meaningful BM25 IDF
-  writeNoiseDocs(docsDir, 10);
+  writeNoiseDocs(docsDir);
 
   const store = await createFixtureStore(dbPath, docsDir);
   const policy = describeEffectiveSearchPolicy();
@@ -320,7 +397,6 @@ async function measureRecall(): Promise<{
 
 const CATEGORY_LABELS: Record<Category, string> = {
   compound: '복합어',
-  particle: '조사',
   mixed: '한영 혼합',
   baseline: '기준선',
 };
@@ -347,14 +423,14 @@ function toMarkdown(
     'QMD의 search 명령에서 한국어 검색 품질을 비교한 벤치마크입니다.',
   );
   lines.push(
-    '복합어 분리, 조사 제거, 한영 혼합 세 가지 한국어 패턴에서 QMD 대비 K-QMD의 검색 결과를 비교합니다.',
+    '복합어 분리, 한영 혼합 두 가지 한국어 패턴에서 QMD 대비 K-QMD의 검색 결과를 비교합니다.',
   );
   lines.push('');
 
   // Method
   lines.push('## 테스트 방법');
   lines.push('');
-  lines.push(`- synthetic fixture 문서 ${Object.keys(TARGET_DOCS).length}개 + noise 문서 10개에 대해 QMD와 K-QMD의 search 결과를 비교합니다.`);
+  lines.push(`- synthetic fixture 문서 ${Object.keys(TARGET_DOCS).length}개 + noise 문서 ${NOISE_DOCS.length}개에 대해 QMD와 K-QMD의 search 결과를 비교합니다.`);
   lines.push('- hit: target 문서가 검색 결과(limit=20)에 포함되면 검색 성공입니다.');
   lines.push('- miss: target 문서가 검색 결과에 없으면 검색 실패입니다.');
   lines.push('');

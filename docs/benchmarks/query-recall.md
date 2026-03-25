@@ -16,24 +16,26 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
 
 | 패턴 | 쿼리 | 문서 내용 | QMD | K-QMD |
 |---|---|---|:---:|:---:|
-| 띄어쓰기 | 지속 학습 | **지속 학습** 워크플로우를 짧게 정리합니다. | hit@2 | hit@2 |
-| 띄어쓰기 | 문서 업로드 파싱 | 문서업로드파서와 업로드파싱기 동작을 설명합니다. | miss | **hit@3** |
-| 복합어 | 오케스트레이션 | 컨테이너**오케스트레이션** 환경에서 shadow index를 운영합니다. | miss | **hit@2** |
-| 복합어 | 분석 | 형태소**분석**기와 텍스트정규화기를 비교합니다. | hit@1 | hit@1 |
-| 한영 혼합 | schema 마이그레이션 | Schema마이그레이션 절차와 rollback 전략을 문서화합니다. | miss | **hit@2** |
-| 한영 혼합 | oauth 인증 | OAuth인증 flow와 callback 정책을 설명합니다. | miss | **hit@1** |
-| 긴 쿼리 | 문서 업로드 파싱은 어떻게 동작해? | 문서 업로드 파싱 단계와 indexing 흐름을 설명합니다. | miss | **hit@3** |
-| 긴 쿼리 | 문서 업로드 파싱 동작 단계를 정리한 문서 | 문서 업로드 파싱 동작 단계를 정리한 개요 문서입니다. | hit@1 | hit@1 |
-| 긴 쿼리 | 문서 업로드 파싱은 어떻게 설명해줘? | 문서 업로드 파싱 단계와 parser 흐름을 설명합니다. | miss | **hit@1** |
+| 띄어쓰기 | 보안 취약점 | seccomp필터와 Landlock LSM을 결합한 다층 방어를 구현합니다. | miss | **hit@2** |
+| 띄어쓰기 | 테스트 커버리지 | 리팩토링이 완료된 모듈의 테스트커버리지를 확인했습니다. | miss | **hit@2** |
+| 복합어 | 프롬프트 | 시스템**프롬프트** 주입 기능과 맥락 관리가 핵심 요구사항입니다. | miss | **hit@2** |
+| 복합어 | 추적 | 분산**추적** 설정과 메트릭수집 파이프라인을 구축합니다. | miss | **hit@1** |
+| 복합어 | 소싱 | SQLite에 이벤트**소싱** 패턴을 적용하여 상태를 관리합니다. | miss | **hit@1** |
+| 한영 혼합 | 파이프라인 | Jenkins**파이프라인**에서 GitHub Actions로 전환을 진행했습니다. | miss | **hit@2** |
+| 한영 혼합 | 대시보드 | Grafana**대시보드**에 API 레이턴시와 에러율 패널을 추가합니다. | miss | **hit@2** |
+| 한영 혼합 | 바인딩 | PyO3**바인딩**으로 Python에서 Rust 코어를 호출합니다. | miss | **hit@1** |
+| 긴 쿼리 | 보안 취약점 스캔은 어떻게 동작해? | 보안 취약점 스캔 동작 단계와 결과 해석 방법을 설명합니다. | miss | **hit@1** |
+| 긴 쿼리 | Grafana 대시보드 설정 방법을 정리한 문서 | Grafana 대시보드 설정 방법과 패널 구성을 정리한 가이드입니다. | miss | miss |
+| 긴 쿼리 | pytest 실행 환경은 어떻게 설정해줘? | pytest 실행 환경 설정 단계와 conftest 구성을 설명합니다. | miss | miss |
 
 ## 검증용 테스트
 
 | 쿼리 | 예상 | QMD | K-QMD | 설명 |
 |---|---|:---:|:---:|---|
-| "지속 학습" | hit | hit@1 | hit@1 | conservative-syntax |
-| 지속 학습 -파이프라인 | hit | hit@2 | hit@2 | ineligible |
+| "보안 취약점" | hit | hit@1 | hit@1 | conservative-syntax |
+| 보안 취약점 -파이프라인 | hit | hit@1 | hit@1 | ineligible |
 | what's new | hit | hit@1 | hit@1 | ineligible |
-| 오케스트레이션 | miss | miss | miss | weak-hit |
+| 추적 | miss | miss | miss | weak-hit |
 | 양자 방화벽 | miss | miss | miss | weak-hit |
 | 분산 추론 | miss | miss | miss | weak-hit |
 
@@ -41,8 +43,8 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
 
 | | Hits | Total | Recall |
 |---|---:|---:|---:|
-| QMD | 3 | 9 | 33.33% |
-| K-QMD | 9 | 9 | **100%** |
+| QMD | 0 | 11 | 0% |
+| K-QMD | 9 | 11 | 81.82% |
 
 ## Notes
 
@@ -53,20 +55,20 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
 ```json
 {
   "schemaVersion": "3",
-  "fixtureVersion": "2",
+  "fixtureVersion": "3",
   "datasetId": "kqmd-query-recall-v2",
   "rows": [
     {
-      "caseId": "spacing-adaptive",
-      "syntheticLabel": "spacing-adaptive",
+      "caseId": "spacing-security",
+      "syntheticLabel": "spacing-security",
       "category": "spacing",
       "aggregateScope": "core",
       "expectedOutcome": "hit",
       "targetDocs": [
-        "docs/spacing-adaptive-target.md"
+        "docs/security-sandbox.md"
       ],
       "acceptableTargets": [
-        "docs/spacing-adaptive-target.md"
+        "docs/security-sandbox.md"
       ],
       "selectedCollections": [
         "docs"
@@ -77,32 +79,32 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
       "normalizationApplied": false,
       "normalizationReason": "not-eligible",
       "normalizationAddedCandidates": 0,
-      "assistApplied": false,
+      "assistApplied": true,
       "assistReason": "strong-hit",
-      "addedCandidates": 0,
+      "addedCandidates": 1,
       "base": {
-        "hitStatus": "hit@2",
-        "firstHitRank": 2,
-        "targetInTop5": true,
-        "targetPresentAnyRank": true,
+        "hitStatus": "miss",
+        "firstHitRank": null,
+        "targetInTop5": false,
+        "targetPresentAnyRank": false,
         "top5Paths": [
-          "docs/noise-000.md",
-          "docs/spacing-adaptive-target.md",
-          "docs/noise-001.md"
+          "docs/security-scan-faq.md",
+          "docs/noise-001.md",
+          "docs/noise-010.md"
         ],
-        "unexpectedTop5Count": 2
+        "unexpectedTop5Count": 3
       },
       "adaptive": {
-        "hitStatus": "hit@2",
-        "firstHitRank": 2,
-        "targetInTop5": true,
-        "targetPresentAnyRank": true,
+        "hitStatus": "miss",
+        "firstHitRank": null,
+        "targetInTop5": false,
+        "targetPresentAnyRank": false,
         "top5Paths": [
-          "docs/noise-000.md",
-          "docs/spacing-adaptive-target.md",
-          "docs/noise-001.md"
+          "docs/security-scan-faq.md",
+          "docs/noise-001.md",
+          "docs/noise-010.md"
         ],
-        "unexpectedTop5Count": 2
+        "unexpectedTop5Count": 3
       },
       "current": {
         "hitStatus": "hit@2",
@@ -110,25 +112,26 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "targetInTop5": true,
         "targetPresentAnyRank": true,
         "top5Paths": [
-          "docs/noise-000.md",
-          "docs/spacing-adaptive-target.md",
-          "docs/noise-001.md"
+          "docs/security-scan-faq.md",
+          "docs/security-sandbox.md",
+          "docs/noise-001.md",
+          "docs/noise-010.md"
         ],
-        "unexpectedTop5Count": 2
+        "unexpectedTop5Count": 3
       },
-      "winningLayer": "base"
+      "winningLayer": "assist-rescue"
     },
     {
-      "caseId": "spacing-rescue-upload",
-      "syntheticLabel": "spacing-rescue-upload",
+      "caseId": "spacing-coverage",
+      "syntheticLabel": "spacing-coverage",
       "category": "spacing",
       "aggregateScope": "core",
       "expectedOutcome": "hit",
       "targetDocs": [
-        "docs/spacing-rescue-upload.md"
+        "docs/meeting-review.md"
       ],
       "acceptableTargets": [
-        "docs/spacing-rescue-upload.md"
+        "docs/meeting-review.md"
       ],
       "selectedCollections": [
         "docs"
@@ -148,70 +151,7 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "targetInTop5": false,
         "targetPresentAnyRank": false,
         "top5Paths": [
-          "docs/long-query-normalized-upload.md",
-          "docs/long-query-upload-overview.md",
-          "docs/question-upload.md"
-        ],
-        "unexpectedTop5Count": 3
-      },
-      "adaptive": {
-        "hitStatus": "miss",
-        "firstHitRank": null,
-        "targetInTop5": false,
-        "targetPresentAnyRank": false,
-        "top5Paths": [
-          "docs/long-query-normalized-upload.md",
-          "docs/long-query-upload-overview.md",
-          "docs/question-upload.md"
-        ],
-        "unexpectedTop5Count": 3
-      },
-      "current": {
-        "hitStatus": "hit@3",
-        "firstHitRank": 3,
-        "targetInTop5": true,
-        "targetPresentAnyRank": true,
-        "top5Paths": [
-          "docs/long-query-normalized-upload.md",
-          "docs/long-query-upload-overview.md",
-          "docs/spacing-rescue-upload.md",
-          "docs/question-upload.md"
-        ],
-        "unexpectedTop5Count": 3
-      },
-      "winningLayer": "assist-rescue"
-    },
-    {
-      "caseId": "compound-orchestration",
-      "syntheticLabel": "compound-orchestration",
-      "category": "compound",
-      "aggregateScope": "core",
-      "expectedOutcome": "hit",
-      "targetDocs": [
-        "docs/compound-orchestration.md"
-      ],
-      "acceptableTargets": [
-        "docs/compound-orchestration.md"
-      ],
-      "selectedCollections": [
-        "docs"
-      ],
-      "queryClass": "short-korean-phrase",
-      "fetchLimit": 20,
-      "runtimeMode": "native",
-      "normalizationApplied": false,
-      "normalizationReason": "not-eligible",
-      "normalizationAddedCandidates": 0,
-      "assistApplied": true,
-      "assistReason": "strong-hit",
-      "addedCandidates": 1,
-      "base": {
-        "hitStatus": "miss",
-        "firstHitRank": null,
-        "targetInTop5": false,
-        "targetPresentAnyRank": false,
-        "top5Paths": [
-          "docs/noise-003.md"
+          "docs/noise-002.md"
         ],
         "unexpectedTop5Count": 1
       },
@@ -221,7 +161,7 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "targetInTop5": false,
         "targetPresentAnyRank": false,
         "top5Paths": [
-          "docs/noise-003.md"
+          "docs/noise-002.md"
         ],
         "unexpectedTop5Count": 1
       },
@@ -231,85 +171,29 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "targetInTop5": true,
         "targetPresentAnyRank": true,
         "top5Paths": [
-          "docs/noise-003.md",
-          "docs/compound-orchestration.md"
+          "docs/noise-002.md",
+          "docs/meeting-review.md"
         ],
         "unexpectedTop5Count": 1
       },
       "winningLayer": "assist-rescue"
     },
     {
-      "caseId": "compound-analysis",
-      "syntheticLabel": "compound-analysis",
+      "caseId": "compound-prompt",
+      "syntheticLabel": "compound-prompt",
       "category": "compound",
       "aggregateScope": "core",
       "expectedOutcome": "hit",
       "targetDocs": [
-        "docs/compound-analysis.md"
+        "docs/agent-architecture.md"
       ],
       "acceptableTargets": [
-        "docs/compound-analysis.md"
+        "docs/agent-architecture.md"
       ],
       "selectedCollections": [
         "docs"
       ],
       "queryClass": "short-korean-phrase",
-      "fetchLimit": 20,
-      "runtimeMode": "native",
-      "normalizationApplied": false,
-      "normalizationReason": "not-eligible",
-      "normalizationAddedCandidates": 0,
-      "assistApplied": false,
-      "assistReason": "strong-hit",
-      "addedCandidates": 0,
-      "base": {
-        "hitStatus": "hit@1",
-        "firstHitRank": 1,
-        "targetInTop5": true,
-        "targetPresentAnyRank": true,
-        "top5Paths": [
-          "docs/compound-analysis.md"
-        ],
-        "unexpectedTop5Count": 0
-      },
-      "adaptive": {
-        "hitStatus": "hit@1",
-        "firstHitRank": 1,
-        "targetInTop5": true,
-        "targetPresentAnyRank": true,
-        "top5Paths": [
-          "docs/compound-analysis.md"
-        ],
-        "unexpectedTop5Count": 0
-      },
-      "current": {
-        "hitStatus": "hit@1",
-        "firstHitRank": 1,
-        "targetInTop5": true,
-        "targetPresentAnyRank": true,
-        "top5Paths": [
-          "docs/compound-analysis.md"
-        ],
-        "unexpectedTop5Count": 0
-      },
-      "winningLayer": "base"
-    },
-    {
-      "caseId": "mixed-schema",
-      "syntheticLabel": "mixed-schema",
-      "category": "mixed",
-      "aggregateScope": "core",
-      "expectedOutcome": "hit",
-      "targetDocs": [
-        "docs/mixed-schema.md"
-      ],
-      "acceptableTargets": [
-        "docs/mixed-schema.md"
-      ],
-      "selectedCollections": [
-        "docs"
-      ],
-      "queryClass": "mixed-technical",
       "fetchLimit": 20,
       "runtimeMode": "native",
       "normalizationApplied": false,
@@ -324,7 +208,7 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "targetInTop5": false,
         "targetPresentAnyRank": false,
         "top5Paths": [
-          "docs/noise-004.md"
+          "docs/noise-007.md"
         ],
         "unexpectedTop5Count": 1
       },
@@ -334,7 +218,7 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "targetInTop5": false,
         "targetPresentAnyRank": false,
         "top5Paths": [
-          "docs/noise-004.md"
+          "docs/noise-007.md"
         ],
         "unexpectedTop5Count": 1
       },
@@ -344,29 +228,29 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "targetInTop5": true,
         "targetPresentAnyRank": true,
         "top5Paths": [
-          "docs/noise-004.md",
-          "docs/mixed-schema.md"
+          "docs/noise-007.md",
+          "docs/agent-architecture.md"
         ],
         "unexpectedTop5Count": 1
       },
       "winningLayer": "assist-rescue"
     },
     {
-      "caseId": "mixed-auth",
-      "syntheticLabel": "mixed-auth",
-      "category": "mixed",
+      "caseId": "compound-tracing",
+      "syntheticLabel": "compound-tracing",
+      "category": "compound",
       "aggregateScope": "core",
       "expectedOutcome": "hit",
       "targetDocs": [
-        "docs/mixed-auth.md"
+        "docs/observability-guide.md"
       ],
       "acceptableTargets": [
-        "docs/mixed-auth.md"
+        "docs/observability-guide.md"
       ],
       "selectedCollections": [
         "docs"
       ],
-      "queryClass": "mixed-technical",
+      "queryClass": "short-korean-phrase",
       "fetchLimit": 20,
       "runtimeMode": "native",
       "normalizationApplied": false,
@@ -397,7 +281,228 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "targetInTop5": true,
         "targetPresentAnyRank": true,
         "top5Paths": [
-          "docs/mixed-auth.md"
+          "docs/observability-guide.md"
+        ],
+        "unexpectedTop5Count": 0
+      },
+      "winningLayer": "assist-rescue"
+    },
+    {
+      "caseId": "compound-sourcing",
+      "syntheticLabel": "compound-sourcing",
+      "category": "compound",
+      "aggregateScope": "core",
+      "expectedOutcome": "hit",
+      "targetDocs": [
+        "docs/rust-sdk.md"
+      ],
+      "acceptableTargets": [
+        "docs/rust-sdk.md"
+      ],
+      "selectedCollections": [
+        "docs"
+      ],
+      "queryClass": "short-korean-phrase",
+      "fetchLimit": 20,
+      "runtimeMode": "native",
+      "normalizationApplied": false,
+      "normalizationReason": "not-eligible",
+      "normalizationAddedCandidates": 0,
+      "assistApplied": true,
+      "assistReason": "strong-hit",
+      "addedCandidates": 1,
+      "base": {
+        "hitStatus": "miss",
+        "firstHitRank": null,
+        "targetInTop5": false,
+        "targetPresentAnyRank": false,
+        "top5Paths": [],
+        "unexpectedTop5Count": 0
+      },
+      "adaptive": {
+        "hitStatus": "miss",
+        "firstHitRank": null,
+        "targetInTop5": false,
+        "targetPresentAnyRank": false,
+        "top5Paths": [],
+        "unexpectedTop5Count": 0
+      },
+      "current": {
+        "hitStatus": "hit@1",
+        "firstHitRank": 1,
+        "targetInTop5": true,
+        "targetPresentAnyRank": true,
+        "top5Paths": [
+          "docs/rust-sdk.md"
+        ],
+        "unexpectedTop5Count": 0
+      },
+      "winningLayer": "assist-rescue"
+    },
+    {
+      "caseId": "mixed-pipeline",
+      "syntheticLabel": "mixed-pipeline",
+      "category": "mixed",
+      "aggregateScope": "core",
+      "expectedOutcome": "hit",
+      "targetDocs": [
+        "docs/devops-deploy.md"
+      ],
+      "acceptableTargets": [
+        "docs/devops-deploy.md"
+      ],
+      "selectedCollections": [
+        "docs"
+      ],
+      "queryClass": "short-korean-phrase",
+      "fetchLimit": 20,
+      "runtimeMode": "native",
+      "normalizationApplied": false,
+      "normalizationReason": "not-eligible",
+      "normalizationAddedCandidates": 0,
+      "assistApplied": true,
+      "assistReason": "strong-hit",
+      "addedCandidates": 1,
+      "base": {
+        "hitStatus": "miss",
+        "firstHitRank": null,
+        "targetInTop5": false,
+        "targetPresentAnyRank": false,
+        "top5Paths": [
+          "docs/observability-guide.md"
+        ],
+        "unexpectedTop5Count": 1
+      },
+      "adaptive": {
+        "hitStatus": "miss",
+        "firstHitRank": null,
+        "targetInTop5": false,
+        "targetPresentAnyRank": false,
+        "top5Paths": [
+          "docs/observability-guide.md"
+        ],
+        "unexpectedTop5Count": 1
+      },
+      "current": {
+        "hitStatus": "hit@2",
+        "firstHitRank": 2,
+        "targetInTop5": true,
+        "targetPresentAnyRank": true,
+        "top5Paths": [
+          "docs/observability-guide.md",
+          "docs/devops-deploy.md"
+        ],
+        "unexpectedTop5Count": 1
+      },
+      "winningLayer": "assist-rescue"
+    },
+    {
+      "caseId": "mixed-dashboard",
+      "syntheticLabel": "mixed-dashboard",
+      "category": "mixed",
+      "aggregateScope": "core",
+      "expectedOutcome": "hit",
+      "targetDocs": [
+        "docs/observability-guide.md"
+      ],
+      "acceptableTargets": [
+        "docs/observability-guide.md"
+      ],
+      "selectedCollections": [
+        "docs"
+      ],
+      "queryClass": "short-korean-phrase",
+      "fetchLimit": 20,
+      "runtimeMode": "native",
+      "normalizationApplied": false,
+      "normalizationReason": "not-eligible",
+      "normalizationAddedCandidates": 0,
+      "assistApplied": true,
+      "assistReason": "strong-hit",
+      "addedCandidates": 1,
+      "base": {
+        "hitStatus": "miss",
+        "firstHitRank": null,
+        "targetInTop5": false,
+        "targetPresentAnyRank": false,
+        "top5Paths": [
+          "docs/observability-setup.md",
+          "docs/noise-005.md"
+        ],
+        "unexpectedTop5Count": 2
+      },
+      "adaptive": {
+        "hitStatus": "miss",
+        "firstHitRank": null,
+        "targetInTop5": false,
+        "targetPresentAnyRank": false,
+        "top5Paths": [
+          "docs/observability-setup.md",
+          "docs/noise-005.md"
+        ],
+        "unexpectedTop5Count": 2
+      },
+      "current": {
+        "hitStatus": "hit@2",
+        "firstHitRank": 2,
+        "targetInTop5": true,
+        "targetPresentAnyRank": true,
+        "top5Paths": [
+          "docs/observability-setup.md",
+          "docs/observability-guide.md",
+          "docs/noise-005.md"
+        ],
+        "unexpectedTop5Count": 2
+      },
+      "winningLayer": "assist-rescue"
+    },
+    {
+      "caseId": "mixed-binding",
+      "syntheticLabel": "mixed-binding",
+      "category": "mixed",
+      "aggregateScope": "core",
+      "expectedOutcome": "hit",
+      "targetDocs": [
+        "docs/rust-sdk.md"
+      ],
+      "acceptableTargets": [
+        "docs/rust-sdk.md"
+      ],
+      "selectedCollections": [
+        "docs"
+      ],
+      "queryClass": "short-korean-phrase",
+      "fetchLimit": 20,
+      "runtimeMode": "native",
+      "normalizationApplied": false,
+      "normalizationReason": "not-eligible",
+      "normalizationAddedCandidates": 0,
+      "assistApplied": true,
+      "assistReason": "strong-hit",
+      "addedCandidates": 1,
+      "base": {
+        "hitStatus": "miss",
+        "firstHitRank": null,
+        "targetInTop5": false,
+        "targetPresentAnyRank": false,
+        "top5Paths": [],
+        "unexpectedTop5Count": 0
+      },
+      "adaptive": {
+        "hitStatus": "miss",
+        "firstHitRank": null,
+        "targetInTop5": false,
+        "targetPresentAnyRank": false,
+        "top5Paths": [],
+        "unexpectedTop5Count": 0
+      },
+      "current": {
+        "hitStatus": "hit@1",
+        "firstHitRank": 1,
+        "targetInTop5": true,
+        "targetPresentAnyRank": true,
+        "top5Paths": [
+          "docs/rust-sdk.md"
         ],
         "unexpectedTop5Count": 0
       },
@@ -410,10 +515,10 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
       "aggregateScope": "excluded",
       "expectedOutcome": "hit",
       "targetDocs": [
-        "docs/spacing-adaptive-target.md"
+        "docs/security-scan-faq.md"
       ],
       "acceptableTargets": [
-        "docs/spacing-adaptive-target.md"
+        "docs/security-scan-faq.md"
       ],
       "selectedCollections": [
         "docs"
@@ -433,7 +538,7 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "targetInTop5": true,
         "targetPresentAnyRank": true,
         "top5Paths": [
-          "docs/spacing-adaptive-target.md"
+          "docs/security-scan-faq.md"
         ],
         "unexpectedTop5Count": 0
       },
@@ -443,7 +548,7 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "targetInTop5": true,
         "targetPresentAnyRank": true,
         "top5Paths": [
-          "docs/spacing-adaptive-target.md"
+          "docs/security-scan-faq.md"
         ],
         "unexpectedTop5Count": 0
       },
@@ -453,7 +558,7 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "targetInTop5": true,
         "targetPresentAnyRank": true,
         "top5Paths": [
-          "docs/spacing-adaptive-target.md"
+          "docs/security-scan-faq.md"
         ],
         "unexpectedTop5Count": 0
       },
@@ -466,10 +571,10 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
       "aggregateScope": "excluded",
       "expectedOutcome": "hit",
       "targetDocs": [
-        "docs/spacing-adaptive-target.md"
+        "docs/security-scan-faq.md"
       ],
       "acceptableTargets": [
-        "docs/spacing-adaptive-target.md"
+        "docs/security-scan-faq.md"
       ],
       "selectedCollections": [
         "docs"
@@ -484,38 +589,38 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
       "assistReason": "ineligible",
       "addedCandidates": 0,
       "base": {
-        "hitStatus": "hit@2",
-        "firstHitRank": 2,
+        "hitStatus": "hit@1",
+        "firstHitRank": 1,
         "targetInTop5": true,
         "targetPresentAnyRank": true,
         "top5Paths": [
-          "docs/noise-000.md",
-          "docs/spacing-adaptive-target.md",
-          "docs/noise-001.md"
+          "docs/security-scan-faq.md",
+          "docs/noise-001.md",
+          "docs/noise-010.md"
         ],
         "unexpectedTop5Count": 2
       },
       "adaptive": {
-        "hitStatus": "hit@2",
-        "firstHitRank": 2,
+        "hitStatus": "hit@1",
+        "firstHitRank": 1,
         "targetInTop5": true,
         "targetPresentAnyRank": true,
         "top5Paths": [
-          "docs/noise-000.md",
-          "docs/spacing-adaptive-target.md",
-          "docs/noise-001.md"
+          "docs/security-scan-faq.md",
+          "docs/noise-001.md",
+          "docs/noise-010.md"
         ],
         "unexpectedTop5Count": 2
       },
       "current": {
-        "hitStatus": "hit@2",
-        "firstHitRank": 2,
+        "hitStatus": "hit@1",
+        "firstHitRank": 1,
         "targetInTop5": true,
         "targetPresentAnyRank": true,
         "top5Paths": [
-          "docs/noise-000.md",
-          "docs/spacing-adaptive-target.md",
-          "docs/noise-001.md"
+          "docs/security-scan-faq.md",
+          "docs/noise-001.md",
+          "docs/noise-010.md"
         ],
         "unexpectedTop5Count": 2
       },
@@ -584,10 +689,10 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
       "aggregateScope": "excluded",
       "expectedOutcome": "miss",
       "targetDocs": [
-        "docs/compound-orchestration.md"
+        "docs/observability-guide.md"
       ],
       "acceptableTargets": [
-        "docs/compound-orchestration.md"
+        "docs/observability-guide.md"
       ],
       "selectedCollections": [
         "notes"
@@ -720,16 +825,16 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
       "winningLayer": "none"
     },
     {
-      "caseId": "long-query-question-upload",
-      "syntheticLabel": "long-query-question-upload",
+      "caseId": "long-query-security-scan",
+      "syntheticLabel": "long-query-security-scan",
       "category": "long-query",
       "aggregateScope": "core",
       "expectedOutcome": "hit",
       "targetDocs": [
-        "docs/question-upload.md"
+        "docs/security-scan-faq.md"
       ],
       "acceptableTargets": [
-        "docs/question-upload.md"
+        "docs/security-scan-faq.md"
       ],
       "selectedCollections": [
         "docs"
@@ -739,7 +844,7 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
       "runtimeMode": "native",
       "normalizationApplied": true,
       "normalizationReason": "applied",
-      "normalizationAddedCandidates": 3,
+      "normalizationAddedCandidates": 2,
       "assistApplied": false,
       "assistReason": "ineligible",
       "addedCandidates": 0,
@@ -760,98 +865,91 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "unexpectedTop5Count": 0
       },
       "current": {
-        "hitStatus": "hit@3",
-        "firstHitRank": 3,
+        "hitStatus": "hit@1",
+        "firstHitRank": 1,
         "targetInTop5": true,
         "targetPresentAnyRank": true,
         "top5Paths": [
-          "docs/long-query-normalized-upload.md",
-          "docs/long-query-upload-overview.md",
-          "docs/question-upload.md"
+          "docs/security-scan-faq.md",
+          "docs/noise-010.md"
         ],
-        "unexpectedTop5Count": 2
+        "unexpectedTop5Count": 1
       },
       "winningLayer": "tie"
     },
     {
-      "caseId": "long-query-descriptive-upload",
-      "syntheticLabel": "long-query-descriptive-upload",
+      "caseId": "long-query-dashboard-setup",
+      "syntheticLabel": "long-query-dashboard-setup",
       "category": "long-query",
       "aggregateScope": "core",
       "expectedOutcome": "hit",
       "targetDocs": [
-        "docs/long-query-upload-overview.md"
+        "docs/observability-setup.md"
       ],
       "acceptableTargets": [
-        "docs/long-query-upload-overview.md"
+        "docs/observability-setup.md"
       ],
       "selectedCollections": [
         "docs"
       ],
-      "queryClass": "general",
-      "fetchLimit": 15,
+      "queryClass": "mixed-technical",
+      "fetchLimit": 20,
       "runtimeMode": "native",
-      "normalizationApplied": false,
-      "normalizationReason": "skipped-guard",
+      "normalizationApplied": true,
+      "normalizationReason": "applied",
       "normalizationAddedCandidates": 0,
       "assistApplied": false,
-      "assistReason": "ineligible",
+      "assistReason": "weak-hit",
       "addedCandidates": 0,
       "base": {
-        "hitStatus": "hit@1",
-        "firstHitRank": 1,
-        "targetInTop5": true,
-        "targetPresentAnyRank": true,
-        "top5Paths": [
-          "docs/long-query-upload-overview.md"
-        ],
+        "hitStatus": "miss",
+        "firstHitRank": null,
+        "targetInTop5": false,
+        "targetPresentAnyRank": false,
+        "top5Paths": [],
         "unexpectedTop5Count": 0
       },
       "adaptive": {
-        "hitStatus": "hit@1",
-        "firstHitRank": 1,
-        "targetInTop5": true,
-        "targetPresentAnyRank": true,
-        "top5Paths": [
-          "docs/long-query-upload-overview.md"
-        ],
+        "hitStatus": "miss",
+        "firstHitRank": null,
+        "targetInTop5": false,
+        "targetPresentAnyRank": false,
+        "top5Paths": [],
         "unexpectedTop5Count": 0
       },
       "current": {
-        "hitStatus": "hit@1",
-        "firstHitRank": 1,
-        "targetInTop5": true,
-        "targetPresentAnyRank": true,
-        "top5Paths": [
-          "docs/long-query-upload-overview.md"
-        ],
+        "hitStatus": "miss",
+        "firstHitRank": null,
+        "targetInTop5": false,
+        "targetPresentAnyRank": false,
+        "top5Paths": [],
         "unexpectedTop5Count": 0
       },
-      "winningLayer": "base"
+      "winningLayer": "none"
     },
     {
-      "caseId": "long-query-normalization-rescue",
-      "syntheticLabel": "long-query-normalization-rescue",
+      "caseId": "long-query-test-env",
+      "syntheticLabel": "long-query-test-env",
       "category": "long-query",
       "aggregateScope": "core",
       "expectedOutcome": "hit",
       "targetDocs": [
-        "docs/long-query-normalized-upload.md"
+        "docs/python-test-setup.md"
       ],
       "acceptableTargets": [
-        "docs/long-query-normalized-upload.md"
+        "docs/python-test-setup.md"
       ],
       "selectedCollections": [
         "docs"
       ],
-      "queryClass": "general",
-      "fetchLimit": 15,
+      "queryClass": "mixed-technical",
+      "fetchLimit": 20,
       "runtimeMode": "native",
       "normalizationApplied": true,
       "normalizationReason": "applied",
-      "normalizationAddedCandidates": 3,
+      "normalizationAddedCandidates": 0,
       "assistApplied": false,
-      "assistReason": "ineligible",
+      "assistReason": "weak-hit",
       "addedCandidates": 0,
       "base": {
         "hitStatus": "miss",
@@ -870,18 +968,14 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "unexpectedTop5Count": 0
       },
       "current": {
-        "hitStatus": "hit@1",
-        "firstHitRank": 1,
-        "targetInTop5": true,
-        "targetPresentAnyRank": true,
-        "top5Paths": [
-          "docs/long-query-normalized-upload.md",
-          "docs/long-query-upload-overview.md",
-          "docs/question-upload.md"
-        ],
-        "unexpectedTop5Count": 2
+        "hitStatus": "miss",
+        "firstHitRank": null,
+        "targetInTop5": false,
+        "targetPresentAnyRank": false,
+        "top5Paths": [],
+        "unexpectedTop5Count": 0
       },
-      "winningLayer": "tie"
+      "winningLayer": "none"
     },
     {
       "caseId": "diagnostic-long-query-adaptive-showcase",
@@ -890,10 +984,10 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
       "aggregateScope": "excluded",
       "expectedOutcome": "hit",
       "targetDocs": [
-        "docs/spacing-adaptive-target.md"
+        "docs/security-sandbox.md"
       ],
       "acceptableTargets": [
-        "docs/spacing-adaptive-target.md"
+        "docs/security-sandbox.md"
       ],
       "selectedCollections": [
         "docs"
@@ -913,8 +1007,8 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "targetInTop5": true,
         "targetPresentAnyRank": true,
         "top5Paths": [
-          "docs/noise-000.md",
-          "docs/spacing-adaptive-target.md"
+          "docs/noise-001.md",
+          "docs/security-sandbox.md"
         ],
         "unexpectedTop5Count": 1
       },
@@ -924,8 +1018,8 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "targetInTop5": true,
         "targetPresentAnyRank": true,
         "top5Paths": [
-          "docs/spacing-adaptive-target.md",
-          "docs/noise-000.md"
+          "docs/security-sandbox.md",
+          "docs/noise-001.md"
         ],
         "unexpectedTop5Count": 1
       },
@@ -935,8 +1029,8 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
         "targetInTop5": true,
         "targetPresentAnyRank": true,
         "top5Paths": [
-          "docs/spacing-adaptive-target.md",
-          "docs/noise-000.md"
+          "docs/security-sandbox.md",
+          "docs/noise-001.md"
         ],
         "unexpectedTop5Count": 1
       },
@@ -947,43 +1041,43 @@ QMD의 query 명령에서 한국어 검색 품질을 비교한 벤치마크입�
     {
       "scope": "core",
       "side": "upstream-compatible-base",
-      "hits": 3,
-      "total": 9,
-      "recall": 33.33
+      "hits": 0,
+      "total": 11,
+      "recall": 0
     },
     {
       "scope": "core",
       "side": "current-kqmd",
       "hits": 9,
-      "total": 9,
-      "recall": 100
+      "total": 11,
+      "recall": 81.82
     },
     {
       "scope": "long-query",
       "side": "upstream-compatible-base",
-      "hits": 1,
+      "hits": 0,
       "total": 3,
-      "recall": 33.33
+      "recall": 0
     },
     {
       "scope": "long-query",
       "side": "current-kqmd",
-      "hits": 3,
+      "hits": 1,
       "total": 3,
-      "recall": 100
+      "recall": 33.33
     }
   ],
   "derivedSignals": {
-    "coreRecallUpliftPct": 66.67,
-    "longQueryRecallUpliftPct": 66.67,
+    "coreRecallUpliftPct": 81.82,
+    "longQueryRecallUpliftPct": 33.33,
     "nativeLongQueryCount": 3,
     "diagnosticLongQueryCount": 1,
     "adaptiveOnlyGainCount": 0,
-    "assistRescueGainCount": 4,
-    "normalizationAppliedCount": 2,
+    "assistRescueGainCount": 8,
+    "normalizationAppliedCount": 3,
     "negativeControlPassRate": 100,
     "negativeControlEmptyTop5Rate": 100,
-    "unresolvedCoreMissCount": 0
+    "unresolvedCoreMissCount": 2
   }
 }
 ```
