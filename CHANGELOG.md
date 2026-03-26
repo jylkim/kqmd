@@ -5,6 +5,16 @@
 
 ## [Unreleased]
 
+## [2.0.1-kqmd.6] - 2026-03-26
+
+### Fixed
+
+- single collection 지정 시 fast default 경로를 타지 않던 문제 수정
+
+### Performance
+
+- mixed-technical + 한글 쿼리의 fast default 경로에서 불필요한 rerank 스킵
+
 ## [2.0.1-kqmd.5] - 2026-03-25
 
 ### Fixed
