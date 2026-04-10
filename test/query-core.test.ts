@@ -729,6 +729,86 @@ describe('query core', () => {
     expect(result.rows.some((row) => row.normalization?.supplemented)).toBe(true);
   });
 
+  test('preserves explicit rerank disable and chunk strategy on normalized supplement searches', async () => {
+    const originalQuery = '문서 업로드 파싱 순서는 어떻게 동작해?';
+    const normalizedQuery = '문서 업로드 파싱 순서';
+    const store = createDynamicSearchStore(async (args) => {
+      const query = 'query' in args ? args.query : '';
+      if (query === originalQuery) {
+        return [
+          {
+            file: 'docs/noise.md',
+            displayPath: 'docs/noise.md',
+            title: 'Generic docs',
+            body: 'generic note',
+            bestChunk: 'generic note',
+            context: 'documentation',
+            score: 0.55,
+            docid: 'noise-1',
+            bestChunkPos: 0,
+          },
+        ];
+      }
+
+      if (query === normalizedQuery) {
+        return [
+          {
+            file: 'docs/upload-parser-order.md',
+            displayPath: 'docs/upload-parser-order.md',
+            title: '문서 업로드 파싱 순서',
+            body: '문서 업로드 파싱 순서를 설명합니다.',
+            bestChunk: '문서 업로드 파싱 순서를 설명합니다.',
+            context: 'documentation',
+            score: 0.9,
+            docid: 'target-2',
+            bestChunkPos: 0,
+          },
+        ];
+      }
+
+      return [];
+    });
+
+    const result = await executeQueryCore(
+      store,
+      createInput({
+        query: originalQuery,
+        displayQuery: originalQuery,
+        disableRerank: true,
+        chunkStrategy: 'regex',
+      }),
+      { HOME: '/home/tester' },
+    );
+
+    expect('kind' in result).toBe(false);
+    if ('kind' in result) {
+      return;
+    }
+
+    expect(result.query.normalization).toEqual({
+      applied: true,
+      reason: 'applied',
+      addedCandidates: 1,
+    });
+    const searchCalls = (
+      store.search as unknown as { mock: { calls: Array<[Record<string, unknown>]> } }
+    ).mock.calls;
+    expect(searchCalls[0]?.[0]).toMatchObject({
+      query: originalQuery,
+      collections: ['docs'],
+      limit: 18,
+      rerank: false,
+      chunkStrategy: 'regex',
+    });
+    expect(searchCalls[1]?.[0]).toMatchObject({
+      query: normalizedQuery,
+      collections: ['docs'],
+      limit: 18,
+      rerank: false,
+      chunkStrategy: 'regex',
+    });
+  });
+
   test('keeps normalization eligible when embedding health is slower than base retrieval', async () => {
     const originalQuery = '문서 업로드 파싱은 어떻게 동작해?';
     const normalizedQuery = '문서 업로드 파싱';

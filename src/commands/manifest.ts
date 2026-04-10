@@ -11,6 +11,7 @@ export const OWNED_COMMANDS = [
 ] as const;
 
 export const PASSTHROUGH_COMMANDS = [
+  'bench',
   'collection',
   'ls',
   'get',
@@ -31,6 +32,7 @@ export const commandManifest = {
   status: { mode: 'owned', command: 'status' },
   mcp: { mode: 'owned', command: 'mcp' },
   cleanup: { mode: 'owned', command: 'cleanup' },
+  bench: { mode: 'passthrough', command: 'bench' },
   collection: { mode: 'passthrough', command: 'collection' },
   ls: { mode: 'passthrough', command: 'ls' },
   get: { mode: 'passthrough', command: 'get' },

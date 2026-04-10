@@ -1,5 +1,5 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
@@ -40,6 +40,25 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+type PackageJson = {
+  version?: string;
+  dependencies?: Record<string, string>;
+};
+
+function readVersionStringFromPackageMetadata(packageJsonPath: string): string {
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as PackageJson;
+  const kqmdVersion = packageJson.version;
+  const upstreamVersion = packageJson.dependencies?.['@tobilu/qmd'];
+
+  assert(kqmdVersion, `Package metadata is missing version: ${packageJsonPath}`);
+  assert(
+    upstreamVersion,
+    `Package metadata is missing @tobilu/qmd dependency version: ${packageJsonPath}`,
+  );
+
+  return `kqmd ${kqmdVersion} (qmd ${upstreamVersion})`;
 }
 
 function runAndAssert(command: string, args: string[], options: Parameters<typeof spawnSync>[2]) {
@@ -165,6 +184,12 @@ try {
 
   const installedBinPath = resolve(tempDir, 'node_modules', 'kqmd', 'bin', 'qmd.js');
   assert(existsSync(installedBinPath), `Installed package bin not found: ${installedBinPath}`);
+  const installedPackageJsonPath = resolve(tempDir, 'node_modules', 'kqmd', 'package.json');
+  assert(
+    existsSync(installedPackageJsonPath),
+    `Installed package metadata not found: ${installedPackageJsonPath}`,
+  );
+  const expectedVersion = readVersionStringFromPackageMetadata(installedPackageJsonPath);
 
   const packageEnv = {
     ...process.env,
@@ -172,6 +197,16 @@ try {
     XDG_CACHE_HOME: resolve(tempDir, '.cache'),
   };
   mkdirSync(resolve(packageEnv.XDG_CACHE_HOME, 'qmd'), { recursive: true });
+
+  const version = runAndAssert(nodeBinary, [installedBinPath, '--version'], {
+    cwd: tempDir,
+    encoding: 'utf8',
+    env: packageEnv,
+  });
+  assert(
+    version.stdout.trim() === expectedVersion,
+    `Installed version output did not match package metadata.\nExpected: ${expectedVersion}\nReceived: ${version.stdout.trim()}`,
+  );
 
   const queryHelp = runAndAssert(nodeBinary, [installedBinPath, 'query', '--help'], {
     cwd: tempDir,
@@ -181,6 +216,21 @@ try {
   assert(
     queryHelp.stdout.includes('--candidate-limit'),
     'Installed query help is missing --candidate-limit.',
+  );
+  assert(queryHelp.stdout.includes('--no-rerank'), 'Installed query help is missing --no-rerank.');
+  assert(
+    queryHelp.stdout.includes('--chunk-strategy'),
+    'Installed query help is missing --chunk-strategy.',
+  );
+
+  const benchHelp = runAndAssert(nodeBinary, [installedBinPath, 'bench', '--help'], {
+    cwd: tempDir,
+    encoding: 'utf8',
+    env: packageEnv,
+  });
+  assert(
+    benchHelp.stdout.includes('qmd bench <fixture.json>'),
+    'Installed bench help is missing the bench command surface.',
   );
 
   const updateHelp = runAndAssert(nodeBinary, [installedBinPath, 'update', '--help'], {
@@ -206,6 +256,15 @@ try {
   assert(
     stdioTools.tools.some((tool) => tool.name === 'query'),
     'Installed stdio MCP server is missing the query tool.',
+  );
+  const stdioQueryTool = stdioTools.tools.find((tool) => tool.name === 'query');
+  assert(stdioQueryTool, 'Installed stdio MCP server is missing the query tool definition.');
+  assert(
+    Object.prototype.hasOwnProperty.call(
+      (stdioQueryTool.inputSchema as { properties?: Record<string, unknown> })?.properties ?? {},
+      'rerank',
+    ),
+    'Installed stdio MCP query schema is missing the rerank field.',
   );
   await closeQuietly(() => stdioClient.close());
   await closeQuietly(() => stdioTransport.close());
@@ -237,6 +296,15 @@ try {
   assert(
     httpTools.tools.some((tool) => tool.name === 'status'),
     'Installed HTTP MCP server is missing the status tool.',
+  );
+  const httpQueryTool = httpTools.tools.find((tool) => tool.name === 'query');
+  assert(httpQueryTool, 'Installed HTTP MCP server is missing the query tool definition.');
+  assert(
+    Object.prototype.hasOwnProperty.call(
+      (httpQueryTool.inputSchema as { properties?: Record<string, unknown> })?.properties ?? {},
+      'rerank',
+    ),
+    'Installed HTTP MCP query schema is missing the rerank field.',
   );
   await closeQuietly(() => httpClient.close());
   await closeQuietly(() => httpTransport.close());

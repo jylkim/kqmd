@@ -30,6 +30,7 @@ export const queryRequestSchema = z
     limit: z.number().int().min(1).max(100).optional().default(10),
     minScore: z.number().min(0).max(1).optional().default(0),
     candidateLimit: z.number().int().min(1).max(100).optional(),
+    rerank: z.boolean().optional(),
     collections: z.array(z.string()).max(20).optional(),
     intent: z.string().max(500).optional(),
   })

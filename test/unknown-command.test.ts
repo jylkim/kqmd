@@ -23,7 +23,7 @@ describe('unknown command handling', () => {
       'owned: search, query, update, embed, status, mcp, cleanup',
     );
     expect(stderrChunks.join('')).toContain(
-      'passthrough: collection, ls, get, multi-get, skill, context, vsearch, pull',
+      'passthrough: bench, collection, ls, get, multi-get, skill, context, vsearch, pull',
     );
   });
 });

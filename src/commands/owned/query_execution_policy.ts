@@ -78,7 +78,7 @@ export function buildQueryExecutionPlan(args: {
     return {
       request: {
         ...input,
-        disableRerank: false,
+        disableRerank: input.disableRerank ?? false,
       },
       fallbackReason: 'compatibility-structured',
       retrievalKind: 'structured-compatibility',
@@ -165,7 +165,9 @@ export function buildQueryExecutionPlan(args: {
     traits,
     lexicalProbe.signal,
   );
-  const disableRerank = shouldDisableFastDefaultRerank(traits, lexicalProbe.signal);
+  const disableRerank =
+    baseRequest.disableRerank === true ||
+    shouldDisableFastDefaultRerank(traits, lexicalProbe.signal);
 
   return {
     request: {

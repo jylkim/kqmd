@@ -264,6 +264,35 @@ describe('owned embedding-aware behavior', () => {
     });
   });
 
+  test('embed passes chunk-strategy through to the store', async () => {
+    const embed = vi.fn(
+      async (): Promise<EmbedResult> => ({
+        docsProcessed: 1,
+        chunksEmbedded: 2,
+        errors: 0,
+        durationMs: 1,
+      }),
+    );
+
+    const result = await handleEmbedCommand(
+      createContext(['embed', '--force', '--chunk-strategy', 'auto']),
+      {
+        runtimeDependencies: createRuntimeDependencies(
+          createMismatchStore({
+            embed,
+          }),
+        ),
+      },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(embed).toHaveBeenCalledWith({
+      force: true,
+      model: KQMD_DEFAULT_EMBED_MODEL_URI,
+      chunkStrategy: 'auto',
+    });
+  });
+
   test('update prefers force guidance when mismatch exists', async () => {
     const update = vi.fn(
       async (): Promise<UpdateResult> => ({

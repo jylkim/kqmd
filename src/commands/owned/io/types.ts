@@ -1,4 +1,4 @@
-import type { ExpandedQuery, HybridQueryExplain, IndexStatus } from '@tobilu/qmd';
+import type { ChunkStrategy, ExpandedQuery, HybridQueryExplain, IndexStatus } from '@tobilu/qmd';
 import type { EmbeddingHealth } from '#src/commands/owned/embedding_health.js';
 import type { SearchIndexHealth } from '#src/commands/owned/search_index_health.js';
 import type { EffectiveEmbedModel } from '#src/config/embedding_policy.js';
@@ -19,6 +19,7 @@ export interface SearchCommandInput {
 
 export interface QueryCommandInput extends SearchCommandInput {
   readonly candidateLimit?: number;
+  readonly chunkStrategy?: ChunkStrategy;
   readonly disableRerank?: boolean;
   readonly fetchLimit?: number;
   readonly explain: boolean;
@@ -32,6 +33,7 @@ export type QueryClass = 'short-korean-phrase' | 'mixed-technical' | 'general' |
 
 export interface PlainQuerySearchRequest extends SearchCommandInput {
   readonly candidateLimit?: number;
+  readonly chunkStrategy?: ChunkStrategy;
   readonly disableRerank?: boolean;
   readonly fetchLimit?: number;
   readonly explain: boolean;
@@ -146,6 +148,7 @@ export type UpdateCommandInput = Record<string, never>;
 
 export interface EmbedCommandInput {
   readonly force: boolean;
+  readonly chunkStrategy?: ChunkStrategy;
 }
 
 export type StatusCommandInput = Record<string, never>;

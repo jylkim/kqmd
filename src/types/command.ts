@@ -1,6 +1,7 @@
 export type OwnedCommand = 'search' | 'query' | 'update' | 'embed' | 'status' | 'mcp' | 'cleanup';
 
 export type PassthroughCommand =
+  | 'bench'
   | 'collection'
   | 'ls'
   | 'get'

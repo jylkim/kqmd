@@ -15,4 +15,6 @@ Options:
   --intent <text>             Domain intent hint
   --explain                   Include explain traces
   -C, --candidate-limit <n>   Max candidates to rerank (default: 40; mixed plain <= 50)
+  --no-rerank                 Skip LLM reranking
+  --chunk-strategy <mode>     Chunking mode: auto or regex
   -h, --help                  Show this help

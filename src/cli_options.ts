@@ -16,6 +16,8 @@ export const CLI_OPTIONS = {
   files: { type: 'boolean' },
   json: { type: 'boolean' },
   explain: { type: 'boolean' },
+  'no-rerank': { type: 'boolean' },
+  'chunk-strategy': { type: 'string' },
   collection: { type: 'string', short: 'c', multiple: true },
   name: { type: 'string' },
   mask: { type: 'string' },

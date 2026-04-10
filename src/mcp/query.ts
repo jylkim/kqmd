@@ -183,6 +183,7 @@ function buildMcpQueryInput(
       lineNumbers: false,
       collections,
       candidateLimit: body.candidateLimit,
+      disableRerank: body.rerank === false ? true : undefined,
       explain: false,
       ...overrides,
     },

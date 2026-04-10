@@ -1,5 +1,5 @@
 {
-  "upstreamVersion": "2.0.1",
+  "upstreamVersion": "2.1.0",
   "ownedCommands": ["search", "query", "update", "embed"],
   "notes": [
     "format precedence is csv > md > xml > files > json > cli",

@@ -92,4 +92,40 @@ describe('owned query command', () => {
       stdout: '[]',
     });
   });
+
+  test('passes explicit rerank disable and chunk strategy through parsed query input', async () => {
+    const run = vi.fn(async () => ({
+      rows: [],
+    }));
+
+    const result = await handleQueryCommand(
+      createContext([
+        'query',
+        '--json',
+        '--no-rerank',
+        '--chunk-strategy',
+        'regex',
+        '문서 업로드 파싱 순서는 어떻게 동작해?',
+      ]),
+      {
+        run,
+      },
+    );
+
+    expect(run).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        query: '문서 업로드 파싱 순서는 어떻게 동작해?',
+        displayQuery: '문서 업로드 파싱 순서는 어떻게 동작해?',
+        queryMode: 'plain',
+        disableRerank: true,
+        chunkStrategy: 'regex',
+      }),
+      undefined,
+    );
+    expect(result).toEqual({
+      exitCode: 0,
+      stdout: '[]',
+    });
+  });
 });

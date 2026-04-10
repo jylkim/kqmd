@@ -131,6 +131,7 @@ export async function createOwnedMcpServer(
       limit,
       minScore,
       candidateLimit,
+      rerank,
       collections,
       intent,
     }: {
@@ -139,6 +140,7 @@ export async function createOwnedMcpServer(
       limit: number;
       minScore: number;
       candidateLimit?: number;
+      rerank?: boolean;
       collections?: string[];
       intent?: string;
     }) => {
@@ -148,6 +150,7 @@ export async function createOwnedMcpServer(
         limit,
         minScore,
         candidateLimit,
+        rerank,
         collections,
         intent,
       });
