@@ -147,6 +147,28 @@ describe('mcp query response', () => {
     });
   });
 
+  test('maps mcp rerank false into structured query inputs as well', () => {
+    const normalized = buildQueryInputFromRequest({
+      searches: [
+        { type: 'lex', query: 'auth flow' },
+        { type: 'vec', query: 'login journey' },
+      ],
+      limit: 10,
+      minScore: 0,
+      rerank: false,
+    });
+
+    expect('input' in normalized && normalized.input).toMatchObject({
+      queryMode: 'structured',
+      displayQuery: 'auth flow',
+      disableRerank: true,
+      queries: [
+        { type: 'lex', query: 'auth flow', line: 1 },
+        { type: 'vec', query: 'login journey', line: 2 },
+      ],
+    });
+  });
+
   test('applies limit and minScore before shaping rows and summary text', () => {
     const rows: SearchOutputRow[] = [
       {

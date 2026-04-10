@@ -119,6 +119,13 @@ function shouldDropToken(token: string): boolean {
   return QUESTION_WORDS.has(token) || QUESTION_TAILS.has(token);
 }
 
+function resolveDisableRerank(
+  input: Pick<QueryCommandInput, 'disableRerank'>,
+  traits: QueryTraits,
+): boolean {
+  return input.disableRerank === true || shouldDisableRerankForQuery(traits);
+}
+
 export function buildQueryNormalizationPlan(
   input: QueryCommandInput,
   traits: QueryTraits,
@@ -201,7 +208,8 @@ export function buildPlainQuerySearchRequest(
     lineNumbers: input.lineNumbers,
     collections: input.collections,
     candidateLimit: input.candidateLimit,
-    disableRerank: shouldDisableRerankForQuery(traits),
+    chunkStrategy: input.chunkStrategy,
+    disableRerank: resolveDisableRerank(input, traits),
     fetchLimit: resolveFetchLimitForQuery(input.limit, traits, input.candidateLimit),
     explain: input.explain,
     intent: input.intent,
@@ -226,7 +234,7 @@ export function buildNormalizedSearchRequest(
   return {
     ...baseRequest,
     query: plan.normalizedQuery,
-    disableRerank: shouldDisableRerankForQuery(normalizedTraits),
+    disableRerank: resolveDisableRerank(baseRequest, normalizedTraits),
     fetchLimit: Math.max(baseRequest.limit, Math.min(normalizedFetchLimit, baseRequest.limit + 8)),
   };
 }

@@ -40,11 +40,17 @@ describe('query row parity', () => {
     ];
 
     const cli = formatSearchExecutionResult(rows, createInput());
-    const parsedCli = JSON.parse(cli.stdout ?? '[]') as Array<{ snippet?: string; file: string }>;
+    const parsedCli = JSON.parse(cli.stdout ?? '[]') as Array<{
+      snippet?: string;
+      file: string;
+      line?: number;
+    }>;
     const mcp = buildMcpQueryRows(rows, 'agent orchestration');
 
     expect(parsedCli[0]?.file).toBe('qmd://docs/agent-orchestration.md');
+    expect(parsedCli[0]).not.toHaveProperty('line');
     expect(parsedCli[0]?.snippet).toContain('agent orchestration appears here');
+    expect(mcp[0]?.line).toBeGreaterThan(0);
     expect(mcp[0]?.snippet).toContain('agent orchestration appears here');
   });
 

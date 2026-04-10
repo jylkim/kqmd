@@ -1,5 +1,5 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
@@ -40,6 +40,25 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+type PackageJson = {
+  version?: string;
+  dependencies?: Record<string, string>;
+};
+
+function readVersionStringFromPackageMetadata(packageJsonPath: string): string {
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as PackageJson;
+  const kqmdVersion = packageJson.version;
+  const upstreamVersion = packageJson.dependencies?.['@tobilu/qmd'];
+
+  assert(kqmdVersion, `Package metadata is missing version: ${packageJsonPath}`);
+  assert(
+    upstreamVersion,
+    `Package metadata is missing @tobilu/qmd dependency version: ${packageJsonPath}`,
+  );
+
+  return `kqmd ${kqmdVersion} (qmd ${upstreamVersion})`;
 }
 
 function runAndAssert(command: string, args: string[], options: Parameters<typeof spawnSync>[2]) {
@@ -165,6 +184,12 @@ try {
 
   const installedBinPath = resolve(tempDir, 'node_modules', 'kqmd', 'bin', 'qmd.js');
   assert(existsSync(installedBinPath), `Installed package bin not found: ${installedBinPath}`);
+  const installedPackageJsonPath = resolve(tempDir, 'node_modules', 'kqmd', 'package.json');
+  assert(
+    existsSync(installedPackageJsonPath),
+    `Installed package metadata not found: ${installedPackageJsonPath}`,
+  );
+  const expectedVersion = readVersionStringFromPackageMetadata(installedPackageJsonPath);
 
   const packageEnv = {
     ...process.env,
@@ -179,8 +204,8 @@ try {
     env: packageEnv,
   });
   assert(
-    version.stdout.includes('kqmd 2.1.0-kqmd.1 (qmd 2.1.0)'),
-    'Installed version output does not include the expected kqmd/upstream versions.',
+    version.stdout.trim() === expectedVersion,
+    `Installed version output did not match package metadata.\nExpected: ${expectedVersion}\nReceived: ${version.stdout.trim()}`,
   );
 
   const queryHelp = runAndAssert(nodeBinary, [installedBinPath, 'query', '--help'], {

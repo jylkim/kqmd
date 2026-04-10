@@ -170,4 +170,56 @@ describe('query execution policy', () => {
     expect(plan.request.queryMode).toBe('plain');
     expect(plan.request.disableRerank).toBe(true);
   });
+
+  test('preserves explicit rerank disable and chunk strategy on fast-default plain queries', () => {
+    const input = createInput({
+      query: '문서 업로드 파싱 순서는 어떻게 동작해?',
+      displayQuery: '문서 업로드 파싱 순서는 어떻게 동작해?',
+      disableRerank: true,
+      chunkStrategy: 'regex',
+    });
+    const plan = buildQueryExecutionPlan({
+      input,
+      traits: classifyQuery(input),
+      lexicalProbe: {
+        rows: [],
+        signal: 'none',
+        usesShadowIndex: false,
+        conservativeSyntax: false,
+      },
+      normalizationPlan: { kind: 'apply', normalizedQuery: '문서 업로드 파싱 순서', keptTerms: [] },
+      selectedCollectionsCount: 1,
+    });
+
+    expect(plan.retrievalKind).toBe('cost-capped-structured');
+    expect(plan.request.queryMode).toBe('plain');
+    expect(plan.request.disableRerank).toBe(true);
+    expect(plan.request.chunkStrategy).toBe('regex');
+  });
+
+  test('preserves explicit rerank disable on structured compatibility queries', () => {
+    const input = createInput({
+      query: 'type: lex\nquery: auth flow',
+      displayQuery: 'auth flow',
+      queryMode: 'structured',
+      queries: [{ type: 'lex', query: 'auth flow', line: 1 }],
+      disableRerank: true,
+    });
+    const plan = buildQueryExecutionPlan({
+      input,
+      traits: classifyQuery(input),
+      lexicalProbe: {
+        rows: [],
+        signal: 'none',
+        usesShadowIndex: false,
+        conservativeSyntax: false,
+      },
+      normalizationPlan: { kind: 'skip', reason: 'not-eligible' },
+      selectedCollectionsCount: 1,
+    });
+
+    expect(plan.retrievalKind).toBe('structured-compatibility');
+    expect(plan.request.queryMode).toBe('structured');
+    expect(plan.request.disableRerank).toBe(true);
+  });
 });
