@@ -197,6 +197,7 @@ export function formatSearchExecutionResult(
           file: toQmdPath(row.displayPath),
           title: row.title,
           ...(row.context ? { context: row.context } : {}),
+          line: snippet.line,
           ...(input.full
             ? { body: snippet.content ?? '' }
             : snippet.content

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import { buildMcpQueryRows } from '../src/commands/owned/io/query_rows.js';
 import type { QueryCommandInput, SearchOutputRow } from '../src/commands/owned/io/types.js';
-import { buildQueryResponse } from '../src/mcp/query.js';
+import { buildQueryInputFromRequest, buildQueryResponse } from '../src/mcp/query.js';
 
 const defaultExecution = {
   retrievalKind: 'cost-capped-structured' as const,
@@ -119,6 +119,7 @@ describe('mcp query response', () => {
     const shaped = buildMcpQueryRows(rows, '지속 학습');
 
     expect(shaped[0]).toMatchObject({
+      line: expect.any(Number),
       searchAssist: {
         rescued: true,
         reason: 'strong-hit',
@@ -128,6 +129,22 @@ describe('mcp query response', () => {
     });
     expect(shaped[0]).not.toHaveProperty('sourceBody');
     expect(shaped[0]).not.toHaveProperty('sourceChunkPos');
+  });
+
+  test('maps mcp rerank false into the shared disableRerank intent', () => {
+    const normalized = buildQueryInputFromRequest({
+      query: '지속 학습',
+      limit: 10,
+      minScore: 0,
+      rerank: false,
+    });
+
+    expect('input' in normalized && normalized.input).toMatchObject({
+      query: '지속 학습',
+      queryMode: 'plain',
+      displayQuery: '지속 학습',
+      disableRerank: true,
+    });
   });
 
   test('applies limit and minScore before shaping rows and summary text', () => {

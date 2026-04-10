@@ -31,6 +31,7 @@
       "file": "qmd://notes/plan.md",
       "title": "Planning Notes",
       "context": "Work",
+      "line": 1,
       "snippet": "@@ -1,1 @@ (0 before, 0 after)\nauth flow summary",
       "explain": {
         "ftsScores": [

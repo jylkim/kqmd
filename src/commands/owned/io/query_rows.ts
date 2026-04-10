@@ -194,6 +194,7 @@ export function buildMcpQueryRows(
       title: row.title,
       score: Math.round(row.score * 100) / 100,
       context: row.context,
+      line: snippet.line,
       snippet: addLineNumbers(snippet.content ?? '', snippet.line),
       explain: row.explain,
       adaptive: row.adaptive,

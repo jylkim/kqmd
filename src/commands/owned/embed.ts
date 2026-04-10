@@ -55,6 +55,7 @@ async function runEmbedCommand(
       return session.store.embed({
         force: input.force,
         model: effectiveModel.uri,
+        chunkStrategy: input.chunkStrategy,
       });
     },
     runtimeDependencies,

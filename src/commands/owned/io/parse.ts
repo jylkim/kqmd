@@ -1,4 +1,5 @@
 import { parseArgs } from 'node:util';
+import type { ChunkStrategy } from '@tobilu/qmd';
 
 import { CLI_OPTIONS } from '#src/cli_options.js';
 import type { CommandExecutionContext } from '#src/types/command.js';
@@ -102,6 +103,21 @@ function parsePositiveIntegerOption(
   return value;
 }
 
+function parseChunkStrategyOption(
+  rawValue: string | undefined,
+): ChunkStrategy | ReturnType<typeof validationError> | undefined {
+  if (rawValue === undefined) {
+    return undefined;
+  }
+
+  const strategy = rawValue.trim();
+  if (strategy === 'auto' || strategy === 'regex') {
+    return strategy;
+  }
+
+  return validationError(`--chunk-strategy must be "auto" or "regex" (got "${strategy}")`);
+}
+
 function resolveCollections(values: ParsedValues): string[] | undefined {
   const rawCollections = values.collection;
   if (Array.isArray(rawCollections)) {
@@ -176,12 +192,20 @@ export function parseOwnedQueryInput(
     '--candidate-limit',
     100,
   );
+  const parsedChunkStrategy = parseChunkStrategyOption(
+    typeof values['chunk-strategy'] === 'string' ? values['chunk-strategy'] : undefined,
+  );
 
   if (isOwnedCommandError(parsedCandidateLimit)) {
     return parsedCandidateLimit;
   }
 
+  if (isOwnedCommandError(parsedChunkStrategy)) {
+    return parsedChunkStrategy;
+  }
+
   const candidateLimit = parsedCandidateLimit;
+  const chunkStrategy = parsedChunkStrategy;
 
   const displayQuery = queryDocument ? resolvePrimaryQuery(queryDocument.searches) || query : query;
 
@@ -198,6 +222,8 @@ export function parseOwnedQueryInput(
       collections: resolveCollections(values),
       explain: Boolean(values.explain),
       candidateLimit,
+      chunkStrategy,
+      disableRerank: Boolean(values['no-rerank']),
       intent: parsedIntent ?? queryDocument?.intent,
       queryMode: queryDocument ? 'structured' : 'plain',
       queries: queryDocument?.searches,
@@ -234,10 +260,19 @@ export function parseOwnedEmbedInput(
     return usageError('Usage: qmd embed [-f|--force]');
   }
 
+  const parsedChunkStrategy = parseChunkStrategyOption(
+    typeof values['chunk-strategy'] === 'string' ? values['chunk-strategy'] : undefined,
+  );
+
+  if (isOwnedCommandError(parsedChunkStrategy)) {
+    return parsedChunkStrategy;
+  }
+
   return {
     kind: 'ok',
     input: {
       force: Boolean(values.force),
+      chunkStrategy: parsedChunkStrategy,
     },
   };
 }

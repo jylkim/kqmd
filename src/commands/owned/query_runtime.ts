@@ -3,7 +3,7 @@
  * fast-default / compatibility path를 모두 한 곳에서 라우팅한다.
  */
 import { pathToFileURL } from 'node:url';
-import type { ExpandedQuery, QMDStore } from '@tobilu/qmd';
+import type { ChunkStrategy, ExpandedQuery, QMDStore } from '@tobilu/qmd';
 import { findUpstreamPackageRoot } from '#src/passthrough/upstream_locator.js';
 import type { PlainQuerySearchRequest, QueryCommandInput } from './io/types.js';
 
@@ -27,6 +27,7 @@ type HybridQueryFn = (
     readonly limit?: number;
     readonly minScore?: number;
     readonly candidateLimit?: number;
+    readonly chunkStrategy?: ChunkStrategy;
     readonly explain?: boolean;
     readonly intent?: string;
     readonly skipRerank?: boolean;
@@ -42,6 +43,7 @@ type StructuredSearchFn = (
     readonly limit?: number;
     readonly minScore?: number;
     readonly candidateLimit?: number;
+    readonly chunkStrategy?: ChunkStrategy;
     readonly explain?: boolean;
     readonly intent?: string;
     readonly skipRerank?: boolean;
@@ -189,6 +191,7 @@ export async function executeOwnedQuerySearch(
         minScore: input.minScore,
         explain: input.explain,
         intent: input.intent,
+        chunkStrategy: input.chunkStrategy,
         ...(input.disableRerank ? { rerank: false } : {}),
       });
       dependencies.onStageTelemetry?.({
@@ -215,6 +218,7 @@ export async function executeOwnedQuerySearch(
       candidateLimit: candidateWindow,
       explain: input.explain,
       intent: input.intent,
+      chunkStrategy: input.chunkStrategy,
       skipRerank: input.disableRerank,
       hooks: telemetry.hooks,
     });
@@ -242,6 +246,7 @@ export async function executeOwnedQuerySearch(
         minScore: input.minScore,
         explain: input.explain,
         intent: input.intent,
+        chunkStrategy: input.chunkStrategy,
         ...(input.disableRerank ? { rerank: false } : {}),
       });
       dependencies.onStageTelemetry?.({
@@ -262,6 +267,7 @@ export async function executeOwnedQuerySearch(
         minScore: input.minScore,
         explain: input.explain,
         intent: input.intent,
+        chunkStrategy: input.chunkStrategy,
         ...(input.disableRerank ? { rerank: false } : {}),
       });
       dependencies.onStageTelemetry?.({
@@ -289,6 +295,7 @@ export async function executeOwnedQuerySearch(
       candidateLimit: candidateWindow,
       explain: input.explain,
       intent: input.intent,
+      chunkStrategy: input.chunkStrategy,
       skipRerank: input.disableRerank,
       hooks: telemetry.hooks,
     });
@@ -318,6 +325,7 @@ export async function executeOwnedQuerySearch(
         minScore: input.minScore,
         explain: input.explain,
         intent: input.intent,
+        chunkStrategy: input.chunkStrategy,
         ...(input.disableRerank ? { rerank: false } : {}),
       });
       dependencies.onStageTelemetry?.({
@@ -343,6 +351,7 @@ export async function executeOwnedQuerySearch(
       candidateLimit: input.candidateLimit,
       explain: input.explain,
       intent: input.intent,
+      chunkStrategy: input.chunkStrategy,
       skipRerank: input.disableRerank,
       hooks: telemetry.hooks,
     });
@@ -363,6 +372,7 @@ export async function executeOwnedQuerySearch(
       minScore: input.minScore,
       explain: input.explain,
       intent: input.intent,
+      chunkStrategy: input.chunkStrategy,
       ...(input.disableRerank ? { rerank: false } : {}),
     });
     dependencies.onStageTelemetry?.({
@@ -389,6 +399,7 @@ export async function executeOwnedQuerySearch(
       minScore: input.minScore,
       explain: input.explain,
       intent: input.intent,
+      chunkStrategy: input.chunkStrategy,
       ...(input.disableRerank ? { rerank: false } : {}),
     });
     dependencies.onStageTelemetry?.({
@@ -413,6 +424,7 @@ export async function executeOwnedQuerySearch(
     candidateLimit: input.candidateLimit,
     explain: input.explain,
     intent: input.intent,
+    chunkStrategy: input.chunkStrategy,
     skipRerank: input.disableRerank,
     hooks: telemetry.hooks,
   });

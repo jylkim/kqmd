@@ -34,6 +34,8 @@ const HELP_TEXT: Record<OwnedCommand, string> = {
     '  --intent <text>             Domain intent hint',
     '  --explain                   Include explain traces',
     '  -C, --candidate-limit <n>   Max candidates to rerank (default: 40; mixed plain <= 50)',
+    '  --no-rerank                 Skip LLM reranking',
+    '  --chunk-strategy <mode>     Chunking mode: auto or regex',
     '  -h, --help                  Show this help',
   ].join('\n'),
   update: [
@@ -47,6 +49,7 @@ const HELP_TEXT: Record<OwnedCommand, string> = {
     '',
     'Options:',
     '  -f, --force                Rebuild embeddings even when they look current',
+    '  --chunk-strategy <mode>   Chunking mode: auto or regex',
     '  -h, --help                 Show this help',
   ].join('\n'),
   status: [

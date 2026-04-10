@@ -28,6 +28,7 @@ function createInput(overrides: Partial<QueryCommandInput> = {}): QueryCommandIn
     queryMode: 'plain',
     queries: undefined,
     displayQuery: 'auth flow',
+    chunkStrategy: undefined,
     ...overrides,
   };
 }
@@ -74,6 +75,30 @@ describe('owned query runtime', () => {
       explain: false,
       intent: undefined,
       rerank: false,
+      chunkStrategy: undefined,
+    });
+  });
+
+  test('passes chunkStrategy through public store.search when requested', async () => {
+    const store = createStore();
+
+    await executeOwnedQuerySearch(
+      store,
+      createInput({
+        chunkStrategy: 'auto',
+        fetchLimit: 20,
+      }),
+      ['docs'],
+    );
+
+    expect(store.search).toHaveBeenCalledWith({
+      query: 'auth flow',
+      collections: ['docs'],
+      limit: 20,
+      minScore: 0,
+      explain: false,
+      intent: undefined,
+      chunkStrategy: 'auto',
     });
   });
 
@@ -127,6 +152,32 @@ describe('owned query runtime', () => {
         candidateLimit: 10,
         explain: false,
         intent: undefined,
+        chunkStrategy: undefined,
+      }),
+    );
+  });
+
+  test('passes chunkStrategy through hybridQuery paths', async () => {
+    const store = createStore();
+    const hybridQuery = vi.fn(async () => []);
+
+    await executeOwnedQuerySearch(
+      store,
+      createInput({
+        candidateLimit: 10,
+        chunkStrategy: 'regex',
+        fetchLimit: 20,
+      }),
+      ['docs'],
+      { hybridQuery },
+    );
+
+    expect(hybridQuery).toHaveBeenCalledWith(
+      store.internal,
+      'auth flow',
+      expect.objectContaining({
+        collection: 'docs',
+        chunkStrategy: 'regex',
       }),
     );
   });

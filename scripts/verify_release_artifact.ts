@@ -173,6 +173,16 @@ try {
   };
   mkdirSync(resolve(packageEnv.XDG_CACHE_HOME, 'qmd'), { recursive: true });
 
+  const version = runAndAssert(nodeBinary, [installedBinPath, '--version'], {
+    cwd: tempDir,
+    encoding: 'utf8',
+    env: packageEnv,
+  });
+  assert(
+    version.stdout.includes('kqmd 2.1.0-kqmd.1 (qmd 2.1.0)'),
+    'Installed version output does not include the expected kqmd/upstream versions.',
+  );
+
   const queryHelp = runAndAssert(nodeBinary, [installedBinPath, 'query', '--help'], {
     cwd: tempDir,
     encoding: 'utf8',
@@ -181,6 +191,21 @@ try {
   assert(
     queryHelp.stdout.includes('--candidate-limit'),
     'Installed query help is missing --candidate-limit.',
+  );
+  assert(queryHelp.stdout.includes('--no-rerank'), 'Installed query help is missing --no-rerank.');
+  assert(
+    queryHelp.stdout.includes('--chunk-strategy'),
+    'Installed query help is missing --chunk-strategy.',
+  );
+
+  const benchHelp = runAndAssert(nodeBinary, [installedBinPath, 'bench', '--help'], {
+    cwd: tempDir,
+    encoding: 'utf8',
+    env: packageEnv,
+  });
+  assert(
+    benchHelp.stdout.includes('qmd bench <fixture.json>'),
+    'Installed bench help is missing the bench command surface.',
   );
 
   const updateHelp = runAndAssert(nodeBinary, [installedBinPath, 'update', '--help'], {
@@ -206,6 +231,15 @@ try {
   assert(
     stdioTools.tools.some((tool) => tool.name === 'query'),
     'Installed stdio MCP server is missing the query tool.',
+  );
+  const stdioQueryTool = stdioTools.tools.find((tool) => tool.name === 'query');
+  assert(stdioQueryTool, 'Installed stdio MCP server is missing the query tool definition.');
+  assert(
+    Object.prototype.hasOwnProperty.call(
+      (stdioQueryTool.inputSchema as { properties?: Record<string, unknown> })?.properties ?? {},
+      'rerank',
+    ),
+    'Installed stdio MCP query schema is missing the rerank field.',
   );
   await closeQuietly(() => stdioClient.close());
   await closeQuietly(() => stdioTransport.close());
@@ -237,6 +271,15 @@ try {
   assert(
     httpTools.tools.some((tool) => tool.name === 'status'),
     'Installed HTTP MCP server is missing the status tool.',
+  );
+  const httpQueryTool = httpTools.tools.find((tool) => tool.name === 'query');
+  assert(httpQueryTool, 'Installed HTTP MCP server is missing the query tool definition.');
+  assert(
+    Object.prototype.hasOwnProperty.call(
+      (httpQueryTool.inputSchema as { properties?: Record<string, unknown> })?.properties ?? {},
+      'rerank',
+    ),
+    'Installed HTTP MCP query schema is missing the rerank field.',
   );
   await closeQuietly(() => httpClient.close());
   await closeQuietly(() => httpTransport.close());

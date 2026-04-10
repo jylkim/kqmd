@@ -46,6 +46,8 @@ describe('owned command parity parse', () => {
         collections: undefined,
         explain: false,
         candidateLimit: undefined,
+        chunkStrategy: undefined,
+        disableRerank: false,
         intent: 'docs',
         queryMode: 'structured',
         queries: [
@@ -75,6 +77,8 @@ describe('owned command parity parse', () => {
         collections: undefined,
         explain: false,
         candidateLimit: 10,
+        chunkStrategy: undefined,
+        disableRerank: false,
         intent: undefined,
         queryMode: 'plain',
         queries: undefined,
@@ -118,6 +122,44 @@ describe('owned command parity parse', () => {
     });
   });
 
+  test('query parses no-rerank and chunk-strategy flags', () => {
+    const result = parseOwnedQueryInput(
+      createContext(['query', '--no-rerank', '--chunk-strategy', 'auto', 'auth']),
+    );
+
+    expect(result).toEqual({
+      kind: 'ok',
+      input: {
+        query: 'auth',
+        format: 'cli',
+        limit: 5,
+        minScore: 0,
+        all: false,
+        full: false,
+        lineNumbers: false,
+        collections: undefined,
+        explain: false,
+        candidateLimit: undefined,
+        chunkStrategy: 'auto',
+        disableRerank: true,
+        intent: undefined,
+        queryMode: 'plain',
+        queries: undefined,
+        displayQuery: 'auth',
+      },
+    });
+  });
+
+  test('query rejects invalid chunk-strategy values', () => {
+    expect(
+      parseOwnedQueryInput(createContext(['query', '--chunk-strategy', 'weird', 'auth'])),
+    ).toEqual({
+      kind: 'validation',
+      stderr: '--chunk-strategy must be "auto" or "regex" (got "weird")',
+      exitCode: 1,
+    });
+  });
+
   test('update rejects unexpected positional arguments', () => {
     const result = parseOwnedUpdateInput(createContext(['update', 'extra']));
 
@@ -145,6 +187,19 @@ describe('owned command parity parse', () => {
       kind: 'ok',
       input: {
         force: true,
+        chunkStrategy: undefined,
+      },
+    });
+  });
+
+  test('embed parses chunk-strategy flag', () => {
+    const result = parseOwnedEmbedInput(createContext(['embed', '--chunk-strategy', 'regex']));
+
+    expect(result).toEqual({
+      kind: 'ok',
+      input: {
+        force: false,
+        chunkStrategy: 'regex',
       },
     });
   });
