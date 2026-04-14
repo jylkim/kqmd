@@ -9,6 +9,7 @@ import {
   isOwnedCommand,
   resolveCommandRoute,
 } from './commands/manifest.js';
+import { handleBenchCommand } from './commands/owned/bench.js';
 import { handleCleanupCommand } from './commands/owned/cleanup.js';
 import { handleEmbedCommand } from './commands/owned/embed.js';
 import { formatOwnedCommandHelp, hasOwnedCommandHelpFlag } from './commands/owned/help.js';
@@ -99,6 +100,8 @@ async function executeOwnedCommand(
       return handleMcpCommand(context);
     case 'cleanup':
       return handleCleanupCommand(context);
+    case 'bench':
+      return handleBenchCommand(context);
   }
 
   throw new Error(`Unhandled owned command: ${invocation.route.command}`);

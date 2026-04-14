@@ -33,6 +33,7 @@ bun run check
 | `bun run build` | TypeScript 빌드 |
 | `bun run check` | lint + typecheck + test |
 | `bun run measure:query-cold-start` | fresh child-process query cold-start benchmark |
+| `qmd bench <fixture.json> [--json] [-c collection]` | upstream와 current K-QMD를 비교하는 owned benchmark surface |
 
 ## 프로젝트 구조
 
@@ -76,6 +77,7 @@ bun run check
 | query search-assist / MCP parity | `bun run test -- query-core query-output-security query-output mcp-query mcp-server mcp-http` |
 | query fast-default policy / cold-start | `bun run test -- query-execution-policy query-lexical-candidates query-runtime query-core` |
 | 임베딩 정책/mismatch | `bun run test -- embedding-policy embedding-health owned-embedding-behavior status-command` |
+| owned bench compare surface | `bun run test -- bench-command cli-routing unknown-command owned-command-parity/help-output owned-command-parity/parse` |
 
 ### 수동 검증
 

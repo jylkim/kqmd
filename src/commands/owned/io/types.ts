@@ -151,6 +151,12 @@ export interface EmbedCommandInput {
   readonly chunkStrategy?: ChunkStrategy;
 }
 
+export interface BenchCommandInput {
+  readonly fixturePath: string;
+  readonly json: boolean;
+  readonly collection?: string;
+}
+
 export type StatusCommandInput = Record<string, never>;
 
 export interface SearchOutputRow {

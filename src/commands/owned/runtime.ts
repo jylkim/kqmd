@@ -134,6 +134,7 @@ export function resolveOwnedRuntimePlan(
 
     case 'search':
     case 'query':
+    case 'bench':
       if (dbExists) {
         return { kind: 'db-only', command, indexName, dbPath };
       }

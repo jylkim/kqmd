@@ -1,7 +1,14 @@
-export type OwnedCommand = 'search' | 'query' | 'update' | 'embed' | 'status' | 'mcp' | 'cleanup';
+export type OwnedCommand =
+  | 'search'
+  | 'query'
+  | 'update'
+  | 'embed'
+  | 'status'
+  | 'mcp'
+  | 'cleanup'
+  | 'bench';
 
 export type PassthroughCommand =
-  | 'bench'
   | 'collection'
   | 'ls'
   | 'get'

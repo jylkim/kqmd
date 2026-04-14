@@ -5,6 +5,7 @@ import { CLI_OPTIONS } from '#src/cli_options.js';
 import type { CommandExecutionContext } from '#src/types/command.js';
 import { isOwnedCommandError, usageError, validationError } from './errors.js';
 import type {
+  BenchCommandInput,
   CleanupCommandInput,
   EmbedCommandInput,
   ParseResult,
@@ -289,6 +290,84 @@ export function parseOwnedStatusInput(
   return {
     kind: 'ok',
     input: {},
+  };
+}
+
+function hasUnsupportedBenchOption(values: ParsedValues): string | undefined {
+  const unsupportedFlags: Array<[keyof ParsedValues, string]> = [
+    ['csv', '--csv'],
+    ['md', '--md'],
+    ['xml', '--xml'],
+    ['files', '--files'],
+    ['all', '--all'],
+    ['full', '--full'],
+    ['line-numbers', '--line-numbers'],
+    ['explain', '--explain'],
+    ['force', '--force'],
+    ['pull', '--pull'],
+    ['refresh', '--refresh'],
+    ['http', '--http'],
+    ['daemon', '--daemon'],
+    ['skill', '--skill'],
+    ['yes', '--yes'],
+    ['global', '--global'],
+  ];
+
+  for (const [key, flag] of unsupportedFlags) {
+    if (values[key]) {
+      return flag;
+    }
+  }
+
+  const unsupportedValueFlags: Array<[keyof ParsedValues, string]> = [
+    ['n', '-n'],
+    ['min-score', '--min-score'],
+    ['max-bytes', '--max-bytes'],
+    ['candidate-limit', '--candidate-limit'],
+    ['intent', '--intent'],
+    ['chunk-strategy', '--chunk-strategy'],
+    ['port', '--port'],
+    ['context', '--context'],
+    ['name', '--name'],
+    ['mask', '--mask'],
+    ['from', '--from'],
+    ['l', '-l'],
+  ];
+
+  for (const [key, flag] of unsupportedValueFlags) {
+    if (values[key] !== undefined) {
+      return flag;
+    }
+  }
+
+  return undefined;
+}
+
+export function parseOwnedBenchInput(
+  context: CommandExecutionContext,
+): ParseResult<BenchCommandInput> {
+  const { values, positionals } = parseOwnedArgs(context.argv);
+  const fixturePath = positionals[1];
+
+  if (!fixturePath || positionals.length > 2) {
+    return usageError('Usage: qmd bench <fixture.json> [--json] [-c collection]');
+  }
+
+  const unsupported = hasUnsupportedBenchOption(values);
+  if (unsupported) {
+    return validationError(`Unknown option for \`qmd bench\`: ${unsupported}.`);
+  }
+
+  const rawCollections = resolveCollections(values);
+  const collection = rawCollections?.[0];
+
+  return {
+    kind: 'ok',
+    input: {
+      fixturePath,
+      json: Boolean(values.json),
+      collection,
+    },
   };
 }
 

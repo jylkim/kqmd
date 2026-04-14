@@ -56,6 +56,14 @@ describe('CLI routing', () => {
     expect(invocation.commandArgs).toEqual([]);
   });
 
+  test('routes bench through the owned manifest', () => {
+    const invocation = parseCliInvocation(['bench', 'fixture.json']);
+
+    expect(invocation.route).toEqual({ mode: 'owned', command: 'bench' });
+    expect(OWNED_COMMANDS).toContain(invocation.command);
+    expect(invocation.commandArgs).toEqual(['fixture.json']);
+  });
+
   test('routes mcp through the owned manifest', () => {
     const invocation = parseCliInvocation(['mcp']);
 

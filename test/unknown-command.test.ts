@@ -20,10 +20,10 @@ describe('unknown command handling', () => {
     expect(stdoutChunks).toEqual([]);
     expect(stderrChunks.join('')).toContain('Unknown command: frobnicate');
     expect(stderrChunks.join('')).toContain(
-      'owned: search, query, update, embed, status, mcp, cleanup',
+      'owned: search, query, update, embed, status, mcp, cleanup, bench',
     );
     expect(stderrChunks.join('')).toContain(
-      'passthrough: bench, collection, ls, get, multi-get, skill, context, vsearch, pull',
+      'passthrough: collection, ls, get, multi-get, skill, context, vsearch, pull',
     );
   });
 });

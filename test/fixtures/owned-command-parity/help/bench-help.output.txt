@@ -1,0 +1,8 @@
+Usage: qmd bench <fixture.json> [--json] [-c collection]
+
+Run search quality benchmarks against a fixture file.
+
+Options:
+  --json                      Output JSON
+  -c, --collection <name>     Override fixture collection
+  -h, --help                  Show this help
