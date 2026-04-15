@@ -228,6 +228,26 @@ describe('owned command parity parse', () => {
       stderr: 'Unknown option for `qmd bench`: --csv.',
       exitCode: 1,
     });
+
+    expect(
+      parseOwnedBenchInput(createContext(['bench', '--no-rerank', 'fixtures/example.json'])),
+    ).toEqual({
+      kind: 'validation',
+      stderr: 'Unknown option for `qmd bench`: --no-rerank.',
+      exitCode: 1,
+    });
+  });
+
+  test('bench rejects multiple collection overrides', () => {
+    expect(
+      parseOwnedBenchInput(
+        createContext(['bench', '-c', 'docs', '--collection', 'notes', 'fixtures/example.json']),
+      ),
+    ).toEqual({
+      kind: 'validation',
+      stderr: 'The `qmd bench` command accepts only one `-c` / `--collection` value.',
+      exitCode: 1,
+    });
   });
 
   test('status rejects unsupported command-specific flags', () => {

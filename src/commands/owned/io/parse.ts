@@ -293,51 +293,24 @@ export function parseOwnedStatusInput(
   };
 }
 
-function hasUnsupportedBenchOption(values: ParsedValues): string | undefined {
-  const unsupportedFlags: Array<[keyof ParsedValues, string]> = [
-    ['csv', '--csv'],
-    ['md', '--md'],
-    ['xml', '--xml'],
-    ['files', '--files'],
-    ['all', '--all'],
-    ['full', '--full'],
-    ['line-numbers', '--line-numbers'],
-    ['explain', '--explain'],
-    ['force', '--force'],
-    ['pull', '--pull'],
-    ['refresh', '--refresh'],
-    ['http', '--http'],
-    ['daemon', '--daemon'],
-    ['skill', '--skill'],
-    ['yes', '--yes'],
-    ['global', '--global'],
-  ];
+const BENCH_ALLOWED_OPTION_KEYS = new Set<keyof ParsedValues>(['json', 'collection', 'index']);
 
-  for (const [key, flag] of unsupportedFlags) {
-    if (values[key]) {
-      return flag;
+function formatOptionNameForError(optionName: keyof typeof CLI_OPTIONS): string {
+  return optionName.length === 1 ? `-${optionName}` : `--${optionName}`;
+}
+
+function findUnsupportedBenchOption(values: ParsedValues): string | undefined {
+  for (const optionName of Object.keys(CLI_OPTIONS) as Array<keyof typeof CLI_OPTIONS>) {
+    if (BENCH_ALLOWED_OPTION_KEYS.has(optionName)) {
+      continue;
     }
-  }
 
-  const unsupportedValueFlags: Array<[keyof ParsedValues, string]> = [
-    ['n', '-n'],
-    ['min-score', '--min-score'],
-    ['max-bytes', '--max-bytes'],
-    ['candidate-limit', '--candidate-limit'],
-    ['intent', '--intent'],
-    ['chunk-strategy', '--chunk-strategy'],
-    ['port', '--port'],
-    ['context', '--context'],
-    ['name', '--name'],
-    ['mask', '--mask'],
-    ['from', '--from'],
-    ['l', '-l'],
-  ];
-
-  for (const [key, flag] of unsupportedValueFlags) {
-    if (values[key] !== undefined) {
-      return flag;
+    const value = values[optionName];
+    if (value === undefined || value === false) {
+      continue;
     }
+
+    return formatOptionNameForError(optionName);
   }
 
   return undefined;
@@ -353,12 +326,16 @@ export function parseOwnedBenchInput(
     return usageError('Usage: qmd bench <fixture.json> [--json] [-c collection]');
   }
 
-  const unsupported = hasUnsupportedBenchOption(values);
+  const unsupported = findUnsupportedBenchOption(values);
   if (unsupported) {
     return validationError(`Unknown option for \`qmd bench\`: ${unsupported}.`);
   }
 
   const rawCollections = resolveCollections(values);
+  if (rawCollections && rawCollections.length > 1) {
+    return validationError('The `qmd bench` command accepts only one `-c` / `--collection` value.');
+  }
+
   const collection = rawCollections?.[0];
 
   return {

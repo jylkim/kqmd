@@ -151,7 +151,7 @@ qmd search "형태소 분석"
 
 | 항목 | 명령 |
 |---|---|
-| Upstream vs K-QMD compare bench | `qmd bench <fixture.json> [--json] [-c collection]` |
+| Upstream vs K-QMD compare bench (current local index 기준) | `qmd bench <fixture.json> [--json] [-c collection]` |
 | Query Korean recall 비교 | `bun run benchmark:query-recall` |
 | Search recall 비교 | `bun run benchmark:search-recall` |
 

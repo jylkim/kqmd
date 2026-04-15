@@ -47,6 +47,17 @@ export function isOwnedRuntimeFailure(value: unknown): value is OwnedRuntimeFail
 export function fromRuntimeFailure(failure: OwnedRuntimeFailure): OwnedCommandError {
   switch (failure.kind) {
     case 'config-missing':
+      if (failure.command === 'bench' && failure.reason === 'no-config-or-db') {
+        return runtimeError(
+          [
+            'The `bench` command requires an existing qmd index or config-backed index.',
+            `Expected config at: ${failure.configPath}`,
+            `Expected database at: ${failure.dbPath}`,
+            "Create or update an index first (for example: 'qmd collection add ...' then 'qmd update').",
+          ].join('\n'),
+        );
+      }
+
       if (failure.reason === 'config-required') {
         return runtimeError(
           [

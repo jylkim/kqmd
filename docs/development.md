@@ -33,7 +33,7 @@ bun run check
 | `bun run build` | TypeScript 빌드 |
 | `bun run check` | lint + typecheck + test |
 | `bun run measure:query-cold-start` | fresh child-process query cold-start benchmark |
-| `qmd bench <fixture.json> [--json] [-c collection]` | upstream와 current K-QMD를 비교하는 owned benchmark surface |
+| `qmd bench <fixture.json> [--json] [-c collection]` | 현재 로컬 인덱스를 기준으로 upstream와 current K-QMD를 비교하는 owned benchmark surface |
 
 ## 프로젝트 구조
 

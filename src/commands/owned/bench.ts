@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 import type { QMDStore } from '@tobilu/qmd';
@@ -13,13 +14,21 @@ import {
 } from './io/errors.js';
 import { parseOwnedBenchInput } from './io/parse.js';
 import type { BenchCommandInput, OwnedCommandError, QueryCommandInput } from './io/types.js';
-import { resolveSelectedCollections } from './io/validate.js';
+import {
+  resolveSelectedCollections,
+  validatePlainQueryText,
+  validateSingleLineQueryText,
+} from './io/validate.js';
 import { executeQueryCore } from './query_core.js';
 import { probeQueryLexicalCandidates } from './query_lexical_candidates.js';
 import type { OwnedRuntimeDependencies, OwnedRuntimeFailure } from './runtime.js';
 import { withOwnedStore } from './runtime.js';
 
 type BenchmarkQueryType = 'exact' | 'semantic' | 'topical' | 'cross-domain' | 'alias';
+type BenchBackendName = 'bm25' | 'vector' | 'hybrid' | 'full';
+type BenchSide = 'upstream' | 'current';
+type BackendStatus = 'ok' | 'unavailable';
+type SummaryStatus = 'ok' | 'partial' | 'unavailable';
 
 type BenchmarkQuery = {
   readonly id: string;
@@ -37,56 +46,72 @@ type BenchmarkFixture = {
   readonly queries: BenchmarkQuery[];
 };
 
-type BenchBackendName = 'bm25' | 'vector' | 'hybrid' | 'full';
-type BenchSide = 'upstream' | 'current';
+type BenchCollectionScope = {
+  readonly mode: 'single-collection';
+  readonly label: string;
+  readonly collection: string;
+};
 
 type BackendResult = {
-  readonly precision_at_k: number;
-  readonly recall: number;
-  readonly mrr: number;
-  readonly f1: number;
-  readonly hits_at_k: number;
+  readonly status: BackendStatus;
+  readonly precision_at_k: number | null;
+  readonly recall: number | null;
+  readonly mrr: number | null;
+  readonly f1: number | null;
+  readonly hits_at_k: number | null;
   readonly total_expected: number;
-  readonly latency_ms: number;
+  readonly latency_ms: number | null;
   readonly top_files: string[];
 };
 
 type QueryResult = {
   readonly id: string;
-  readonly query: string;
   readonly type: string;
   readonly backends: Record<BenchBackendName, BackendResult>;
 };
 
+type SummaryResult = {
+  readonly status: SummaryStatus;
+  readonly available_runs: number;
+  readonly total_runs: number;
+  readonly unavailable_runs: number;
+  readonly avg_precision: number | null;
+  readonly avg_recall: number | null;
+  readonly avg_mrr: number | null;
+  readonly avg_f1: number | null;
+  readonly avg_latency_ms: number | null;
+};
+
 type BenchmarkResult = {
   readonly timestamp: string;
-  readonly fixture: string;
+  readonly fixture_label: string;
   readonly results: QueryResult[];
-  readonly summary: Record<
-    BenchBackendName,
-    {
-      readonly avg_precision: number;
-      readonly avg_recall: number;
-      readonly avg_mrr: number;
-      readonly avg_f1: number;
-      readonly avg_latency_ms: number;
-    }
-  >;
+  readonly summary: Record<BenchBackendName, SummaryResult>;
 };
 
 type BenchComparisonResult = {
   readonly schema_version: '1';
   readonly baseline: 'upstream';
-  readonly fixture: string;
-  readonly collection?: string;
+  readonly fixture_label: string;
+  readonly collection: string;
+  readonly measurement_policy: {
+    readonly collection_scope: {
+      readonly mode: BenchCollectionScope['mode'];
+      readonly label: string;
+    };
+    readonly latency_scope: 'single-run-per-backend';
+    readonly latency_comparable: false;
+    readonly latency_note: string;
+    readonly raw_queries_exposed: false;
+  };
   readonly upstream: BenchmarkResult;
   readonly current: BenchmarkResult;
   readonly representatives: Array<{
     readonly backend: BenchBackendName;
     readonly query_id: string;
-    readonly upstream_f1: number;
-    readonly current_f1: number;
-    readonly delta_f1: number;
+    readonly upstream_f1: number | null;
+    readonly current_f1: number | null;
+    readonly delta_f1: number | null;
   }>;
 };
 
@@ -105,25 +130,81 @@ export interface BenchCommandDependencies {
   readonly readFileImpl?: typeof readFile;
 }
 
-function normalizePath(path: string): string {
-  const stripped = path.startsWith('qmd://')
-    ? (() => {
-        const withoutScheme = path.slice('qmd://'.length);
-        const slashIndex = withoutScheme.indexOf('/');
-        return slashIndex >= 0 ? withoutScheme.slice(slashIndex + 1) : withoutScheme;
-      })()
-    : path;
+const ALLOWED_QUERY_TYPES = new Set<BenchmarkQueryType>([
+  'exact',
+  'semantic',
+  'topical',
+  'cross-domain',
+  'alias',
+]);
 
-  return stripped.toLowerCase().replace(/^\/+|\/+$/g, '');
+const BENCH_LATENCY_NOTE =
+  'Latency is informational only. Upstream measures direct store API calls; current measures the owned K-QMD command path.';
+
+function hasControlCharacters(value: string): boolean {
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if ((code >= 0 && code <= 31) || code === 127) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function stripQmdScheme(path: string): string {
+  if (!path.startsWith('qmd://')) {
+    return path;
+  }
+
+  const withoutScheme = path.slice('qmd://'.length);
+  const slashIndex = withoutScheme.indexOf('/');
+  return slashIndex >= 0 ? withoutScheme.slice(slashIndex + 1) : withoutScheme;
+}
+
+function normalizeRelativePath(path: string): string {
+  return stripQmdScheme(path)
+    .replace(/\\/g, '/')
+    .replace(/^\/+|\/+$/g, '');
+}
+
+function isSafeRelativePath(path: string): boolean {
+  const normalized = normalizeRelativePath(path);
+  if (normalized.length === 0 || hasControlCharacters(normalized)) {
+    return false;
+  }
+
+  if (
+    path.startsWith('/') ||
+    /^[A-Za-z]:[\\/]/.test(path) ||
+    (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(path) && !path.startsWith('qmd://'))
+  ) {
+    return false;
+  }
+
+  return normalized
+    .split('/')
+    .every((segment) => segment.length > 0 && segment !== '.' && segment !== '..');
+}
+
+function sanitizeOutputPath(path: string): string {
+  return isSafeRelativePath(path) ? normalizeRelativePath(path) : '[redacted-path]';
+}
+
+function buildFixtureLabel(rawFixture: string): string {
+  return `fixture-${createHash('sha256').update(rawFixture).digest('hex').slice(0, 8)}`;
+}
+
+function normalizePath(path: string): string {
+  return normalizeRelativePath(path).toLowerCase();
 }
 
 function pathsMatch(result: string, expected: string): boolean {
   const normalizedResult = normalizePath(result);
   const normalizedExpected = normalizePath(expected);
+
   return (
-    normalizedResult === normalizedExpected ||
-    normalizedResult.endsWith(normalizedExpected) ||
-    normalizedExpected.endsWith(normalizedResult)
+    normalizedResult === normalizedExpected || normalizedResult.endsWith(`/${normalizedExpected}`)
   );
 }
 
@@ -180,47 +261,65 @@ function computeSummary(results: readonly QueryResult[]): BenchmarkResult['summa
     let totalMrr = 0;
     let totalF1 = 0;
     let totalLatency = 0;
-    let count = 0;
+    let availableRuns = 0;
 
     for (const result of results) {
       const item = result.backends[backend];
-      totalPrecision += item.precision_at_k;
-      totalRecall += item.recall;
-      totalMrr += item.mrr;
-      totalF1 += item.f1;
-      totalLatency += item.latency_ms;
-      count += 1;
+      if (item.status !== 'ok') {
+        continue;
+      }
+
+      totalPrecision += item.precision_at_k ?? 0;
+      totalRecall += item.recall ?? 0;
+      totalMrr += item.mrr ?? 0;
+      totalF1 += item.f1 ?? 0;
+      totalLatency += item.latency_ms ?? 0;
+      availableRuns += 1;
     }
 
+    const totalRuns = results.length;
     summary[backend] = {
-      avg_precision: count > 0 ? totalPrecision / count : 0,
-      avg_recall: count > 0 ? totalRecall / count : 0,
-      avg_mrr: count > 0 ? totalMrr / count : 0,
-      avg_f1: count > 0 ? totalF1 / count : 0,
-      avg_latency_ms: count > 0 ? totalLatency / count : 0,
+      status: availableRuns === 0 ? 'unavailable' : availableRuns < totalRuns ? 'partial' : 'ok',
+      available_runs: availableRuns,
+      total_runs: totalRuns,
+      unavailable_runs: totalRuns - availableRuns,
+      avg_precision: availableRuns > 0 ? totalPrecision / availableRuns : null,
+      avg_recall: availableRuns > 0 ? totalRecall / availableRuns : null,
+      avg_mrr: availableRuns > 0 ? totalMrr / availableRuns : null,
+      avg_f1: availableRuns > 0 ? totalF1 / availableRuns : null,
+      avg_latency_ms: availableRuns > 0 ? totalLatency / availableRuns : null,
     };
   }
 
   return summary;
 }
 
-function formatMetric(value: number): string {
+function formatMetric(value: number | null): string {
+  if (value === null) {
+    return '   n/a';
+  }
+
   return value.toFixed(3).padStart(6);
 }
 
-function formatLatency(value: number): string {
+function formatLatency(value: number | null): string {
+  if (value === null) {
+    return '  n/a';
+  }
+
   return `${Math.round(value).toString().padStart(5)}ms`;
 }
 
 function buildCliOutput(result: BenchComparisonResult): string {
   const lines = [
-    `Benchmark: ${result.fixture}`,
-    result.collection ? `Collection: ${result.collection}` : undefined,
+    `Benchmark: ${result.fixture_label}`,
+    `Collection scope: ${result.measurement_policy.collection_scope.label}`,
+    'Latency: single-run-per-backend (not apples-to-apples comparable)',
     '',
     'Summary',
     '-------',
-    'Backend  Side      P@k    Recall   MRR     F1     Avg',
-  ].filter((line): line is string => Boolean(line));
+    'Backend  Side      Status       P@k    Recall   MRR     F1     Avg',
+  ];
 
   const backends: BenchBackendName[] = ['bm25', 'vector', 'hybrid', 'full'];
   for (const backend of backends) {
@@ -228,24 +327,33 @@ function buildCliOutput(result: BenchComparisonResult): string {
     const current = result.current.summary[backend];
 
     lines.push(
-      `${backend.padEnd(8)}upstream ${formatMetric(upstream.avg_precision)} ${formatMetric(upstream.avg_recall)} ${formatMetric(upstream.avg_mrr)} ${formatMetric(upstream.avg_f1)} ${formatLatency(upstream.avg_latency_ms)}`,
+      `${backend.padEnd(8)}upstream ${upstream.status.padEnd(12)} ${formatMetric(upstream.avg_precision)} ${formatMetric(upstream.avg_recall)} ${formatMetric(upstream.avg_mrr)} ${formatMetric(upstream.avg_f1)} ${formatLatency(upstream.avg_latency_ms)}`,
     );
     lines.push(
-      `${''.padEnd(8)}current  ${formatMetric(current.avg_precision)} ${formatMetric(current.avg_recall)} ${formatMetric(current.avg_mrr)} ${formatMetric(current.avg_f1)} ${formatLatency(current.avg_latency_ms)}`,
+      `${''.padEnd(8)}current  ${current.status.padEnd(12)} ${formatMetric(current.avg_precision)} ${formatMetric(current.avg_recall)} ${formatMetric(current.avg_mrr)} ${formatMetric(current.avg_f1)} ${formatLatency(current.avg_latency_ms)}`,
     );
   }
+
+  lines.push(
+    '',
+    '* Unavailable backend rows are excluded from averages.',
+    `* ${result.measurement_policy.latency_note}`,
+  );
 
   if (result.representatives.length > 0) {
     lines.push('', 'Representative Cases', '--------------------');
     for (const representative of result.representatives) {
       const direction =
-        representative.delta_f1 > 0
-          ? 'current-better'
-          : representative.delta_f1 < 0
-            ? 'upstream-better'
-            : 'same';
+        representative.delta_f1 === null
+          ? 'unavailable'
+          : representative.delta_f1 > 0
+            ? 'current-better'
+            : representative.delta_f1 < 0
+              ? 'upstream-better'
+              : 'same';
+
       lines.push(
-        `${representative.query_id} / ${representative.backend}: ${direction} (delta F1 ${representative.delta_f1.toFixed(3)})`,
+        `${representative.query_id} / ${representative.backend}: ${direction}${representative.delta_f1 === null ? '' : ` (delta F1 ${representative.delta_f1.toFixed(3)})`}`,
       );
     }
   }
@@ -256,7 +364,9 @@ function buildCliOutput(result: BenchComparisonResult): string {
 async function readFixture(
   fixturePath: string,
   readFileImpl: typeof readFile,
-): Promise<BenchmarkFixture | OwnedCommandError> {
+): Promise<
+  { readonly fixture: BenchmarkFixture; readonly fixtureLabel: string } | OwnedCommandError
+> {
   try {
     const raw = await readFileImpl(fixturePath, 'utf8');
     const parsed = JSON.parse(raw) as Partial<BenchmarkFixture>;
@@ -268,6 +378,13 @@ async function readFixture(
     ) {
       return validationError('Invalid fixture: missing required benchmark fields.');
     }
+
+    if (parsed.queries.length === 0) {
+      return validationError('Invalid fixture: queries must contain at least one benchmark query.');
+    }
+
+    const seenIds = new Set<string>();
+    const queries: BenchmarkQuery[] = [];
 
     for (const query of parsed.queries) {
       if (
@@ -283,32 +400,127 @@ async function readFixture(
           'Invalid fixture: each query must define id, query, type, description, expected_files, and expected_in_top_k.',
         );
       }
+
+      if (seenIds.has(query.id)) {
+        return validationError(`Invalid fixture: duplicate benchmark query id "${query.id}".`);
+      }
+      seenIds.add(query.id);
+
+      const idValidation = validateSingleLineQueryText(query.id, 'Benchmark query id');
+      if (idValidation) {
+        return idValidation;
+      }
+
+      const queryValidation = validatePlainQueryText(query.query);
+      if (queryValidation) {
+        return queryValidation;
+      }
+
+      const descriptionValidation = validateSingleLineQueryText(
+        query.description,
+        `Benchmark query ${query.id} description`,
+      );
+      if (descriptionValidation) {
+        return descriptionValidation;
+      }
+
+      if (!ALLOWED_QUERY_TYPES.has(query.type)) {
+        return validationError(
+          `Invalid fixture: benchmark query type must be one of ${[...ALLOWED_QUERY_TYPES].join(', ')}.`,
+        );
+      }
+
+      if (
+        !Number.isInteger(query.expected_in_top_k) ||
+        query.expected_in_top_k < 1 ||
+        query.expected_in_top_k > query.expected_files.length
+      ) {
+        return validationError(
+          `Invalid fixture: benchmark query ${query.id} must set expected_in_top_k to a positive integer within expected_files length.`,
+        );
+      }
+
+      if (
+        query.expected_files.length === 0 ||
+        query.expected_files.some(
+          (expectedPath) =>
+            typeof expectedPath !== 'string' ||
+            expectedPath.length === 0 ||
+            !isSafeRelativePath(expectedPath),
+        )
+      ) {
+        return validationError(
+          `Invalid fixture: benchmark query ${query.id} must define safe relative expected_files paths.`,
+        );
+      }
+
+      queries.push({
+        id: query.id,
+        query: query.query,
+        type: query.type,
+        description: query.description,
+        expected_files: [...query.expected_files],
+        expected_in_top_k: query.expected_in_top_k,
+      });
     }
 
-    return parsed as BenchmarkFixture;
+    return {
+      fixture: {
+        description: parsed.description,
+        version: parsed.version,
+        collection: parsed.collection,
+        queries,
+      },
+      fixtureLabel: buildFixtureLabel(raw),
+    };
   } catch (error) {
+    if (isOwnedCommandError(error)) {
+      return error;
+    }
+
     return validationError(
       `Failed to read benchmark fixture \`${fixturePath}\`: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }
 
-async function resolveBenchCollection(
+async function resolveBenchScope(
   store: QMDStore,
   requestedCollection: string | undefined,
-): Promise<string | undefined | OwnedCommandError> {
-  if (requestedCollection === undefined) {
-    return undefined;
+): Promise<BenchCollectionScope | OwnedCommandError> {
+  const collections = await store.listCollections();
+  const availableCollectionNames = collections.map((collection) => collection.name);
+  if (availableCollectionNames.length === 0) {
+    return validationError('Benchmark requires at least one indexed collection.');
   }
 
-  const [collections, defaults] = await Promise.all([
-    store.listCollections(),
-    store.getDefaultCollectionNames(),
-  ]);
+  const defaults = await store.getDefaultCollectionNames();
+
+  if (requestedCollection === undefined) {
+    if (defaults.length === 1) {
+      return {
+        mode: 'single-collection',
+        label: defaults[0],
+        collection: defaults[0],
+      };
+    }
+
+    if (defaults.length === 0 && availableCollectionNames.length === 1) {
+      return {
+        mode: 'single-collection',
+        label: availableCollectionNames[0],
+        collection: availableCollectionNames[0],
+      };
+    }
+
+    return validationError(
+      'The `qmd bench` command requires an explicit collection or exactly one default collection.',
+    );
+  }
 
   const resolved = resolveSelectedCollections(
     [requestedCollection],
-    collections.map((collection) => collection.name),
+    availableCollectionNames,
     defaults,
   );
 
@@ -316,7 +528,18 @@ async function resolveBenchCollection(
     return resolved;
   }
 
-  return resolved[0];
+  const collection = resolved[0];
+  if (!collection) {
+    return validationError(
+      'The `qmd bench` command requires an explicit collection or exactly one default collection.',
+    );
+  }
+
+  return {
+    mode: 'single-collection',
+    label: collection,
+    collection,
+  };
 }
 
 async function runUpstreamBackend(
@@ -324,7 +547,7 @@ async function runUpstreamBackend(
   backend: BenchBackendName,
   query: string,
   limit: number,
-  collection: string | undefined,
+  collection: string,
 ): Promise<string[]> {
   switch (backend) {
     case 'bm25':
@@ -356,18 +579,17 @@ async function runCurrentBm25(
   store: QMDStore,
   query: string,
   limit: number,
-  collection: string | undefined,
+  collection: string,
 ): Promise<string[]> {
-  const selectedCollections = collection ? [collection] : await store.getDefaultCollectionNames();
   const fetchLimit = Math.max(50, limit * 2);
-  const probe = await probeQueryLexicalCandidates(store, query, selectedCollections, fetchLimit);
+  const probe = await probeQueryLexicalCandidates(store, query, [collection], fetchLimit);
   return probe.rows.slice(0, limit).map((row) => row.displayPath);
 }
 
 function createQueryInput(
   query: string,
   limit: number,
-  collection: string | undefined,
+  collection: string,
   disableRerank: boolean,
 ): QueryCommandInput {
   return {
@@ -379,7 +601,7 @@ function createQueryInput(
     all: false,
     full: false,
     lineNumbers: false,
-    collections: collection ? [collection] : undefined,
+    collections: [collection],
     explain: false,
     queryMode: 'plain',
     disableRerank,
@@ -390,7 +612,7 @@ async function runCurrentQueryBackend(
   store: QMDStore,
   query: string,
   limit: number,
-  collection: string | undefined,
+  collection: string,
   disableRerank: boolean,
   env: NodeJS.ProcessEnv,
 ): Promise<string[]> {
@@ -411,7 +633,7 @@ async function runCurrentBackend(
   backend: BenchBackendName,
   query: string,
   limit: number,
-  collection: string | undefined,
+  collection: string,
   env: NodeJS.ProcessEnv,
 ): Promise<string[]> {
   switch (backend) {
@@ -428,9 +650,9 @@ async function runCurrentBackend(
 
 async function runBenchSide(args: {
   readonly store: QMDStore;
-  readonly fixturePath: string;
+  readonly fixtureLabel: string;
   readonly fixture: BenchmarkFixture;
-  readonly collection?: string;
+  readonly scope: BenchCollectionScope;
   readonly side: BenchSide;
   readonly env: NodeJS.ProcessEnv;
   readonly now: () => Date;
@@ -447,31 +669,39 @@ async function runBenchSide(args: {
       try {
         const resultFiles =
           args.side === 'upstream'
-            ? await runUpstreamBackend(args.store, backend, query.query, limit, args.collection)
+            ? await runUpstreamBackend(
+                args.store,
+                backend,
+                query.query,
+                limit,
+                args.scope.collection,
+              )
             : await runCurrentBackend(
                 args.store,
                 backend,
                 query.query,
                 limit,
-                args.collection,
+                args.scope.collection,
                 args.env,
               );
 
         backendResults[backend] = {
+          status: 'ok',
           ...scoreResults(resultFiles, query.expected_files, query.expected_in_top_k),
           total_expected: query.expected_files.length,
           latency_ms: Date.now() - startedAt,
-          top_files: resultFiles.slice(0, 10),
+          top_files: resultFiles.slice(0, 10).map(sanitizeOutputPath),
         };
       } catch {
         backendResults[backend] = {
-          precision_at_k: 0,
-          recall: 0,
-          mrr: 0,
-          f1: 0,
-          hits_at_k: 0,
+          status: 'unavailable',
+          precision_at_k: null,
+          recall: null,
+          mrr: null,
+          f1: null,
+          hits_at_k: null,
           total_expected: query.expected_files.length,
-          latency_ms: Date.now() - startedAt,
+          latency_ms: null,
           top_files: [],
         };
       }
@@ -479,7 +709,6 @@ async function runBenchSide(args: {
 
     results.push({
       id: query.id,
-      query: query.query,
       type: query.type,
       backends: backendResults,
     });
@@ -487,7 +716,7 @@ async function runBenchSide(args: {
 
   return {
     timestamp: args.now().toISOString().replace(/[:.]/g, '').slice(0, 15),
-    fixture: args.fixturePath,
+    fixture_label: args.fixtureLabel,
     results,
     summary: computeSummary(results),
   };
@@ -514,13 +743,20 @@ function buildRepresentatives(
         query_id: currentQuery.id,
         upstream_f1: upstreamResult.f1,
         current_f1: currentResult.f1,
-        delta_f1: Number((currentResult.f1 - upstreamResult.f1).toFixed(3)),
+        delta_f1:
+          upstreamResult.f1 === null || currentResult.f1 === null
+            ? null
+            : Number((currentResult.f1 - upstreamResult.f1).toFixed(3)),
       });
     }
   }
 
   return items
-    .sort((left, right) => Math.abs(right.delta_f1) - Math.abs(left.delta_f1))
+    .sort(
+      (left, right) =>
+        Math.abs(right.delta_f1 ?? Number.NEGATIVE_INFINITY) -
+        Math.abs(left.delta_f1 ?? Number.NEGATIVE_INFINITY),
+    )
     .slice(0, 3);
 }
 
@@ -531,36 +767,37 @@ async function runBenchCommand(
   options: { readonly now?: () => Date; readonly readFileImpl?: typeof readFile } = {},
 ): Promise<BenchCommandSuccess | OwnedCommandError | OwnedRuntimeFailure> {
   const readFileImpl = options.readFileImpl ?? readFile;
-  const fixture = await readFixture(input.fixturePath, readFileImpl);
-  if (isOwnedCommandError(fixture)) {
-    return fixture;
+  const fixtureResult = await readFixture(input.fixturePath, readFileImpl);
+  if (isOwnedCommandError(fixtureResult)) {
+    return fixtureResult;
   }
 
   return withOwnedStore(
     'bench',
     context,
     async (session) => {
-      const collection = input.collection ?? fixture.collection;
-      const resolvedCollection = await resolveBenchCollection(session.store, collection);
-      if (isOwnedCommandError(resolvedCollection)) {
-        return resolvedCollection;
+      const requestedCollection = input.collection ?? fixtureResult.fixture.collection;
+      const scope = await resolveBenchScope(session.store, requestedCollection);
+      if (isOwnedCommandError(scope)) {
+        return scope;
       }
 
       const now = options.now ?? (() => new Date());
+
       const upstream = await runBenchSide({
         store: session.store,
-        fixturePath: input.fixturePath,
-        fixture,
-        collection: resolvedCollection,
+        fixtureLabel: fixtureResult.fixtureLabel,
+        fixture: fixtureResult.fixture,
+        scope,
         side: 'upstream',
         env: runtimeDependencies?.env ?? process.env,
         now,
       });
       const current = await runBenchSide({
         store: session.store,
-        fixturePath: input.fixturePath,
-        fixture,
-        collection: resolvedCollection,
+        fixtureLabel: fixtureResult.fixtureLabel,
+        fixture: fixtureResult.fixture,
+        scope,
         side: 'current',
         env: runtimeDependencies?.env ?? process.env,
         now,
@@ -570,8 +807,18 @@ async function runBenchCommand(
         comparison: {
           schema_version: '1',
           baseline: 'upstream',
-          fixture: input.fixturePath,
-          collection: resolvedCollection,
+          fixture_label: fixtureResult.fixtureLabel,
+          collection: scope.collection,
+          measurement_policy: {
+            collection_scope: {
+              mode: scope.mode,
+              label: scope.label,
+            },
+            latency_scope: 'single-run-per-backend',
+            latency_comparable: false,
+            latency_note: BENCH_LATENCY_NOTE,
+            raw_queries_exposed: false,
+          },
           upstream,
           current,
           representatives: buildRepresentatives(upstream, current),

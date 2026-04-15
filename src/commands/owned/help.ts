@@ -85,7 +85,7 @@ const HELP_TEXT: Record<OwnedCommand, string> = {
   bench: [
     'Usage: qmd bench <fixture.json> [--json] [-c collection]',
     '',
-    'Run search quality benchmarks against a fixture file.',
+    'Run search quality benchmarks against the current local index using a fixture file.',
     '',
     'Options:',
     '  --json                      Output JSON',
