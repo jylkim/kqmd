@@ -82,6 +82,16 @@ const HELP_TEXT: Record<OwnedCommand, string> = {
     'Options:',
     '  -h, --help                  Show this help',
   ].join('\n'),
+  bench: [
+    'Usage: qmd bench <fixture.json> [--json] [-c collection]',
+    '',
+    'Run search quality benchmarks against the current local index using a fixture file.',
+    '',
+    'Options:',
+    '  --json                      Output JSON',
+    '  -c, --collection <name>     Override fixture collection',
+    '  -h, --help                  Show this help',
+  ].join('\n'),
 };
 
 export function hasOwnedCommandHelpFlag(argv: string[]): boolean {

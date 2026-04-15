@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+  parseOwnedBenchInput,
   parseOwnedEmbedInput,
   parseOwnedQueryInput,
   parseOwnedSearchInput,
@@ -201,6 +202,51 @@ describe('owned command parity parse', () => {
         force: false,
         chunkStrategy: 'regex',
       },
+    });
+  });
+
+  test('bench parses fixture path, json, and collection override', () => {
+    const result = parseOwnedBenchInput(
+      createContext(['bench', '--json', '-c', 'docs', 'fixtures/example.json']),
+    );
+
+    expect(result).toEqual({
+      kind: 'ok',
+      input: {
+        fixturePath: 'fixtures/example.json',
+        json: true,
+        collection: 'docs',
+      },
+    });
+  });
+
+  test('bench rejects unsupported options', () => {
+    expect(
+      parseOwnedBenchInput(createContext(['bench', '--csv', 'fixtures/example.json'])),
+    ).toEqual({
+      kind: 'validation',
+      stderr: 'Unknown option for `qmd bench`: --csv.',
+      exitCode: 1,
+    });
+
+    expect(
+      parseOwnedBenchInput(createContext(['bench', '--no-rerank', 'fixtures/example.json'])),
+    ).toEqual({
+      kind: 'validation',
+      stderr: 'Unknown option for `qmd bench`: --no-rerank.',
+      exitCode: 1,
+    });
+  });
+
+  test('bench rejects multiple collection overrides', () => {
+    expect(
+      parseOwnedBenchInput(
+        createContext(['bench', '-c', 'docs', '--collection', 'notes', 'fixtures/example.json']),
+      ),
+    ).toEqual({
+      kind: 'validation',
+      stderr: 'The `qmd bench` command accepts only one `-c` / `--collection` value.',
+      exitCode: 1,
     });
   });
 

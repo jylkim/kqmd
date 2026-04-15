@@ -67,6 +67,13 @@ describe('owned command help output', () => {
     );
   });
 
+  test('matches canonical bench help output', async () => {
+    await expectHelpOutput(
+      ['bench', '--help'],
+      'test/fixtures/owned-command-parity/help/bench-help.output.txt',
+    );
+  });
+
   test('keeps query help byte-identical across owned help entrypoints', async () => {
     const canonical = await readHelpOutput(['query', '--help']);
 
@@ -98,5 +105,13 @@ describe('owned command help output', () => {
     await expect(readHelpOutput(['help', 'embed'])).resolves.toBe(canonical);
     await expect(readHelpOutput(['help', 'embed', '--help'])).resolves.toBe(canonical);
     await expect(readHelpOutput(['help', 'embed', '-h'])).resolves.toBe(canonical);
+  });
+
+  test('keeps bench help byte-identical across owned help entrypoints', async () => {
+    const canonical = await readHelpOutput(['bench', '--help']);
+
+    await expect(readHelpOutput(['help', 'bench'])).resolves.toBe(canonical);
+    await expect(readHelpOutput(['help', 'bench', '--help'])).resolves.toBe(canonical);
+    await expect(readHelpOutput(['help', 'bench', '-h'])).resolves.toBe(canonical);
   });
 });

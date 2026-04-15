@@ -11,10 +11,11 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 - 현재 passthrough CLI 명령 표면 (command surface coverage contract test로 검증)
 
 - `createStore({ dbPath, configPath? })` 기반 owned runtime bootstrap 계약
-- `search/query/update/embed`의 parse/validation/output parity baseline
+- `search/query/update/embed/bench`의 parse/validation/output baseline
 - `mcp`의 tool/resource names, route paths, PID/log path conventions
 - `QMD_EMBED_MODEL` override precedence와 K-QMD default embed bootstrap
 - same-DB Korean lexical shadow FTS ownership과 `store_config` metadata policy
+- upstream `BenchmarkFixture` core schema와 backend naming (`bm25/vector/hybrid/full`) baseline
 
 ## 아직 하지 않는 것
 
@@ -35,6 +36,7 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 - `search/query`는 config-file mode보다 기존 DB reopen을 우선해 read path metadata sync side effect를 줄인다
 - upstream private CLI 경로(`@tobilu/qmd/dist/cli/*`)는 직접 import하지 않고 local adapter로 semantics를 반영한다
 - upstream private store seam은 `query_runtime.ts`에만 localized adapter로 남기고, fast-default plain query는 local `QueryExecutionPlan`이 만든 pre-expanded original lex+vec structured path로 닫는다
+- owned `bench`는 upstream bench CLI 전체를 subprocess로 재사용하지 않고, public store API를 기준선으로 삼아 local compare semantics를 소유한다
 - upstream MCP surface는 tool/resource names와 transport routes를 기준선으로 삼되, local MCP adapter가 execution semantics를 소유할 수 있다
 - intentional MCP divergence는 [`docs/architecture/mcp-divergence-registry.md`](./mcp-divergence-registry.md)에 기록한다
 - default embedding model은 upstream `llm.js` override example과 같은
@@ -75,7 +77,7 @@ K-QMD는 upstream `@tobilu/qmd`를 vendored runtime source가 아니라 **추적
 
 ## owned command parity 실행 원칙
 
-- `search/query/update/embed`는 공통 typed parser와 validation path를 사용한다
+- `search/query/update/embed/bench`는 공통 typed parser/validation conventions를 따른다
 - format precedence는 upstream CLI 기준(`csv > md > xml > files > json > cli`)으로 고정한다
 - `search/query` success output은 snapshot fixtures로 고정한다
 - `update/embed`는 progress-level parity 대신 success summary shape를 우선 고정한다

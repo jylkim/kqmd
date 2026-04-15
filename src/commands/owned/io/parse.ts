@@ -5,6 +5,7 @@ import { CLI_OPTIONS } from '#src/cli_options.js';
 import type { CommandExecutionContext } from '#src/types/command.js';
 import { isOwnedCommandError, usageError, validationError } from './errors.js';
 import type {
+  BenchCommandInput,
   CleanupCommandInput,
   EmbedCommandInput,
   ParseResult,
@@ -289,6 +290,61 @@ export function parseOwnedStatusInput(
   return {
     kind: 'ok',
     input: {},
+  };
+}
+
+const BENCH_ALLOWED_OPTION_KEYS = new Set<keyof ParsedValues>(['json', 'collection', 'index']);
+
+function formatOptionNameForError(optionName: keyof typeof CLI_OPTIONS): string {
+  return optionName.length === 1 ? `-${optionName}` : `--${optionName}`;
+}
+
+function findUnsupportedBenchOption(values: ParsedValues): string | undefined {
+  for (const optionName of Object.keys(CLI_OPTIONS) as Array<keyof typeof CLI_OPTIONS>) {
+    if (BENCH_ALLOWED_OPTION_KEYS.has(optionName)) {
+      continue;
+    }
+
+    const value = values[optionName];
+    if (value === undefined || value === false) {
+      continue;
+    }
+
+    return formatOptionNameForError(optionName);
+  }
+
+  return undefined;
+}
+
+export function parseOwnedBenchInput(
+  context: CommandExecutionContext,
+): ParseResult<BenchCommandInput> {
+  const { values, positionals } = parseOwnedArgs(context.argv);
+  const fixturePath = positionals[1];
+
+  if (!fixturePath || positionals.length > 2) {
+    return usageError('Usage: qmd bench <fixture.json> [--json] [-c collection]');
+  }
+
+  const unsupported = findUnsupportedBenchOption(values);
+  if (unsupported) {
+    return validationError(`Unknown option for \`qmd bench\`: ${unsupported}.`);
+  }
+
+  const rawCollections = resolveCollections(values);
+  if (rawCollections && rawCollections.length > 1) {
+    return validationError('The `qmd bench` command accepts only one `-c` / `--collection` value.');
+  }
+
+  const collection = rawCollections?.[0];
+
+  return {
+    kind: 'ok',
+    input: {
+      fixturePath,
+      json: Boolean(values.json),
+      collection,
+    },
   };
 }
 
