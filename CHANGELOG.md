@@ -5,6 +5,21 @@
 
 ## [Unreleased]
 
+## [2.1.0-kqmd.1] - 2026-04-16
+
+upstream `@tobilu/qmd@2.1.0` 기반으로 전환.
+
+### Added
+
+- upstream 2.1.0 parity: query rerank 제어, chunk strategy 지원, bench passthrough
+- `qmd bench` owned compare benchmark 명령 추가 (fixture 기반 upstream vs K-QMD 비교)
+- 릴리스 산출물 검증 스크립트 (`verify_release_artifact`)
+
+### Fixed
+
+- upstream 2.1.0 parity 리뷰 후속 수정 반영
+- bench command contract 강화
+
 ## [2.0.1-kqmd.6] - 2026-03-26
 
 ### Fixed
@@ -93,7 +108,9 @@ upstream `@tobilu/qmd@2.0.1` 기반 K-QMD 최초 릴리스.
 - 중복 코드 통합 및 runtime path alias 수정
 - 빌드/워크플로를 bun 기반으로 전환
 
-[Unreleased]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.5...HEAD
+[Unreleased]: https://github.com/jylkim/kqmd/compare/v2.1.0-kqmd.1...HEAD
+[2.1.0-kqmd.1]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.6...v2.1.0-kqmd.1
+[2.0.1-kqmd.6]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.5...v2.0.1-kqmd.6
 [2.0.1-kqmd.5]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.4...v2.0.1-kqmd.5
 [2.0.1-kqmd.4]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.3...v2.0.1-kqmd.4
 [2.0.1-kqmd.3]: https://github.com/jylkim/kqmd/compare/v2.0.1-kqmd.2...v2.0.1-kqmd.3
